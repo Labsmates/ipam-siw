@@ -1,0 +1,16 @@
+{
+  "name": "ipam-siw",
+  "version": "2.0.1",
+  "description": "IPAM SIW — Gestion des adresses IP avec Redis",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev":   "NODE_ENV=development node server/index.mjs"
+  },
+  "dependencies": {
+    "cors":         "^2.8.5",
+    "express":      "^4.18.2",
+    "ioredis":      "^5.3.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

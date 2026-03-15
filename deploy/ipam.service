@@ -1,0 +1,50 @@
+# ==============================================================================
+# IPAM SIW v2 — Service systemd pour Node.js
+# Fichier : /etc/systemd/system/ipam.service
+#
+# Installation :
+#   cp ipam.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable ipam
+#   systemctl start ipam
+# ==============================================================================
+
+[Unit]
+Description=IPAM SIW v2 — Serveur Node.js (Redis)
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+User=ipam
+Group=ipam
+WorkingDirectory=/var/www/ipam
+
+ExecStart=/usr/bin/node /var/www/ipam/server/index.mjs
+
+Restart=on-failure
+RestartSec=10
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=REDIS_URL=redis://127.0.0.1:6379
+
+# ── Sécurité ──────────────────────────────────────────────────────────────────
+NoNewPrivileges=yes
+ProtectSystem=full
+ReadWritePaths=/var/www/ipam/data
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+MemoryMax=512M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ipam
+
+[Install]
+WantedBy=multi-user.target

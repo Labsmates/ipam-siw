@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPAM SIW</title>
+<link rel="stylesheet" href="/vendor/fonts.css">
+<script src="/js/protect.js"></script>
+<script src="/vendor/tailwind.min.js"></script>
+<script src="/vendor/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#0d1117}
+::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
+*{scrollbar-width:thin;scrollbar-color:#30363d #0d1117}
+.hidden{display:none!important}
+input,select,textarea,button{-webkit-appearance:none;appearance:none}
+input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
+input:focus,select:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.inp{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+.inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+.inp::placeholder{color:#8b949e}
+.inp.err{border-color:#f85149}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;border:none;padding:8px 16px;outline:none}
+.btn:active{-webkit-transform:scale(.97);transform:scale(.97)}
+.btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.btn-p{background:#58a6ff;color:#0d1117}.btn-p:hover{background:#79b8ff}
+.btn-d{background:#f8514918;color:#f85149;border:1px solid #f8514940}.btn-d:hover{background:#f8514930}
+.btn-g{background:#21262d;color:#e6edf3;border:1px solid #30363d}.btn-g:hover{background:#2d333b}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+.btn-ok{background:#3fb95018;color:#3fb950;border:1px solid #3fb95040}.btn-ok:hover{background:#3fb95030}
+.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.65);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:200;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px}
+.modal-box{background:#21262d;border:1px solid #30363d;border-radius:12px;padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
+@-webkit-keyframes mfade{from{opacity:0;-webkit-transform:scale(.92) translateY(12px);transform:scale(.92) translateY(12px)}to{opacity:1;-webkit-transform:none;transform:none}}
+@keyframes mfade{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
+.vlan-tab{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;color:#8b949e;-webkit-transition:all .15s;transition:all .15s;white-space:nowrap;border-radius:0}
+.vlan-tab:hover{color:#e6edf3;background:#1c2128}
+.vlan-tab.on{color:#58a6ff;border-bottom-color:#58a6ff;background:#0d2240;font-weight:600}
+.site-item{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;padding:9px 16px;border-left:2px solid transparent;-webkit-transition:all .1s;transition:all .1s;font-size:13px;color:#c9d1d9;text-decoration:none}
+.site-item:hover{background:#1c2128;color:#e6edf3}
+.site-item.on{background:#1c2128;border-left-color:#58a6ff;color:#e6edf3}
+.spinner{width:30px;height:30px;border:3px solid #30363d;border-top-color:#58a6ff;border-radius:50%;-webkit-animation:sp .7s linear infinite;animation:sp .7s linear infinite}
+@-webkit-keyframes sp{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
+@keyframes sp{to{transform:rotate(360deg)}}
+.pg-btn{padding:5px 11px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#8b949e;font-size:13px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s}
+.pg-btn:hover:not(:disabled){background:#2d333b;color:#e6edf3}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:#161b22;border-right:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;z-index:10}
+#app-main{margin-left:260px;height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;overflow:hidden}
+#ip-tbody tr:hover td{background:#1c2128}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<div id="sidebar">
+
+  <!-- Header -->
+  <div style="padding:18px 16px 12px;border-bottom:1px solid #30363d">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px">
+      <div style="width:30px;height:30px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 14px rgba(88,166,255,.35);-ms-flex-negative:0;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2"/>
+          <rect x="2" y="14" width="20" height="8" rx="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/>
+          <line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:14px;font-weight:700;letter-spacing:-0.02em">IPAM SIW</div>
+        <div style="font-size:11px;color:#8b949e">Gestion des adresses IP</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav buttons -->
+  <div style="padding:10px 10px 6px;border-bottom:1px solid #30363d">
+    <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Tableau de bord IPAM
+    </a>
+    <a href="/stats.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#8b949e;background:#21262d;border:1px solid #30363d;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='#2d333b'" onmouseleave="this.style.background='#21262d'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Statistiques
+    </a>
+    <a href="/export.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#8b949e;background:#21262d;border:1px solid #30363d;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='#2d333b'" onmouseleave="this.style.background='#21262d'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Excel
+    </a>
+    <a href="/archive.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#8b949e;background:#21262d;border:1px solid #30363d;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='#2d333b'" onmouseleave="this.style.background='#21262d'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
+      Archive
+    </a>
+    <a href="/admin.html" id="nav-admin-link" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#8b949e;background:#21262d;border:1px solid #30363d;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='#2d333b'" onmouseleave="this.style.background='#21262d'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Administration
+    </a>
+  </div>
+
+  <!-- Search -->
+  <div style="padding:10px 10px 6px">
+    <div style="position:relative">
+      <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="sidebar-search" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher un site…">
+    </div>
+  </div>
+
+  <!-- Site list -->
+  <div id="site-list" style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto"></div>
+
+  <!-- User info + logout -->
+  <div style="padding:12px 14px;border-top:1px solid #30363d">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:9px 11px">
+      <div style="min-width:0">
+        <div id="nav-username" style="font-size:13px;font-weight:600;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="nav-role" style="font-size:11px;color:#8b949e;margin-top:1px"></div>
+      </div>
+      <button id="btn-change-pw" title="Changer mon mot de passe" style="-ms-flex-negative:0;flex-shrink:0;margin-left:8px;padding:6px 10px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#2d333b';this.style.color='#e6edf3'" onmouseleave="this.style.background='#21262d';this.style.color='#8b949e'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </button>
+      <button id="btn-logout" title="Déconnexion" style="-ms-flex-negative:0;flex-shrink:0;margin-left:4px;padding:6px 10px;border-radius:6px;border:1px solid #f8514940;background:#f8514918;color:#f85149;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;font-size:12px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<div id="app-main">
+
+  <!-- Welcome state (no site selected) -->
+  <div id="view-welcome" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;height:100%;gap:14px">
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#30363d" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+    <div style="font-size:18px;font-weight:600;color:#484f58">Sélectionnez un site</div>
+    <div style="font-size:14px;color:#30363d">Choisissez un site dans la barre latérale</div>
+  </div>
+
+  <!-- Site detail view -->
+  <div id="view-site" style="display:none;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;height:100%;overflow:hidden">
+
+    <!-- Header -->
+    <div style="padding:14px 24px 0;border-bottom:1px solid #30363d;-ms-flex-negative:0;flex-shrink:0">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <h1 id="site-name" style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0"></h1>
+          <div id="site-subtitle" style="font-size:12px;color:#8b949e;margin-top:2px"></div>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+          <div id="admin-actions" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+            <button id="btn-add-vlan" class="btn btn-g btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Ajouter VLAN
+            </button>
+            <button id="btn-import" class="btn btn-g btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import Excel
+            </button>
+          </div>
+          <div id="user-actions" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+            <button id="btn-request-vlan" class="btn btn-g btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Demander un VLAN
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:20px;padding:8px 0;margin-bottom:-1px">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="color:#8b949e">Total</span>
+          <span id="stat-total" style="font-weight:700;color:#e6edf3">—</span>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#3fb950;display:inline-block"></span>
+          <span style="color:#3fb950;font-weight:600" id="stat-libre">—</span>
+          <span style="color:#8b949e">libres</span>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#f85149;display:inline-block"></span>
+          <span style="color:#f85149;font-weight:600" id="stat-utilise">—</span>
+          <span style="color:#8b949e">utilisées</span>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#d29922;display:inline-block"></span>
+          <span style="color:#d29922;font-weight:600" id="stat-reserve">—</span>
+          <span style="color:#8b949e">réservées</span>
+        </div>
+        <div style="margin-left:auto;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;min-width:160px">
+          <div style="height:4px;background:#30363d;border-radius:2px;overflow:hidden;-webkit-box-flex:1;-ms-flex:1;flex:1">
+            <div id="progress-bar" style="height:100%;width:0%;background:-webkit-linear-gradient(left,#f85149,#d29922);background:linear-gradient(90deg,#f85149,#d29922);border-radius:2px;-webkit-transition:width .3s;transition:width .3s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VLAN tabs -->
+    <div id="vlan-tabs" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;border-bottom:1px solid #30363d;overflow-x:auto;-ms-flex-negative:0;flex-shrink:0;padding:0 24px"></div>
+    <div id="vlan-info" class="hidden" style="margin:0 24px;padding:7px 14px;background:#0d2240;border:1px solid #1f4080;border-radius:6px;font-size:12px;color:#58a6ff;font-family:'JetBrains Mono',monospace"></div>
+
+    <!-- Controls -->
+    <div style="padding:10px 24px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;border-bottom:1px solid #30363d;-ms-flex-negative:0;flex-shrink:0;-ms-flex-wrap:wrap;flex-wrap:wrap">
+      <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:320px">
+        <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="search-ip" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher une IP…">
+      </div>
+      <select id="filter-status" class="inp" style="width:160px;cursor:pointer;padding-top:8px;padding-bottom:8px;font-size:13px">
+        <option value="all">Tous les statuts</option>
+        <option value="Libre">Libre</option>
+        <option value="Utilisé">Utilisé</option>
+        <option value="Réservée">Réservée</option>
+      </select>
+      <div id="table-count" style="font-size:13px;color:#8b949e;margin-left:auto;white-space:nowrap"></div>
+    </div>
+
+    <!-- Table -->
+    <div style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow:auto" id="tbl-wrap">
+      <div id="tbl-loading" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;height:300px;gap:14px">
+        <div class="spinner"></div>
+        <div style="font-size:14px;color:#8b949e">Chargement…</div>
+      </div>
+      <table id="ip-table" style="width:100%;border-collapse:collapse;display:none">
+        <thead>
+          <tr style="position:-webkit-sticky;position:sticky;top:0;background:#161b22;z-index:5">
+            <th style="text-align:left;padding:9px 24px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;border-bottom:1px solid #30363d;white-space:nowrap">Adresse IP</th>
+            <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;border-bottom:1px solid #30363d">Hostname</th>
+            <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;border-bottom:1px solid #30363d">Statut</th>
+            <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;border-bottom:1px solid #30363d">VLAN</th>
+            <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;border-bottom:1px solid #30363d">Mis à jour</th>
+            <th style="text-align:right;padding:9px 24px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;border-bottom:1px solid #30363d">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ip-tbody"></tbody>
+      </table>
+      <div id="tbl-empty" style="display:none;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;height:300px;gap:10px">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#30363d" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <div style="font-size:15px;color:#8b949e;font-weight:500">Aucune IP trouvée</div>
+        <div style="font-size:13px;color:#30363d">Modifiez vos filtres ou ajoutez une plage VLAN</div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" style="padding:10px 24px;border-top:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:7px;-ms-flex-negative:0;flex-shrink:0;background:#161b22">
+      <button id="btn-prev" class="pg-btn" disabled>← Précédent</button>
+      <span id="page-info" style="font-size:13px;color:#8b949e;margin:0 4px"></span>
+      <button id="btn-next" class="pg-btn">Suivant →</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+
+<!-- Reserve -->
+<div id="modal-reserve" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Réserver une IP</div>
+        <div style="font-size:13px;color:#8b949e;margin-top:3px">Cette adresse sera marquée Réservée</div>
+      </div>
+      <button onclick="closeModal('modal-reserve')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:20px;font-size:13px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between">
+      <span style="color:#8b949e">Adresse IP</span>
+      <code id="reserve-ip-display" style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px"></code>
+    </div>
+    <form id="form-reserve">
+      <input type="hidden" id="reserve-ip-id">
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Hostname <span style="color:#8b949e;font-weight:400">(optionnel)</span></label>
+        <input type="text" id="reserve-hostname" class="inp" placeholder="ex: srv-web-01" maxlength="128" autocomplete="off">
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-reserve" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-ok">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Confirmer la réservation
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Release -->
+<div id="modal-release" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Libérer une IP</div>
+        <div style="font-size:13px;color:#8b949e;margin-top:3px">Cette adresse sera marquée Libre</div>
+      </div>
+      <button onclick="closeModal('modal-release')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:#f8514912;border:1px solid #f8514930;border-radius:8px;padding:12px;margin-bottom:20px;font-size:13px;color:#f85149;display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="-ms-flex-negative:0;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>L'IP <strong><code id="release-ip-display" style="font-family:'JetBrains Mono',monospace;font-size:13px"></code></strong> sera marquée <strong>Libre</strong>.</span>
+    </div>
+    <form id="form-release">
+      <input type="hidden" id="release-ip-id">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-release" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-d">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          Libérer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Rename hostname -->
+<div id="modal-rename" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Modifier le hostname</div>
+        <div style="font-size:13px;color:#8b949e;margin-top:3px">Renommer ou effacer le hostname de cette IP</div>
+      </div>
+      <button onclick="closeModal('modal-rename')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:18px;font-size:13px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between">
+      <span style="color:#8b949e">Adresse IP</span>
+      <code id="rename-ip-display" style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px"></code>
+    </div>
+    <form id="form-rename">
+      <input type="hidden" id="rename-ip-id">
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Hostname</label>
+        <input type="text" id="rename-hostname" class="inp" placeholder="ex: srv-web-01" maxlength="128" autocomplete="off">
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-rename" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add VLAN -->
+<div id="modal-add-vlan" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Ajouter une plage IP</div>
+        <div style="font-size:13px;color:#8b949e;margin-top:3px">Les IPs seront générées automatiquement</div>
+      </div>
+      <button onclick="closeModal('modal-add-vlan')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-add-vlan">
+      <div style="display:grid;gap:14px;margin-bottom:18px">
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">VLAN ID <span style="color:#f85149">*</span></label>
+          <input id="new-vlan-id" class="inp" placeholder="ex : 202">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Réseau CIDR <span style="color:#f85149">*</span></label>
+          <input id="new-vlan-network" class="inp" placeholder="ex : 10.0.0.0/24">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Gateway <span style="color:#8b949e">(optionnel)</span></label>
+          <input id="new-vlan-gateway" class="inp" placeholder="ex : 10.0.0.1">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Masque <span style="color:#8b949e">(optionnel)</span></label>
+          <input id="new-vlan-mask" class="inp" placeholder="ex : 255.255.255.0">
+        </div>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-add-vlan" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Créer le VLAN
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Import Excel -->
+<div id="modal-import" class="modal-overlay hidden">
+  <div class="modal-box" style="width:500px">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Import Excel</div>
+        <div style="font-size:13px;color:#8b949e;margin-top:3px">Fichier .xlsx — colonne A : adresses IP</div>
+      </div>
+      <button onclick="closeModal('modal-import')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-import">
+      <div style="display:grid;gap:14px;margin-bottom:18px">
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Fichier Excel <span style="color:#f85149">*</span></label>
+          <input id="import-file" type="file" accept=".xlsx,.xls" class="inp" style="cursor:pointer">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">VLAN cible <span style="color:#f85149">*</span></label>
+          <select id="import-vlan" class="inp" style="cursor:pointer"></select>
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Statut à appliquer</label>
+          <select id="import-status" class="inp" style="cursor:pointer">
+            <option value="Utilisé">Utilisé</option>
+            <option value="Réservée">Réservée</option>
+            <option value="Libre">Libre</option>
+          </select>
+        </div>
+      </div>
+      <div style="background:#58a6ff0a;border:1px solid #58a6ff20;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:#8b949e">
+        <strong style="color:#58a6ff">Format :</strong> Ligne 1 = en-tête ignorée · Colonne A = adresses IP
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-import" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Importer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Password change modal -->
+<div id="modal-change-pw" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:20px">
+      <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Changer mon mot de passe</div>
+      <button id="btn-cancel-change-pw" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <form id="form-change-pw">
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Mot de passe actuel</label>
+        <input id="cpw-current" class="inp" type="password" required>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Nouveau mot de passe <span style="color:#f85149">*</span></label>
+        <input id="cpw-new" class="inp" type="password" minlength="8" required>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Confirmer le nouveau mot de passe <span style="color:#f85149">*</span></label>
+        <input id="cpw-confirm" class="inp" type="password" minlength="8" required>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" class="btn btn-g" onclick="closeModal('modal-change-pw')">Annuler</button>
+        <button type="submit" class="btn btn-p">Modifier</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function closeModal(id){document.getElementById(id)?.classList.add('hidden')}
+</script>
+<!-- Request VLAN (non-admin users) -->
+<div id="modal-request-vlan" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Demande de VLAN</div>
+        <div style="font-size:13px;color:#8b949e;margin-top:3px">La demande sera soumise à validation administrateur</div>
+      </div>
+      <button onclick="closeModal('modal-request-vlan')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-request-vlan">
+      <div style="display:grid;gap:14px;margin-bottom:18px">
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">VLAN ID <span style="color:#f85149">*</span></label>
+          <input id="req-vlan-id" class="inp" type="text" placeholder="ex: 100">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Réseau CIDR <span style="color:#f85149">*</span></label>
+          <input id="req-vlan-network" class="inp" type="text" placeholder="ex: 192.168.1.0/24">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Gateway</label>
+          <input id="req-vlan-gateway" class="inp" type="text" placeholder="ex: 192.168.1.1">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Masque</label>
+          <input id="req-vlan-mask" class="inp" type="text" placeholder="ex: 255.255.255.0">
+        </div>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-request-vlan" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Envoyer la demande
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module" src="/js/site.js"></script>
+</body>
+</html>

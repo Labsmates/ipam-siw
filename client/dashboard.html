@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPAM SIW — Sites</title>
+  <link rel="stylesheet" href="/vendor/fonts.css">
+  <script src="/js/protect.js"></script>
+<script src="/vendor/tailwind.min.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    body{background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:#0d1117}
+    ::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
+    *{scrollbar-width:thin;scrollbar-color:#30363d #0d1117}
+    .hidden{display:none!important}
+    input,button{-webkit-appearance:none;appearance:none}
+    input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
+    .modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.65);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:200;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px}
+    .modal-box{background:#21262d;border:1px solid #30363d;border-radius:12px;padding:28px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
+    @-webkit-keyframes mfade{from{opacity:0;-webkit-transform:scale(.92) translateY(12px);transform:scale(.92) translateY(12px)}to{opacity:1;-webkit-transform:none;transform:none}}
+    @keyframes mfade{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
+    .inp{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:14px;outline:none;width:100%;box-sizing:border-box;-webkit-transition:border-color .15s;transition:border-color .15s}
+    .inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+    .inp::placeholder{color:#8b949e}
+    .btn-p{background:#58a6ff;color:#0d1117;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:background .15s;transition:background .15s}
+    .btn-p:hover{background:#79b8ff}
+    .btn-g{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:background .15s;transition:background .15s}
+    .btn-g:hover{background:#2d333b}
+    .hidden{display:none!important}
+    input:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+    button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+    .inp{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:9px 14px;color:#e6edf3;font-size:13px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+    .inp::placeholder{color:#8b949e}
+    .inp:focus{border-color:#58a6ff!important}
+    #sites-grid{
+      display:-webkit-box;display:-ms-flexbox;display:flex;
+      -ms-flex-wrap:wrap;flex-wrap:wrap;gap:16px;
+    }
+    @supports (display:grid){
+      #sites-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+    }
+    .site-card{-webkit-box-flex:1;-ms-flex:1 1 300px;flex:1 1 300px}
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav style="background:#161b22;border-bottom:1px solid #30363d;padding:0 24px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;height:56px;position:-webkit-sticky;position:sticky;top:0;z-index:100;">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:16px;">
+      <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;text-decoration:none;">
+        <div style="width:28px;height:28px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:7px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 10px rgba(88,166,255,.3)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <span style="color:#e6edf3;font-weight:700;font-size:15px;letter-spacing:-.01em;">IPAM SIW</span>
+      </a>
+      <a href="/stats.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Statistiques
+      </a>
+      <a href="/export.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Excel
+      </a>
+      <a href="/archive.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
+        Archive
+      </a>
+      <a id="nav-admin-link" href="/admin.html" class="hidden" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Administration
+      </a>
+    </div>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:14px;">
+      <div style="text-align:right;">
+        <div id="nav-username" style="color:#e6edf3;font-size:13px;font-weight:600;"></div>
+        <div id="nav-role" style="color:#8b949e;font-size:11px;"></div>
+      </div>
+      <button id="btn-change-pw" title="Changer mon mot de passe" style="background:#21262d;border:1px solid #30363d;border-radius:8px;color:#8b949e;font-size:12px;padding:6px 10px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#2d333b';this.style.color='#e6edf3'" onmouseleave="this.style.background='#21262d';this.style.color='#8b949e'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </button>
+      <button id="btn-logout" style="background:#f8514918;border:1px solid #f8514940;border-radius:8px;color:#f85149;font-size:12px;padding:6px 14px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Déconnexion
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main style="max-width:1280px;margin:0 auto;padding:32px 24px;">
+
+    <!-- Title row -->
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;
+                -webkit-box-align:center;-ms-flex-align:center;align-items:center;
+                -webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;
+                margin-bottom:28px;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:16px;">
+      <div>
+        <h2 style="color:#e6edf3;font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;">Sites réseau</h2>
+        <p id="site-count" style="color:#8b949e;font-size:13px;margin:4px 0 0;"></p>
+      </div>
+      <input id="search-site" class="inp" type="search" placeholder="Rechercher un site…" style="width:260px;">
+    </div>
+
+    <!-- Grid -->
+    <div id="sites-grid"></div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="hidden"
+         style="text-align:center;padding:80px 24px;color:#8b949e;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#30363d" stroke-width="1.5"
+           style="margin:0 auto 16px;display:block;">
+        <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
+      </svg>
+      <p style="font-size:15px;font-weight:600;color:#484f58;margin:0;">Aucun site trouvé</p>
+    </div>
+
+  </main>
+
+  <!-- Password change modal -->
+  <div id="modal-change-pw" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:20px">
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Changer mon mot de passe</div>
+        <button id="btn-cancel-change-pw" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form id="form-change-pw">
+        <div style="margin-bottom:14px">
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:#e6edf3">Mot de passe actuel</label>
+          <input id="cpw-current" class="inp" type="password" required>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:#e6edf3">Nouveau mot de passe <span style="color:#f85149">*</span></label>
+          <input id="cpw-new" class="inp" type="password" minlength="8" required>
+        </div>
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:#e6edf3">Confirmer le nouveau mot de passe <span style="color:#f85149">*</span></label>
+          <input id="cpw-confirm" class="inp" type="password" minlength="8" required>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+          <button type="button" id="btn-cancel-change-pw2" class="btn-g" onclick="document.getElementById('modal-change-pw').classList.add('hidden')">Annuler</button>
+          <button type="submit" class="btn-p">Modifier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

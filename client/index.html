@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPAM SIW — Connexion</title>
+<link rel="stylesheet" href="/vendor/fonts.css">
+<script src="/js/protect.js"></script>
+<script src="/vendor/tailwind.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0}
+.inp{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s;-webkit-appearance:none;appearance:none}
+.inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+.inp::placeholder{color:#8b949e}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;gap:6px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;border:none;padding:11px 16px;outline:none;-webkit-appearance:none;appearance:none;width:100%}
+.btn:active{-webkit-transform:scale(.98);transform:scale(.98)}
+.btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.btn-p{background:#58a6ff;color:#0d1117}.btn-p:hover{background:#79b8ff}
+.hidden{display:none!important}
+button{-webkit-appearance:none;appearance:none}
+</style>
+</head>
+<body style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;min-height:100vh;padding:24px;background:radial-gradient(ellipse at 30% 40%,rgba(88,166,255,.06) 0%,transparent 60%),radial-gradient(ellipse at 70% 70%,rgba(63,185,80,.06) 0%,transparent 50%),#0d1117;">
+
+<div style="position:relative;width:380px;max-width:95vw">
+
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="width:52px;height:52px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:14px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;margin-bottom:16px;box-shadow:0 0 32px rgba(88,166,255,.3)">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="8" rx="2"/>
+        <rect x="2" y="14" width="20" height="8" rx="2"/>
+        <line x1="6" y1="6" x2="6.01" y2="6"/>
+        <line x1="6" y1="18" x2="6.01" y2="18"/>
+      </svg>
+    </div>
+    <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin:0 0 6px">IPAM SIW</h1>
+    <p style="font-size:14px;color:#8b949e;margin:0">Gestion des adresses IP</p>
+  </div>
+
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <form id="login-form" novalidate>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Identifiant</label>
+        <input id="username" class="inp" type="text" placeholder="Nom d'utilisateur" autocomplete="username" autocapitalize="none">
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Mot de passe</label>
+        <div style="position:relative">
+          <input id="password" class="inp" type="password" placeholder="••••••••••" autocomplete="current-password" style="padding-right:42px">
+          <button type="button" id="toggle-pwd" style="position:absolute;right:11px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);background:none;border:none;color:#8b949e;cursor:pointer;padding:4px;-webkit-appearance:none;appearance:none" title="Afficher/masquer le mot de passe">
+            <svg id="pwd-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="login-error" class="hidden" style="font-size:13px;color:#f85149;background:#f8514912;border:1px solid #f8514930;border-radius:7px;padding:9px 12px;margin-bottom:16px"></div>
+
+      <button id="btn-login" type="submit" class="btn btn-p">Se connecter</button>
+
+    </form>
+  </div>
+
+  <p style="text-align:center;font-size:12px;color:#30363d;margin-top:20px">IPAM SIW v2.0 · JWT · Timeout 20 min</p>
+  <p style="text-align:center;font-size:11px;color:#484f58;margin-top:4px">Copyright &copy; SWI <span id="footer-year"></span>. Tous droits réservés.</p>
+
+</div>
+
+<script type="module" src="/js/auth.js"></script>
+<script>
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
+  document.getElementById('toggle-pwd').addEventListener('click', function() {
+    var inp = document.getElementById('password');
+    var isText = inp.type === 'text';
+    inp.type = isText ? 'password' : 'text';
+    this.style.color = isText ? '#8b949e' : '#58a6ff';
+  });
+</script>
+</body>
+</html>
