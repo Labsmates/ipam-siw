@@ -223,9 +223,9 @@ th{text-align:left}
         <table>
           <thead>
             <tr style="background:#0d1117;border-bottom:1px solid #21262d">
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Date</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Utilisateur</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Action</th>
+              <th id="th-log-date"   data-sort="date"     style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;cursor:pointer;-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-transition:color .15s;transition:color .15s" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color=''">Date <span id="sort-log-date" style="font-size:10px;margin-left:3px">↓</span></th>
+              <th id="th-log-user"   data-sort="username" style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-transition:color .15s;transition:color .15s" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color=''">Utilisateur <span id="sort-log-user" style="font-size:10px;margin-left:3px;color:#484f58">⇅</span></th>
+              <th id="th-log-action" data-sort="action"   style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-transition:color .15s;transition:color .15s" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color=''">Action <span id="sort-log-action" style="font-size:10px;margin-left:3px;color:#484f58">⇅</span></th>
               <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Détail</th>
             </tr>
           </thead>

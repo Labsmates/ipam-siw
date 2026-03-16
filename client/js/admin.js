@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadVlans();
   setupVlanModals();
   await loadLogs();
+  setupLogSort();
   await loadVlanRequests();
   await loadAccountRequests();
   setupPasswordChange();
@@ -437,17 +438,18 @@ async function confirmDeleteVlan(vid, vlanId, siteName) {
 // =============================================================================
 // LOGS
 // =============================================================================
+let allLogs = [];
+let logSort = { field: 'date', dir: 'desc' };
+
 async function loadLogs() {
   try {
     const data = await get('/api/logs?limit=200');
-    const logs = data.logs || [];
-    const tbody = document.getElementById('logs-tbody');
-    const clearBtn = document.getElementById('btn-clear-logs');
+    allLogs = data.logs || [];
 
-    // Bouton visible uniquement pour le super admin
+    // Bouton "Effacer" visible uniquement pour le super admin
+    const clearBtn = document.getElementById('btn-clear-logs');
     if (getUser()?.username === 'admin') {
       clearBtn.classList.remove('hidden');
-      // Attacher le listener une seule fois
       if (!clearBtn._listenerAttached) {
         clearBtn._listenerAttached = true;
         clearBtn.addEventListener('click', async () => {
@@ -461,20 +463,70 @@ async function loadLogs() {
       }
     }
 
-    if (!logs.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun journal</td></tr>';
-      return;
-    }
-    tbody.innerHTML = logs.map(l => `
-      <tr style="border-bottom:1px solid #21262d;"
-          onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-        <td style="padding:10px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${fmtDate(l.created_at)}</td>
-        <td style="padding:10px 16px;color:#8b949e;font-size:13px;">${esc(l.username || '—')}</td>
-        <td style="padding:10px 16px;color:#e6edf3;font-size:13px;">${esc(l.action || '')}</td>
-        <td style="padding:10px 16px;color:#8b949e;font-size:12px;font-family:monospace;">${esc(l.details || '')}</td>
-      </tr>
-    `).join('');
+    renderLogs();
   } catch (err) { showToast(err.message, 'error'); }
+}
+
+function renderLogs() {
+  const tbody = document.getElementById('logs-tbody');
+
+  // Tri
+  const sorted = [...allLogs].sort((a, b) => {
+    let va, vb;
+    if (logSort.field === 'date') {
+      va = a.created_at || ''; vb = b.created_at || '';
+    } else if (logSort.field === 'username') {
+      va = (a.username || '').toLowerCase(); vb = (b.username || '').toLowerCase();
+    } else {
+      va = (a.action || '').toLowerCase(); vb = (b.action || '').toLowerCase();
+    }
+    if (va < vb) return logSort.dir === 'asc' ? -1 :  1;
+    if (va > vb) return logSort.dir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  // Mise à jour icônes de tri
+  const icons = { date: 'sort-log-date', username: 'sort-log-user', action: 'sort-log-action' };
+  Object.entries(icons).forEach(([field, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (field === logSort.field) {
+      el.textContent = logSort.dir === 'asc' ? '↑' : '↓';
+      el.style.color = '#58a6ff';
+    } else {
+      el.textContent = '⇅';
+      el.style.color = '#484f58';
+    }
+  });
+
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun journal</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sorted.map(l => `
+    <tr style="border-bottom:1px solid #21262d;"
+        onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
+      <td style="padding:10px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${fmtDate(l.created_at)}</td>
+      <td style="padding:10px 16px;color:#8b949e;font-size:13px;">${esc(l.username || '—')}</td>
+      <td style="padding:10px 16px;color:#e6edf3;font-size:13px;">${esc(l.action || '')}</td>
+      <td style="padding:10px 16px;color:#8b949e;font-size:12px;font-family:monospace;">${esc(l.details || '')}</td>
+    </tr>
+  `).join('');
+}
+
+function setupLogSort() {
+  ['th-log-date', 'th-log-user', 'th-log-action'].forEach(id => {
+    document.getElementById(id)?.addEventListener('click', () => {
+      const field = document.getElementById(id).dataset.sort;
+      if (logSort.field === field) {
+        logSort.dir = logSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        logSort.field = field;
+        logSort.dir = 'asc';
+      }
+      renderLogs();
+    });
+  });
 }
 
 // =============================================================================
