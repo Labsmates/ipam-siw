@@ -407,3 +407,56 @@ redis-cli SCARD sites
 | Avertissement certificat | Certificat auto-signé | Cliquer "Avancé → Accepter" |
 | Déconnexion automatique | Timeout 20 min | Normal — se reconnecter |
 | IPs non générées à l'ajout VLAN | CIDR manquant | Saisir le réseau au format `192.168.1.0/24` |
+
+---
+
+## Changelog
+
+### v2.1.0 — 2026-03-16
+
+#### Demandes de création de compte
+- Nouveau formulaire "Créer un compte" sur la page de connexion
+- L'utilisateur saisit son nom complet, son identifiant IDRH (`PXxx999`) et son mot de passe
+- La demande est transmise à l'administrateur sans créer de compte immédiatement
+- Toast de confirmation auto-dismiss 5 secondes : *"Votre demande a été transmise à un administrateur"*
+- Nouvel onglet **"Demandes de compte"** dans le panneau d'administration avec badge de comptage
+- L'admin peut **Approuver** (crée le compte avec le rôle Utilisateur) ou **Refuser** (supprime la demande)
+- Toutes les approbations/refus sont tracés dans le journal d'activité
+
+#### Rôle Lecteur (viewer)
+- Le rôle `viewer` a désormais la même vue que l'utilisateur standard (sidebar, VLANs, table IPs paginée)
+- Toutes les actions sont masquées : Réserver, Libérer, Changer statut, Renommer hostname, Demander un VLAN, Import Excel
+- Le viewer a accès à **Export Excel** depuis la barre latérale
+- Le lien Archive est masqué pour les viewers
+- Redirection automatique vers `site.html` depuis `dashboard.html`
+
+#### Popup de confirmation centré
+- Remplacement de **tous** les `confirm()` natifs du navigateur par un vrai popup centré
+- Style sombre cohérent avec l'interface, animation d'apparition fluide
+- Bouton **Confirmer** (bleu) ou **rouge** pour les actions destructives
+- Bouton **Annuler** + clic en dehors du modal pour fermer
+- Concerne : déconnexion, suppression utilisateur, suppression site, suppression VLAN, effacement journaux, validation/refus de demande VLAN, approbation/refus de demande de compte, changement de statut IP
+
+#### Corrections
+- Fix : réinitialisation MDP admin — le champ envoyé était `password` au lieu de `newPassword` → retournait systématiquement une erreur 400
+- Fix : rôle viewer — la variable `user` était déclarée dans `DOMContentLoaded` et inaccessible aux fonctions du module → la table IP ne s'affichait jamais pour les viewers
+
+#### Structure mise à jour
+```
+server/routes/
+└── account_requests.mjs   ← NOUVEAU — CRUD demandes de compte + approbation
+client/js/
+└── api.js                 ← Ajout showConfirm() — popup Promise-based
+```
+
+---
+
+## Licence
+
+MIT License — Copyright (c) 2025 **Peyrius N KOUNGA TCHIKAYA**
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
