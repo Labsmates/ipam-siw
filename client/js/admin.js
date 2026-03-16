@@ -115,7 +115,7 @@ function renderUsers() {
           style="background:#2e2000;color:#d29922;border:1px solid #5c4200;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Réinitialiser MDP
         </button>
-        ${u.role !== 'admin' ? `
+        ${(u.role !== 'admin' || currentUser?.username === 'admin') && u.username !== 'admin' ? `
         <button data-uid="${u.id}" data-uname="${esc(u.username)}" data-urole="${u.role}" class="btn-change-role"
           style="background:#1c2128;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Changer le rôle
@@ -205,12 +205,14 @@ function setupUserModals() {
 }
 
 function openChangeRoleModal(uid, uname, currentRole) {
+  const isSuperAdmin = getUser()?.username === 'admin';
   document.getElementById('change-role-uid').value = uid;
-  document.getElementById('change-role-subtitle').textContent = `Utilisateur : ${uname} — rôle actuel : ${currentRole === 'viewer' ? 'Lecteur' : 'Utilisateur'}`;
-  const options = currentRole === 'viewer'
-    ? [{ value: 'user', label: 'Utilisateur', desc: 'Accès complet aux sites et IPs' }]
-    : [{ value: 'viewer', label: 'Lecteur', desc: 'Lecture seule — Tableau de bord & Statistiques uniquement' }];
-  options.push({ value: 'admin', label: 'Administrateur', desc: 'Accès complet + panneau d\'administration' });
+  const roleLabels = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
+  document.getElementById('change-role-subtitle').textContent = `Utilisateur : ${uname} — rôle actuel : ${roleLabels[currentRole] || 'Utilisateur'}`;
+  const options = [];
+  if (currentRole !== 'user')   options.push({ value: 'user',   label: 'Utilisateur',     desc: 'Accès complet aux sites et IPs' });
+  if (currentRole !== 'viewer') options.push({ value: 'viewer', label: 'Lecteur',          desc: 'Lecture seule — Tableau de bord & Statistiques uniquement' });
+  if (currentRole !== 'admin' && isSuperAdmin) options.push({ value: 'admin', label: 'Administrateur', desc: 'Accès complet + panneau d\'administration' });
   document.getElementById('change-role-options').innerHTML = options.map((o, i) => `
     <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;padding:10px 12px;border:1px solid #30363d;border-radius:8px;cursor:pointer;background:#0d1117">
       <input type="radio" name="new-role-radio" value="${o.value}" ${i === 0 ? 'checked' : ''} style="accent-color:#58a6ff">
@@ -440,6 +442,24 @@ async function loadLogs() {
     const data = await get('/api/logs?limit=200');
     const logs = data.logs || [];
     const tbody = document.getElementById('logs-tbody');
+    const clearBtn = document.getElementById('btn-clear-logs');
+
+    // Bouton visible uniquement pour le super admin
+    if (getUser()?.username === 'admin') {
+      clearBtn.classList.remove('hidden');
+      // Attacher le listener une seule fois
+      if (!clearBtn._listenerAttached) {
+        clearBtn._listenerAttached = true;
+        clearBtn.addEventListener('click', async () => {
+          if (!await showConfirm({ title: 'Effacer les journaux', message: 'Effacer tous les journaux d\'activité ? Cette action est irréversible.', confirmText: 'Effacer', danger: true })) return;
+          try {
+            await del('/api/logs');
+            showToast('Journaux effacés', 'success');
+            await loadLogs();
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      }
+    }
 
     if (!logs.length) {
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun journal</td></tr>';
@@ -454,16 +474,6 @@ async function loadLogs() {
         <td style="padding:10px 16px;color:#8b949e;font-size:12px;font-family:monospace;">${esc(l.details || '')}</td>
       </tr>
     `).join('');
-
-    // Clear logs button
-    document.getElementById('btn-clear-logs').addEventListener('click', async () => {
-      if (!await showConfirm({ title: 'Effacer les journaux', message: 'Effacer tous les journaux d\'activité ? Cette action est irréversible.', confirmText: 'Effacer', danger: true })) return;
-      try {
-        await del('/api/logs');
-        showToast('Journaux effacés', 'success');
-        await loadLogs();
-      } catch (err) { showToast(err.message, 'error'); }
-    });
   } catch (err) { showToast(err.message, 'error'); }
 }
 

@@ -30,10 +30,14 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE /api/logs (admin)
-router.delete('/', requireAuth, requireAdmin, async (_req, res) => {
-  try { await clearLogs(); res.json({ ok: true }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+// DELETE /api/logs (super admin only)
+router.delete('/', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    if (req.user.username !== 'ADMIN')
+      return res.status(403).json({ error: 'Seul le super administrateur peut effacer les journaux' });
+    await clearLogs();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 export default router;

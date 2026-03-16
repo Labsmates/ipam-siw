@@ -86,16 +86,22 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT /api/users/:id/role (admin only)
+// PUT /api/users/:id/role (admin only — admin role reserved to super admin)
 router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { role } = req.body || {};
-    if (!['user', 'viewer'].includes(role))
-      return res.status(400).json({ error: 'Rôle invalide. Valeurs acceptées : user, viewer' });
+    const isSuperAdmin = req.user.username === 'ADMIN';
+    const validRoles = isSuperAdmin ? ['admin', 'user', 'viewer'] : ['user', 'viewer'];
+    if (!validRoles.includes(role))
+      return res.status(400).json({ error: 'Rôle invalide' });
+    if (role === 'admin' && !isSuperAdmin)
+      return res.status(403).json({ error: 'Seul le super administrateur peut attribuer le rôle administrateur' });
     const target = await getUserById(req.params.id);
     if (!target) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    if (target.role === 'admin')
-      return res.status(403).json({ error: 'Impossible de modifier le rôle d\'un administrateur' });
+    if (target.username === 'ADMIN')
+      return res.status(403).json({ error: 'Impossible de modifier le rôle du super administrateur' });
+    if (target.role === 'admin' && !isSuperAdmin)
+      return res.status(403).json({ error: 'Seul le super administrateur peut modifier le rôle d\'un administrateur' });
     await updateUserRole(req.params.id, role);
     await addLog(req.user.username, 'CHANGE_ROLE', `${target.username} : ${target.role} → ${role}`, 'info');
     res.json({ ok: true });
