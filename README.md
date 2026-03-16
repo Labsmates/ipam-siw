@@ -354,6 +354,344 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 
 ---
 
+## Certificat SSL — CSR et autorité de certification (CA)
+
+### Contexte
+
+Le déploiement par défaut utilise un certificat **auto-signé** (avertissement navigateur inévitable).
+Pour obtenir un certificat signé par votre CA d'entreprise, suivez les étapes ci-dessous.
+
+---
+
+### Étape 1 — Générer la clé privée et le CSR
+
+```bash
+# Créer le répertoire de travail
+mkdir -p /etc/pki/tls/csr
+
+# Générer la clé privée RSA 2048 bits
+openssl genrsa -out /etc/pki/tls/private/ipam.key 2048
+chmod 600 /etc/pki/tls/private/ipam.key
+
+# Générer le CSR (Certificate Signing Request)
+# Remplacer les valeurs C, ST, L, O, OU, CN par celles de votre organisation
+openssl req -new \
+  -key  /etc/pki/tls/private/ipam.key \
+  -out  /etc/pki/tls/csr/ipam.csr \
+  -subj "/C=FR/ST=France/L=Paris/O=SIW/OU=DSI/CN=ipam.siw.local"
+```
+
+> Le fichier `ipam.csr` est à transmettre à votre service PKI / autorité de certification interne.
+
+---
+
+### Étape 2 — CSR avec Subject Alternative Names (SAN)
+
+Si le serveur est accessible par IP **et** par nom DNS, créer un fichier de configuration SAN :
+
+```bash
+cat > /tmp/ipam_san.cnf <<EOF
+[req]
+default_bits       = 2048
+prompt             = no
+default_md         = sha256
+distinguished_name = dn
+req_extensions     = req_ext
+
+[dn]
+C  = FR
+ST = France
+L  = Paris
+O  = SIW
+OU = DSI
+CN = ipam.siw.local
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = ipam.siw.local
+DNS.2 = ipam
+IP.1  = 218.16.185.50
+EOF
+
+# Générer le CSR avec SAN
+openssl req -new \
+  -key    /etc/pki/tls/private/ipam.key \
+  -out    /etc/pki/tls/csr/ipam.csr \
+  -config /tmp/ipam_san.cnf
+
+# Vérifier le contenu du CSR
+openssl req -text -noout -in /etc/pki/tls/csr/ipam.csr
+```
+
+---
+
+### Étape 3 — Signer le CSR avec votre CA interne (si vous êtes l'administrateur CA)
+
+```bash
+# Sur le serveur CA (ou en local si vous gérez la CA)
+openssl x509 -req \
+  -in      /etc/pki/tls/csr/ipam.csr \
+  -CA      /etc/pki/CA/ca.crt \
+  -CAkey   /etc/pki/CA/ca.key \
+  -CAcreateserial \
+  -out     /etc/pki/tls/certs/ipam.crt \
+  -days    825 \
+  -sha256 \
+  -extfile /tmp/ipam_san.cnf \
+  -extensions req_ext
+
+# Vérifier le certificat signé
+openssl x509 -text -noout -in /etc/pki/tls/certs/ipam.crt
+openssl verify -CAfile /etc/pki/CA/ca.crt /etc/pki/tls/certs/ipam.crt
+```
+
+---
+
+### Étape 4 — Installer le certificat signé sur le serveur IPAM
+
+Une fois que votre CA vous a renvoyé le fichier `.crt` (et éventuellement la chaîne intermédiaire) :
+
+```bash
+# Copier le certificat signé
+cp ipam.crt /etc/pki/tls/certs/ipam.crt
+chmod 644   /etc/pki/tls/certs/ipam.crt
+
+# Si la CA vous fournit aussi un certificat intermédiaire (chain)
+# Concaténer : certificat serveur + intermédiaire
+cat ipam.crt ca_intermediate.crt > /etc/pki/tls/certs/ipam_fullchain.crt
+
+# Vérifier la cohérence clé / certificat (les deux hash doivent être identiques)
+openssl rsa  -noout -modulus -in  /etc/pki/tls/private/ipam.key | openssl md5
+openssl x509 -noout -modulus -in  /etc/pki/tls/certs/ipam.crt   | openssl md5
+
+# Mettre à jour ipam.conf si vous utilisez la fullchain
+# SSLCertificateFile    /etc/pki/tls/certs/ipam_fullchain.crt
+# SSLCertificateKeyFile /etc/pki/tls/private/ipam.key
+
+# Tester la configuration Apache puis recharger
+httpd -t && systemctl reload httpd
+```
+
+---
+
+### Étape 5 — Déployer le certificat CA sur les postes clients (optionnel)
+
+Pour supprimer l'avertissement navigateur sur les machines du parc :
+
+```bash
+# Rocky Linux / RHEL — déployer la CA sur le serveur lui-même ou les clients
+cp ca.crt /etc/pki/ca-trust/source/anchors/siw-ca.crt
+update-ca-trust extract
+
+# Vérification
+openssl s_client -connect 218.16.185.50:443 -CAfile /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+```
+
+> **Windows (GPO)** : importer `ca.crt` dans *Autorités de certification racines de confiance* via `certmgr.msc` ou une GPO `Computer Configuration → Windows Settings → Security Settings → Public Key Policies`.
+
+---
+
+### Renouvellement du certificat
+
+```bash
+# 1. Vérifier la date d'expiration
+openssl x509 -enddate -noout -in /etc/pki/tls/certs/ipam.crt
+
+# 2. Regénérer un CSR avec la clé existante (pas besoin de nouvelle clé)
+openssl req -new \
+  -key    /etc/pki/tls/private/ipam.key \
+  -out    /etc/pki/tls/csr/ipam_renew.csr \
+  -config /tmp/ipam_san.cnf
+
+# 3. Soumettre ipam_renew.csr à la CA
+# 4. Installer le nouveau certificat (Étape 4 ci-dessus)
+# 5. Recharger Apache
+systemctl reload httpd
+```
+
+---
+
+## Gestion Redis — Référence complète
+
+### Connexion et statut
+
+```bash
+# Ouvrir la CLI Redis
+redis-cli
+
+# Statut général
+redis-cli PING                          # → PONG si Redis répond
+redis-cli INFO server                   # version, uptime, pid
+redis-cli INFO memory                   # mémoire utilisée / pic
+redis-cli INFO stats                    # commandes traitées, connexions
+redis-cli INFO replication              # rôle master/replica
+redis-cli INFO keyspace                 # nombre de clés par base
+redis-cli INFO all                      # tout en une fois
+
+# Moniteur en temps réel (toutes les commandes reçues)
+redis-cli MONITOR                       # Ctrl+C pour quitter
+
+# Latence
+redis-cli --latency                     # latence en ms
+redis-cli --latency-history -i 5        # historique toutes les 5 s
+```
+
+---
+
+### Exploration des données IPAM
+
+```bash
+# Structure globale
+redis-cli KEYS "*"                      # toutes les clés (prudence en prod)
+redis-cli SCAN 0 COUNT 100              # parcours sans bloquer
+
+# Sites
+redis-cli SMEMBERS sites                # liste des IDs de sites
+redis-cli SCARD sites                   # nombre de sites
+redis-cli HGETALL site:<id>             # détail d'un site
+
+# VLANs
+redis-cli SMEMBERS vlans                # liste des IDs de VLANs
+redis-cli HGETALL vlan:<id>             # détail d'un VLAN
+
+# IPs
+redis-cli SMEMBERS ips                  # tous les IDs d'IPs
+redis-cli SCARD ips                     # nombre total d'IPs
+redis-cli HGETALL ip:<id>               # détail d'une IP
+
+# Utilisateurs
+redis-cli SMEMBERS users                # liste des IDs utilisateurs
+redis-cli HGETALL user:<id>             # détail d'un utilisateur
+redis-cli HGETALL users:idx:username    # index username → id
+
+# Journaux
+redis-cli LLEN logs                     # nombre de logs stockés
+redis-cli LRANGE logs 0 9               # 10 derniers logs
+redis-cli LRANGE logs 0 -1              # tous les logs
+
+# Demandes en attente
+redis-cli SMEMBERS vlan_requests        # demandes VLAN en attente
+redis-cli SMEMBERS account_requests     # demandes de compte en attente
+```
+
+---
+
+### Sauvegarde et restauration
+
+```bash
+# --- Sauvegarde ---
+
+# Snapshot RDB manuel (non bloquant)
+redis-cli BGSAVE
+redis-cli LASTSAVE                      # timestamp du dernier snapshot
+
+# Copier le fichier RDB
+cp /var/lib/redis/ipam.rdb /backup/ipam_$(date +%Y-%m-%d_%H%M).rdb
+
+# Export texte de toutes les clés (pour audit)
+redis-cli --rdb /backup/ipam_$(date +%Y-%m-%d).rdb
+
+# --- Restauration ---
+
+# Arrêter Redis avant de restaurer
+systemctl stop redis
+
+# Remplacer le fichier RDB
+cp /backup/ipam_2026-03-17.rdb /var/lib/redis/ipam.rdb
+chown redis:redis /var/lib/redis/ipam.rdb
+
+# Redémarrer
+systemctl start redis
+redis-cli PING
+
+# --- Cron quotidien à 2 h ---
+cat > /etc/cron.d/ipam-backup <<'EOF'
+0 2 * * * root redis-cli BGSAVE && sleep 5 && cp /var/lib/redis/ipam.rdb /backup/ipam_$(date +\%Y-\%m-\%d).rdb
+EOF
+```
+
+---
+
+### Maintenance et nettoyage
+
+```bash
+# Mémoire
+redis-cli MEMORY USAGE logs             # poids de la clé logs en octets
+redis-cli MEMORY DOCTOR                 # diagnostic mémoire
+redis-cli MEMORY PURGE                  # libérer la mémoire allouée inutilisée
+
+# Défragmentation (Redis 4+)
+redis-cli CONFIG SET activedefrag yes
+redis-cli MEMORY PURGE
+
+# Taille de la liste de logs
+redis-cli LLEN logs
+
+# Tronquer les logs à 1000 entrées (garder les plus récents)
+redis-cli LTRIM logs 0 999
+
+# Supprimer une clé spécifique
+redis-cli DEL site:<id>
+
+# Vérifier le TTL d'une clé (-1 = pas d'expiration)
+redis-cli TTL <clé>
+
+# Rechercher les clés d'un site précis
+redis-cli KEYS "site:*"
+redis-cli KEYS "vlan:*"
+redis-cli KEYS "ip:*"
+redis-cli KEYS "user:*"
+```
+
+---
+
+### Configuration à chaud
+
+```bash
+# Voir la configuration active
+redis-cli CONFIG GET maxmemory
+redis-cli CONFIG GET save
+redis-cli CONFIG GET bind
+redis-cli CONFIG GET "*"                # toute la config
+
+# Modifier sans redémarrer
+redis-cli CONFIG SET maxmemory 512mb
+redis-cli CONFIG SET maxmemory-policy allkeys-lru
+
+# Persister la config modifiée dans redis.conf
+redis-cli CONFIG REWRITE
+```
+
+---
+
+### Commandes d'urgence
+
+```bash
+# Forcer une sauvegarde synchrone (bloquant — éviter en prod sous charge)
+redis-cli SAVE
+
+# Vérifier si Redis est en train de sauvegarder
+redis-cli LASTSAVE
+redis-cli INFO persistence | grep rdb_bgsave_in_progress
+
+# Fermer toutes les connexions clientes (sauf redis-cli actif)
+redis-cli CLIENT LIST
+redis-cli CLIENT KILL ID <id>
+
+# Recharger la configuration
+redis-cli CONFIG REWRITE
+systemctl reload redis
+
+# ⚠ ATTENTION — commandes destructives (désactivées en prod par redis.conf)
+# redis-cli FLUSHDB   → vide la base courante
+# redis-cli FLUSHALL  → vide TOUTES les bases
+# Ces commandes sont désactivées dans deploy/redis.conf (rename-command)
+```
+
+---
+
 ## Sauvegarde
 
 ```bash
