@@ -474,13 +474,18 @@ export async function addLog(username, action, details, level = 'info') {
 export async function getLogs(limit = 500) {
   const raw = await redis.lrange('logs', 0, Math.min(limit, 5000) - 1);
   return raw.map((r, i) => {
-    try { return { id: i + 1, ...JSON.parse(r) }; }
+    try { return { _raw: r, id: i + 1, ...JSON.parse(r) }; }
     catch { return null; }
   }).filter(Boolean);
 }
 
 export async function clearLogs() {
   await redis.del('logs');
+}
+
+export async function deleteLogEntry(raw) {
+  const removed = await redis.lrem('logs', 1, raw);
+  return removed > 0;
 }
 
 // =============================================================================

@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, patch, showToast, fmtDate, openModal, closeModal, sortSites, showConfirm,
+  get, post, put, del, delBody, patch, showToast, fmtDate, openModal, closeModal, sortSites, showConfirm,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -498,15 +498,39 @@ function renderLogs() {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun résultat</td></tr>';
     return;
   }
-  tbody.innerHTML = filtered.map(l => `
+  const isSuperAdmin = getUser()?.username === 'admin';
+  tbody.innerHTML = filtered.map((l, i) => `
     <tr style="border-bottom:1px solid #21262d;"
         onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
       <td style="padding:10px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${fmtDate(l.created_at)}</td>
       <td style="padding:10px 16px;color:#8b949e;font-size:13px;">${esc(l.username || '—')}</td>
       <td style="padding:10px 16px;color:#e6edf3;font-size:13px;">${esc(l.action || '')}</td>
       <td style="padding:10px 16px;color:#8b949e;font-size:12px;font-family:monospace;">${esc(l.details || '')}</td>
+      <td style="padding:6px 12px;text-align:right;white-space:nowrap;">
+        ${isSuperAdmin ? `<button class="btn-del-log" data-idx="${i}"
+          style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:4px;"
+          title="Supprimer ce log">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        </button>` : ''}
+      </td>
     </tr>
   `).join('');
+
+  if (isSuperAdmin) {
+    tbody.querySelectorAll('.btn-del-log').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const log = filtered[Number(btn.dataset.idx)];
+        if (!log) return;
+        if (!await showConfirm({ title: 'Supprimer ce log', message: `Supprimer l'entrée « ${log.action} » du ${fmtDate(log.created_at)} ?`, confirmText: 'Supprimer', danger: true })) return;
+        try {
+          await delBody('/api/logs/entry', { raw: log._raw });
+          allLogs = allLogs.filter(l => l._raw !== log._raw);
+          showToast('Log supprimé', 'success');
+          renderLogs();
+        } catch (err) { showToast(err.message, 'error'); }
+      });
+    });
+  }
 }
 
 function setupLogFilters() {

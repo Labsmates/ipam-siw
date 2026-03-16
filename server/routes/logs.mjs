@@ -1,5 +1,5 @@
 import express from 'express';
-import { getLogs, clearLogs } from '../redis.mjs';
+import { getLogs, clearLogs, deleteLogEntry } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -30,7 +30,20 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE /api/logs (super admin only)
+// DELETE /api/logs/entry — supprimer un log individuel (super admin only)
+router.delete('/entry', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    if (req.user.username !== 'ADMIN')
+      return res.status(403).json({ error: 'Seul le super administrateur peut supprimer des journaux' });
+    const { raw } = req.body || {};
+    if (!raw) return res.status(400).json({ error: 'Entrée manquante' });
+    const removed = await deleteLogEntry(raw);
+    if (!removed) return res.status(404).json({ error: 'Entrée introuvable' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/logs — effacer tous les logs (super admin only)
 router.delete('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     if (req.user.username !== 'ADMIN')
