@@ -116,7 +116,7 @@ function renderUsers() {
           style="background:#2e2000;color:#d29922;border:1px solid #5c4200;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Réinitialiser MDP
         </button>
-        ${(u.role !== 'admin' || currentUser?.username === 'admin') && u.username !== 'admin' ? `
+        ${(u.role !== 'admin' || currentUser?.username?.toLowerCase() === 'admin') && u.username?.toLowerCase() !== 'admin' ? `
         <button data-uid="${u.id}" data-uname="${esc(u.username)}" data-urole="${u.role}" class="btn-change-role"
           style="background:#1c2128;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Changer le rôle
@@ -206,7 +206,7 @@ function setupUserModals() {
 }
 
 function openChangeRoleModal(uid, uname, currentRole) {
-  const isSuperAdmin = getUser()?.username === 'admin';
+  const isSuperAdmin = getUser()?.username?.toLowerCase() === 'admin';
   document.getElementById('change-role-uid').value = uid;
   const roleLabels = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
   document.getElementById('change-role-subtitle').textContent = `Utilisateur : ${uname} — rôle actuel : ${roleLabels[currentRole] || 'Utilisateur'}`;
@@ -447,7 +447,7 @@ async function loadLogs() {
 
     // Bouton "Effacer" visible uniquement pour le super admin
     const clearBtn = document.getElementById('btn-clear-logs');
-    if (getUser()?.username === 'admin') {
+    if (getUser()?.username?.toLowerCase() === 'admin') {
       clearBtn.classList.remove('hidden');
       if (!clearBtn._listenerAttached) {
         clearBtn._listenerAttached = true;
@@ -498,7 +498,7 @@ function renderLogs() {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun résultat</td></tr>';
     return;
   }
-  const isSuperAdmin = getUser()?.username === 'admin';
+  const isSuperAdmin = getUser()?.username?.toLowerCase() === 'admin';
   tbody.innerHTML = filtered.map((l, i) => `
     <tr style="border-bottom:1px solid #21262d;"
         onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
