@@ -212,20 +212,37 @@ th{text-align:left}
     </div>
 
     <div id="pane-logs" class="admin-pane hidden">
-      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:14px">
         <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Journaux d'activité</h3>
         <button id="btn-clear-logs" class="btn btn-d btn-sm hidden">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
           Effacer les journaux
         </button>
       </div>
+
+      <!-- Filtres -->
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-ms-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:12px">
+        <div style="position:relative">
+          <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input id="log-filter-date" type="date" class="inp" style="padding-left:32px;font-size:13px;padding-top:7px;padding-bottom:7px;width:170px;color-scheme:dark">
+        </div>
+        <select id="log-filter-action" class="inp" style="font-size:13px;padding-top:7px;padding-bottom:7px;width:200px;cursor:pointer">
+          <option value="">Toutes les actions</option>
+        </select>
+        <button id="btn-log-reset" class="btn btn-g btn-sm">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
+          Réinitialiser
+        </button>
+        <span id="log-count" style="font-size:12px;color:#8b949e;margin-left:auto"></span>
+      </div>
+
       <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden;overflow-x:auto">
         <table>
           <thead>
             <tr style="background:#0d1117;border-bottom:1px solid #21262d">
-              <th id="th-log-date"   data-sort="date"     style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;cursor:pointer;-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-transition:color .15s;transition:color .15s" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color=''">Date <span id="sort-log-date" style="font-size:10px;margin-left:3px">↓</span></th>
-              <th id="th-log-user"   data-sort="username" style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-transition:color .15s;transition:color .15s" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color=''">Utilisateur <span id="sort-log-user" style="font-size:10px;margin-left:3px;color:#484f58">⇅</span></th>
-              <th id="th-log-action" data-sort="action"   style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-transition:color .15s;transition:color .15s" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color=''">Action <span id="sort-log-action" style="font-size:10px;margin-left:3px;color:#484f58">⇅</span></th>
+              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Date</th>
+              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Utilisateur</th>
+              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Action</th>
               <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Détail</th>
             </tr>
           </thead>

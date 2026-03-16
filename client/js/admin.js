@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadVlans();
   setupVlanModals();
   await loadLogs();
-  setupLogSort();
+  setupLogFilters();
   await loadVlanRequests();
   await loadAccountRequests();
   setupPasswordChange();
@@ -439,11 +439,10 @@ async function confirmDeleteVlan(vid, vlanId, siteName) {
 // LOGS
 // =============================================================================
 let allLogs = [];
-let logSort = { field: 'date', dir: 'desc' };
 
 async function loadLogs() {
   try {
-    const data = await get('/api/logs?limit=200');
+    const data = await get('/api/logs?limit=2000');
     allLogs = data.logs || [];
 
     // Bouton "Effacer" visible uniquement pour le super admin
@@ -457,53 +456,49 @@ async function loadLogs() {
           try {
             await del('/api/logs');
             showToast('Journaux effacés', 'success');
-            await loadLogs();
+            allLogs = [];
+            renderLogs();
           } catch (err) { showToast(err.message, 'error'); }
         });
       }
     }
+
+    // Peupler le sélecteur d'actions avec les valeurs uniques présentes dans les logs
+    const actionSel = document.getElementById('log-filter-action');
+    const actions = [...new Set(allLogs.map(l => l.action).filter(Boolean))].sort();
+    actionSel.innerHTML = '<option value="">Toutes les actions</option>' +
+      actions.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
 
     renderLogs();
   } catch (err) { showToast(err.message, 'error'); }
 }
 
 function renderLogs() {
+  const dateVal   = document.getElementById('log-filter-date')?.value   || '';
+  const actionVal = document.getElementById('log-filter-action')?.value || '';
+
+  const filtered = allLogs.filter(l => {
+    if (dateVal) {
+      const logDate = l.created_at ? new Date(l.created_at).toISOString().slice(0, 10) : '';
+      if (logDate !== dateVal) return false;
+    }
+    if (actionVal && l.action !== actionVal) return false;
+    return true;
+  });
+
+  const countEl = document.getElementById('log-count');
+  if (countEl) {
+    countEl.textContent = (dateVal || actionVal)
+      ? `${filtered.length} / ${allLogs.length} résultat(s)`
+      : `${allLogs.length} entrée(s)`;
+  }
+
   const tbody = document.getElementById('logs-tbody');
-
-  // Tri
-  const sorted = [...allLogs].sort((a, b) => {
-    let va, vb;
-    if (logSort.field === 'date') {
-      va = a.created_at || ''; vb = b.created_at || '';
-    } else if (logSort.field === 'username') {
-      va = (a.username || '').toLowerCase(); vb = (b.username || '').toLowerCase();
-    } else {
-      va = (a.action || '').toLowerCase(); vb = (b.action || '').toLowerCase();
-    }
-    if (va < vb) return logSort.dir === 'asc' ? -1 :  1;
-    if (va > vb) return logSort.dir === 'asc' ?  1 : -1;
-    return 0;
-  });
-
-  // Mise à jour icônes de tri
-  const icons = { date: 'sort-log-date', username: 'sort-log-user', action: 'sort-log-action' };
-  Object.entries(icons).forEach(([field, id]) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (field === logSort.field) {
-      el.textContent = logSort.dir === 'asc' ? '↑' : '↓';
-      el.style.color = '#58a6ff';
-    } else {
-      el.textContent = '⇅';
-      el.style.color = '#484f58';
-    }
-  });
-
-  if (!sorted.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun journal</td></tr>';
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun résultat</td></tr>';
     return;
   }
-  tbody.innerHTML = sorted.map(l => `
+  tbody.innerHTML = filtered.map(l => `
     <tr style="border-bottom:1px solid #21262d;"
         onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
       <td style="padding:10px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${fmtDate(l.created_at)}</td>
@@ -514,18 +509,13 @@ function renderLogs() {
   `).join('');
 }
 
-function setupLogSort() {
-  ['th-log-date', 'th-log-user', 'th-log-action'].forEach(id => {
-    document.getElementById(id)?.addEventListener('click', () => {
-      const field = document.getElementById(id).dataset.sort;
-      if (logSort.field === field) {
-        logSort.dir = logSort.dir === 'asc' ? 'desc' : 'asc';
-      } else {
-        logSort.field = field;
-        logSort.dir = 'asc';
-      }
-      renderLogs();
-    });
+function setupLogFilters() {
+  document.getElementById('log-filter-date')?.addEventListener('change', renderLogs);
+  document.getElementById('log-filter-action')?.addEventListener('change', renderLogs);
+  document.getElementById('btn-log-reset')?.addEventListener('click', () => {
+    document.getElementById('log-filter-date').value = '';
+    document.getElementById('log-filter-action').value = '';
+    renderLogs();
   });
 }
 
