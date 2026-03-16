@@ -5,12 +5,13 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, del, showToast, sortIPs, sortSites, statusBadge, fmtDate,
-  openModal, closeModal, cidrToIPs,
+  openModal, closeModal, cidrToIPs, showConfirm,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
+let user       = null;   // set in DOMContentLoaded, used by module-level functions
 let siteId     = null;
 let siteData   = null;
 let currentVlan = 'all'; // 'all' or vlan id
@@ -30,13 +31,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(location.search);
   siteId = params.get('id');
 
-  const user = getUser();
+  user = getUser();
   document.getElementById('nav-username').textContent = user?.username || '';
-  document.getElementById('nav-role').textContent = user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';
-  document.getElementById('btn-logout').addEventListener('click', () => { if (confirm('Se déconnecter ?')) logout(); });
+  document.getElementById('nav-role').textContent = user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
+  });
 
   if (user?.role === 'admin') {
     document.getElementById('nav-admin-link').classList.remove('hidden');
+  }
+
+  // Viewers cannot access archive page — hide that sidebar link
+  if (user?.role === 'viewer') {
+    document.getElementById('nav-archive-link')?.classList.add('hidden');
   }
 
   // Populate sidebar
@@ -224,8 +232,12 @@ function renderTable() {
     tbody.innerHTML = slice.map(ip => {
       const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
       const vlanLabel = vlan ? `VLAN ${vlan.vlan_id}` : '—';
-      const canReserve = ip.status === 'Libre';
-      const canRelease = ip.status === 'Utilisé' || ip.status === 'Réservée';
+      const isViewer     = user?.role === 'viewer';
+      const canReserve   = !isViewer && ip.status === 'Libre';
+      const canRelease   = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
+      const canToggle    = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
+      const toggleTarget = ip.status === 'Utilisé' ? 'Réservée' : 'Utilisé';
+      const toggleTitle  = ip.status === 'Utilisé' ? 'Passer en Réservée' : 'Passer en Utilisé';
 
       return `
         <tr style="border-bottom:1px solid #21262d;-webkit-transition:background .1s;transition:background .1s;"
@@ -238,10 +250,14 @@ function renderTable() {
           <td style="padding:10px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
             ${canReserve ? `<button class="btn btn-sm btn-ok btn-action" data-id="${ip.id}" data-action="reserve">Réserver</button>` : ''}
             ${canRelease ? `<button class="btn btn-sm btn-d btn-action" data-id="${ip.id}" data-action="release">Libérer</button>` : ''}
-            <button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="rename"
+            ${canToggle ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="toggle-status" data-target="${toggleTarget}" title="${toggleTitle}"
+              style="background:#1c2128;color:#e3b341;border:1px solid #3d3012;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>` : ''}
+            ${!isViewer ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="rename"
               style="background:#1c2128;color:#8b949e;border:1px solid #30363d;">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
+            </button>` : ''}
           </td>
         </tr>
       `;
@@ -263,6 +279,7 @@ function renderTable() {
       if (btn.dataset.action === 'reserve') openReserveModal(ipObj);
       else if (btn.dataset.action === 'release') openReleaseModal(ipObj);
       else if (btn.dataset.action === 'rename') openRenameModal(ipObj);
+      else if (btn.dataset.action === 'toggle-status') toggleStatus(ipObj, btn.dataset.target);
     });
   });
 }
@@ -294,6 +311,21 @@ function openRenameModal(ipObj) {
   document.getElementById('rename-ip-id').value = ipObj.id;
   document.getElementById('rename-hostname').value = ipObj.hostname || '';
   openModal('modal-rename');
+}
+
+// ---------------------------------------------------------------------------
+// Toggle status Utilisé ↔ Réservée
+// ---------------------------------------------------------------------------
+async function toggleStatus(ipObj, targetStatus) {
+  if (!await showConfirm({ title: 'Changer le statut', message: `Changer le statut de ${ipObj.ip_address} en « ${targetStatus} » ?`, confirmText: 'Confirmer' })) return;
+  try {
+    await put(`/api/ips/${encodeURIComponent(ipObj.id)}`, { status: targetStatus });
+    showToast(`${ipObj.ip_address} → ${targetStatus}`, 'success');
+    localStorage.setItem('ipam-ip-change', Date.now());
+    await loadSite();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -365,8 +397,8 @@ function setupModals(user) {
   });
   document.getElementById('btn-cancel-release').addEventListener('click', () => closeModal('modal-release'));
 
-  // --- Request VLAN (non-admin users) ---
-  if (user?.role !== 'admin') {
+  // --- Request VLAN (utilisateur uniquement, pas viewer) ---
+  if (user?.role === 'user') {
     document.getElementById('btn-request-vlan').addEventListener('click', () => openModal('modal-request-vlan'));
     document.getElementById('btn-cancel-request-vlan').addEventListener('click', () => closeModal('modal-request-vlan'));
 
@@ -392,7 +424,48 @@ function setupModals(user) {
     });
   }
 
-  // --- Add VLAN (admin only) ---
+  // --- Add VLAN + Import (admin only) ---
+  if (user?.role === 'admin') {
+    document.getElementById('btn-import')?.addEventListener('click', () => openModal('modal-import'));
+    document.getElementById('btn-cancel-import').addEventListener('click', () => closeModal('modal-import'));
+
+    document.getElementById('form-import').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fileEl  = document.getElementById('import-file');
+      const vlanSel = document.getElementById('import-vlan');
+      const status  = document.getElementById('import-status').value;
+      const btn = e.target.querySelector('button[type=submit]');
+
+      if (!fileEl.files[0]) { showToast('Sélectionnez un fichier Excel', 'warn'); return; }
+      if (!vlanSel.value)   { showToast('Sélectionnez un VLAN', 'warn'); return; }
+
+      btn.disabled = true; btn.textContent = 'Import…';
+      try {
+        const wb = XLSX.read(await fileEl.files[0].arrayBuffer(), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const importRows = rawRows
+          .slice(1)
+          .map(r => ({ ip: String(r[0]).trim(), hostname: String(r[1] ?? '').trim() }))
+          .filter(r => /^\d{1,3}(\.\d{1,3}){3}$/.test(r.ip) && r.hostname !== '');
+
+        if (!importRows.length) { showToast('Aucune ligne valide (IP + Hostname requis, colonnes A et B)', 'warn'); btn.disabled = false; btn.textContent = 'Importer'; return; }
+
+        const res = await post(`/api/sites/${encodeURIComponent(siteId)}/ips/import`, {
+          rows: importRows.map(r => ({ ip: r.ip, hostname: r.hostname, status })),
+        });
+        showToast(`${res.updated} IP(s) mise(s) en ${status}`, 'success');
+        closeModal('modal-import');
+        e.target.reset();
+        await loadSite();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Importer';
+      }
+    });
+  }
+
   if (user?.role === 'admin') {
     document.getElementById('btn-add-vlan').addEventListener('click', () => openModal('modal-add-vlan'));
     document.getElementById('btn-cancel-add-vlan').addEventListener('click', () => closeModal('modal-add-vlan'));
@@ -429,45 +502,6 @@ function setupModals(user) {
       }
     });
 
-    // --- Import Excel ---
-    document.getElementById('btn-import').addEventListener('click', () => openModal('modal-import'));
-    document.getElementById('btn-cancel-import').addEventListener('click', () => closeModal('modal-import'));
-
-    document.getElementById('form-import').addEventListener('submit', async e => {
-      e.preventDefault();
-      const fileEl  = document.getElementById('import-file');
-      const vlanSel = document.getElementById('import-vlan');
-      const status  = document.getElementById('import-status').value;
-      const btn = e.target.querySelector('button[type=submit]');
-
-      if (!fileEl.files[0]) { showToast('Sélectionnez un fichier Excel', 'warn'); return; }
-      if (!vlanSel.value)   { showToast('Sélectionnez un VLAN', 'warn'); return; }
-
-      btn.disabled = true; btn.textContent = 'Import…';
-      try {
-        const wb = XLSX.read(await fileEl.files[0].arrayBuffer(), { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-        const ips = rows
-          .slice(1) // skip header
-          .map(r => String(r[0]).trim())
-          .filter(ip => /^\d{1,3}(\.\d{1,3}){3}$/.test(ip));
-
-        if (!ips.length) { showToast('Aucune IP valide trouvée dans le fichier (colonne A)', 'warn'); btn.disabled = false; btn.textContent = 'Importer'; return; }
-
-        const res = await post(`/api/sites/${encodeURIComponent(siteId)}/ips/import`, {
-          rows: ips.map(ip => ({ ip })),
-        });
-        showToast(`${res.updated} IP(s) mise(s) en Réservée`, 'success');
-        closeModal('modal-import');
-        e.target.reset();
-        await loadSite();
-      } catch (err) {
-        showToast(err.message, 'error');
-      } finally {
-        btn.disabled = false; btn.textContent = 'Importer';
-      }
-    });
   }
 
   // Pagination

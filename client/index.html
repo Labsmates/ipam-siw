@@ -20,6 +20,8 @@ body{background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,-apple-syste
 .btn-p{background:#58a6ff;color:#0d1117}.btn-p:hover{background:#79b8ff}
 .hidden{display:none!important}
 button{-webkit-appearance:none;appearance:none}
+.link-btn{background:none;border:none;color:#58a6ff;font-size:13px;cursor:pointer;padding:0;text-decoration:underline;font-family:inherit}
+.link-btn:hover{color:#79b8ff}
 </style>
 </head>
 <body style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;min-height:100vh;padding:24px;background:radial-gradient(ellipse at 30% 40%,rgba(88,166,255,.06) 0%,transparent 60%),radial-gradient(ellipse at 70% 70%,rgba(63,185,80,.06) 0%,transparent 50%),#0d1117;">
@@ -39,7 +41,8 @@ button{-webkit-appearance:none;appearance:none}
     <p style="font-size:14px;color:#8b949e;margin:0">Gestion des adresses IP</p>
   </div>
 
-  <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+  <!-- ── Formulaire de connexion ── -->
+  <div id="box-login" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
     <form id="login-form" novalidate>
 
       <div style="margin-bottom:16px">
@@ -52,7 +55,7 @@ button{-webkit-appearance:none;appearance:none}
         <div style="position:relative">
           <input id="password" class="inp" type="password" placeholder="••••••••••" autocomplete="current-password" style="padding-right:42px">
           <button type="button" id="toggle-pwd" style="position:absolute;right:11px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);background:none;border:none;color:#8b949e;cursor:pointer;padding:4px;-webkit-appearance:none;appearance:none" title="Afficher/masquer le mot de passe">
-            <svg id="pwd-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
       </div>
@@ -62,14 +65,49 @@ button{-webkit-appearance:none;appearance:none}
       <button id="btn-login" type="submit" class="btn btn-p">Se connecter</button>
 
     </form>
+
+    <div style="text-align:center;margin-top:16px">
+      <button class="link-btn" id="btn-show-register">Créer un compte</button>
+    </div>
   </div>
 
-  <p style="text-align:center;font-size:12px;color:#30363d;margin-top:20px">IPAM SIW v2.0 · JWT · Timeout 20 min</p>
+  <!-- ── Formulaire de demande de compte ── -->
+  <div id="box-register" class="hidden" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:20px">Demande de création de compte</div>
+    <form id="register-form" novalidate>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Nom et Prénom <span style="color:#f85149">*</span></label>
+        <input id="reg-fullname" class="inp" type="text" placeholder="ex: Jean CLOUD" autocomplete="name">
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Identifiant (code IDRH) <span style="color:#f85149">*</span></label>
+        <input id="reg-username" class="inp" type="text" placeholder="ex: PJFY579" autocapitalize="characters" maxlength="7" style="text-transform:uppercase;font-family:monospace;letter-spacing:.05em">
+        <div style="font-size:11px;color:#8b949e;margin-top:5px">Commence par P ou X · 3 lettres · 3 chiffres</div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Mot de passe <span style="color:#f85149">*</span></label>
+        <input id="reg-password" class="inp" type="password" placeholder="Minimum 8 caractères" autocomplete="new-password">
+      </div>
+
+      <div id="register-error" class="hidden" style="font-size:13px;color:#f85149;background:#f8514912;border:1px solid #f8514930;border-radius:7px;padding:9px 12px;margin-bottom:16px"></div>
+
+      <button id="btn-register" type="submit" class="btn btn-p">Envoyer la demande</button>
+
+    </form>
+
+    <div style="text-align:center;margin-top:16px">
+      <button class="link-btn" id="btn-show-login">&#8592; Retour à la connexion</button>
+    </div>
+  </div>
+
+  <p style="text-align:center;font-size:12px;color:#30363d;margin-top:20px">IPAM SIW v2.1 · JWT · Timeout 20 min</p>
   <p style="text-align:center;font-size:11px;color:#484f58;margin-top:4px">Copyright &copy; SWI <span id="footer-year"></span>. Tous droits réservés.</p>
 
 </div>
 
-<script type="module" src="/js/auth.js"></script>
 <script>
   document.getElementById('footer-year').textContent = new Date().getFullYear();
   document.getElementById('toggle-pwd').addEventListener('click', function() {
@@ -79,5 +117,6 @@ button{-webkit-appearance:none;appearance:none}
     this.style.color = isText ? '#8b949e' : '#58a6ff';
   });
 </script>
+<script type="module" src="/js/auth.js"></script>
 </body>
 </html>

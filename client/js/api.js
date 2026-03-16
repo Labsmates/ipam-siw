@@ -266,6 +266,45 @@ export function fmtDate(ts) {
 export function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
 export function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
 
+// ---------------------------------------------------------------------------
+// Confirm dialog (replaces browser confirm())
+// ---------------------------------------------------------------------------
+export function showConfirm({ title = 'Confirmation', message = '', confirmText = 'Confirmer', cancelText = 'Annuler', danger = false } = {}) {
+  return new Promise(resolve => {
+    const _e = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    if (!document.querySelector('#confirm-keyframes')) {
+      const style = document.createElement('style');
+      style.id = 'confirm-keyframes';
+      style.textContent = '@-webkit-keyframes cfade{from{opacity:0;-webkit-transform:scale(.93) translateY(10px);transform:scale(.93) translateY(10px)}to{opacity:1;-webkit-transform:none;transform:none}}@keyframes cfade{from{opacity:0;transform:scale(.93) translateY(10px)}to{opacity:1;transform:none}}';
+      document.head.appendChild(style);
+    }
+
+    const confirmStyle = danger
+      ? 'background:#f8514918;color:#f85149;border:1px solid #f8514940;'
+      : 'background:#58a6ff;color:#0d1117;border:none;';
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9997;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px;';
+    overlay.innerHTML = `
+      <div style="background:#21262d;border:1px solid #30363d;border-radius:12px;padding:28px;width:420px;max-width:95vw;-webkit-box-shadow:0 20px 60px rgba(0,0,0,.6);box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:cfade .18s cubic-bezier(.34,1.56,.64,1);animation:cfade .18s cubic-bezier(.34,1.56,.64,1);">
+        <h3 style="margin:0 0 10px;font-size:16px;font-weight:700;color:#e6edf3;letter-spacing:-0.01em;">${_e(title)}</h3>
+        <p style="margin:0 0 24px;font-size:14px;color:#8b949e;line-height:1.55;">${_e(message)}</p>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
+          <button id="_sc-cancel" style="padding:8px 18px;border-radius:8px;border:1px solid #30363d;background:#21262d;color:#8b949e;font-size:13px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;" onmouseenter="this.style.background='#2d333b';this.style.color='#e6edf3'" onmouseleave="this.style.background='#21262d';this.style.color='#8b949e'">${_e(cancelText)}</button>
+          <button id="_sc-confirm" style="${confirmStyle}padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;">${_e(confirmText)}</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    function cleanup(result) { overlay.remove(); resolve(result); }
+    overlay.querySelector('#_sc-cancel').addEventListener('click', () => cleanup(false));
+    overlay.querySelector('#_sc-confirm').addEventListener('click', () => cleanup(true));
+    overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(false); });
+  });
+}
+
 // Close modals when clicking outside
 document.addEventListener('click', e => {
   if (e.target.classList.contains('modal-overlay')) {

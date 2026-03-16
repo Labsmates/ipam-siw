@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, showToast,
+  get, showToast, showConfirm,
 } from './api.js';
 
 function fmtDate(ts) {
@@ -23,10 +23,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   startInactivityTimer();
 
   const user = getUser();
+  if (user?.role === 'viewer') { window.location.replace('/site.html'); return; }
   document.getElementById('nav-username').textContent = user?.username || '';
   document.getElementById('nav-role').textContent = user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';
-  document.getElementById('btn-logout').addEventListener('click', () => {
-    if (confirm('Se déconnecter ?')) logout();
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
   });
   if (user?.role === 'admin') {
     document.getElementById('nav-admin-link').classList.remove('hidden');

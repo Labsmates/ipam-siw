@@ -128,9 +128,14 @@ th{text-align:left}
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:0;border-bottom:1px solid #30363d;margin-bottom:-1px">
       <button class="admin-tab" data-tab="users">Utilisateurs</button>
       <button class="admin-tab" data-tab="sites">Sites</button>
+      <button class="admin-tab" data-tab="vlans">VLANs</button>
       <button class="admin-tab" data-tab="vlan-requests">
         Demandes VLAN
         <span id="vlan-requests-badge" class="hidden" style="display:inline-block;background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:6px;line-height:18px;vertical-align:middle;"></span>
+      </button>
+      <button class="admin-tab" data-tab="account-requests">
+        Demandes de compte
+        <span id="account-requests-badge" class="hidden" style="display:inline-block;background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:6px;line-height:18px;vertical-align:middle;"></span>
       </button>
       <button class="admin-tab" data-tab="logs">Journaux</button>
       <button class="admin-tab" data-tab="export">Export Excel</button>
@@ -183,6 +188,25 @@ th{text-align:left}
             </tr>
           </thead>
           <tbody id="sites-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="pane-vlans" class="admin-pane hidden">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
+        <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Gestion des VLANs</h3>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
+        <table>
+          <thead>
+            <tr style="background:#0d1117;border-bottom:1px solid #21262d">
+              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Site</th>
+              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">VLAN ID</th>
+              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Réseau</th>
+              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="vlans-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -263,7 +287,7 @@ th{text-align:left}
             <select id="export-filter-status" class="inp" style="font-size:13px;padding:8px 12px;cursor:pointer">
               <option value="all">Tous les statuts</option>
               <option value="Libre">Libre uniquement</option>
-              <option value="Utilisé">Utilisé uniquement</option>
+              <option value="Utilisé" selected>Utilisé uniquement</option>
               <option value="Réservée">Réservée uniquement</option>
             </select>
           </div>
@@ -330,6 +354,34 @@ th{text-align:left}
       </div>
     </div>
 
+    <!-- ── Demandes de compte ── -->
+    <div id="pane-account-requests" class="admin-pane hidden">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Demandes de création de compte</h3>
+          <div style="font-size:12px;color:#8b949e;margin-top:3px">Approuvez ou refusez les demandes soumises depuis la page de connexion</div>
+        </div>
+        <button id="btn-refresh-account-requests" class="btn btn-g btn-sm">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
+          Actualiser
+        </button>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid #30363d">
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Nom &amp; Prénom</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Identifiant</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Date</th>
+              <th style="padding:11px 16px;text-align:right"></th>
+            </tr>
+          </thead>
+          <tbody id="account-requests-tbody"></tbody>
+        </table>
+        <div id="account-requests-empty" class="hidden" style="padding:48px;text-align:center;color:#484f58;font-size:13px;">Aucune demande en attente</div>
+      </div>
+    </div>
+
     <div id="pane-password" class="admin-pane hidden" style="max-width:480px">
       <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0 0 20px">Changer mon mot de passe</h3>
       <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:24px">
@@ -384,6 +436,7 @@ th{text-align:left}
           <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle</label>
           <select id="new-role" class="inp" style="cursor:pointer">
             <option value="user">Utilisateur</option>
+            <option value="viewer">Lecteur (Viewer)</option>
             <option value="admin">Administrateur</option>
           </select>
         </div>
@@ -450,6 +503,54 @@ th{text-align:left}
       </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
         <button type="button" id="btn-cancel-rename-site" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Renommer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal changement de rôle -->
+<div id="modal-change-role" class="modal-overlay hidden">
+  <div class="modal-box" style="width:420px">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Changer le rôle</div>
+        <div id="change-role-subtitle" style="font-size:13px;color:#8b949e;margin-top:3px"></div>
+      </div>
+      <button onclick="closeModal('modal-change-role')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <form id="form-change-role">
+      <input type="hidden" id="change-role-uid">
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:10px">Nouveau rôle <span style="color:#f85149">*</span></label>
+        <div id="change-role-options" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:8px"></div>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-change-role" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Confirmer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal renommer VLAN -->
+<div id="modal-rename-vlan" class="modal-overlay hidden">
+  <div class="modal-box" style="width:420px">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Renommer le VLAN</div>
+        <div id="rename-vlan-subtitle" style="font-size:13px;color:#8b949e;margin-top:3px"></div>
+      </div>
+      <button onclick="closeModal('modal-rename-vlan')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <form id="form-rename-vlan">
+      <input type="hidden" id="rename-vlan-id">
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Nouveau VLAN ID <span style="color:#f85149">*</span></label>
+        <input id="rename-vlan-value" class="inp" type="number" min="1" max="4094" required>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-rename-vlan" class="btn btn-g">Annuler</button>
         <button type="submit" class="btn btn-p"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Renommer</button>
       </div>
     </form>

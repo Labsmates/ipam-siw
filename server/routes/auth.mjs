@@ -2,7 +2,7 @@ import express from 'express';
 import jwt     from 'jsonwebtoken';
 import { getJwtSecret, ensureDefaultAdmin as _ensureAdmin,
          createUser, getUserByUsername, getUserById,
-         listUsers, deleteUser, updatePassword } from '../redis.mjs';
+         listUsers, deleteUser, updatePassword, updateUserRole, addLog } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 import { sha256 } from '../utils.mjs';
 import { loginRateLimit } from '../middleware/security.mjs';
@@ -16,7 +16,7 @@ router.post('/login', loginRateLimit, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
-    const user = await getUserByUsername(username);
+    const user = await getUserByUsername(username.trim().toUpperCase());
     if (!user || user.pw_hash !== sha256(password))
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
     // Succès : réinitialise le compteur de tentatives pour cette IP
@@ -64,8 +64,9 @@ router.post('/users', requireAuth, requireAdmin, async (req, res) => {
     if (!full_name?.trim())
       return res.status(400).json({ error: 'Nom et prénom requis' });
 
-    const validRole = ['admin', 'user'].includes(role) ? role : 'user';
+    const validRole = ['admin', 'user', 'viewer'].includes(role) ? role : 'user';
     const user = await createUser(uname, password, validRole, full_name.trim());
+    await addLog(req.user.username, 'ADD_USER', `Utilisateur « ${uname} » créé (rôle : ${validRole})`, 'ok');
     res.json({ ok: true, id: user.id });
   } catch (e) {
     if (e.code === 'CONFLICT') return res.status(409).json({ error: e.message });
@@ -78,7 +79,25 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     if (req.params.id === req.user.userId)
       return res.status(400).json({ error: 'Impossible de supprimer votre propre compte' });
+    const target = await getUserById(req.params.id);
     await deleteUser(req.params.id);
+    await addLog(req.user.username, 'DEL_USER', `Utilisateur « ${target?.username || req.params.id} » supprimé`, 'danger');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/users/:id/role (admin only)
+router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.body || {};
+    if (!['user', 'viewer'].includes(role))
+      return res.status(400).json({ error: 'Rôle invalide. Valeurs acceptées : user, viewer' });
+    const target = await getUserById(req.params.id);
+    if (!target) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    if (target.role === 'admin')
+      return res.status(403).json({ error: 'Impossible de modifier le rôle d\'un administrateur' });
+    await updateUserRole(req.params.id, role);
+    await addLog(req.user.username, 'CHANGE_ROLE', `${target.username} : ${target.role} → ${role}`, 'info');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -98,6 +117,10 @@ router.put('/users/:id/password', requireAuth, async (req, res) => {
         return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
     }
     await updatePassword(req.params.id, newPassword);
+    if (!isSelf) {
+      const target = await getUserById(req.params.id);
+      await addLog(req.user.username, 'RESET_PASSWORD', `MDP réinitialisé pour « ${target?.username || req.params.id} »`, 'info');
+    }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -112,6 +135,7 @@ router.post('/me/password', requireAuth, async (req, res) => {
     if (!user || user.pw_hash !== sha256(currentPassword || ''))
       return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
     await updatePassword(req.user.userId, newPassword);
+    await addLog(req.user.username, 'CHANGE_PASSWORD', `${req.user.username} a changé son mot de passe`, 'info');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

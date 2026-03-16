@@ -56,7 +56,7 @@ export async function getJwtSecret() {
 export async function ensureDefaultAdmin() {
   const count = await redis.scard('users');
   if (count === 0) {
-    await createUser('admin', process.env.DEFAULT_ADMIN_PASSWORD || 'SWI@IPAM2026$', 'admin');
+    await createUser('ADMIN', process.env.DEFAULT_ADMIN_PASSWORD || 'SWI@IPAM2026$', 'admin');
     console.log('[init] Admin par défaut créé');
   }
 }
@@ -115,6 +115,10 @@ export async function deleteUser(id) {
 
 export async function updatePassword(id, newPassword) {
   await redis.hset(`user:${id}`, 'pw_hash', sha256(newPassword));
+}
+
+export async function updateUserRole(id, role) {
+  await redis.hset(`user:${id}`, 'role', role);
 }
 
 // =============================================================================
@@ -427,7 +431,7 @@ export async function updateIp(id, { status, hostname }) {
 }
 
 export async function importIps(siteId, rows) {
-  // rows = [{ip}] — mark matching IPs in this site as Réservée
+  // rows = [{ip, status?, hostname?}] — mark matching IPs in this site
   if (!rows.length) return 0;
 
   const vlanIds = await redis.smembers(`site:${siteId}:vlans`);
@@ -446,7 +450,9 @@ export async function importIps(siteId, rows) {
   for (const row of rows) {
     const ipId = addrToId[row.ip];
     if (ipId) {
-      pipe2.hset(`ip:${ipId}`, { status: 'Réservée', updated_at: now() });
+      const fields = { status: row.status || 'Utilisé', updated_at: now() };
+      if (row.hostname) fields.hostname = row.hostname;
+      pipe2.hset(`ip:${ipId}`, fields);
       updated++;
     }
   }
@@ -516,4 +522,59 @@ export async function getVlanRequest(id) {
 export async function deleteVlanRequest(id) {
   await redis.del(`vlan_request:${id}`);
   await redis.srem('vlan_requests', String(id));
+}
+
+// =============================================================================
+// ACCOUNT REQUESTS (pending admin approval)
+// =============================================================================
+export async function createUserWithHash(username, pwHash, role, fullName) {
+  const existing = await redis.hget('users:idx:username', username);
+  if (existing) throw Object.assign(new Error('Identifiant déjà utilisé'), { code: 'CONFLICT' });
+  const id = uid();
+  const pipe = redis.pipeline();
+  pipe.hset(`user:${id}`, {
+    username,
+    full_name:  fullName || '',
+    pw_hash:    pwHash,
+    role,
+    created_at: now(),
+  });
+  pipe.hset('users:idx:username', username, id);
+  pipe.sadd('users', id);
+  await pipe.exec();
+  return { id, username, full_name: fullName, role };
+}
+
+export async function createAccountRequest(fullName, username, password) {
+  const id = String(await redis.incr('seq:account_requests'));
+  await redis.hset(`account_request:${id}`, {
+    full_name:  fullName,
+    username:   username.trim().toUpperCase(),
+    pw_hash:    sha256(password),
+    created_at: now(),
+  });
+  await redis.sadd('account_requests', id);
+  return { id: parseInt(id) };
+}
+
+export async function listAccountRequests() {
+  const ids = await redis.smembers('account_requests');
+  if (!ids.length) return [];
+  const pipe = redis.pipeline();
+  ids.forEach(id => pipe.hgetall(`account_request:${id}`));
+  const results = await pipe.exec();
+  return ids
+    .map((id, i) => ({ id: parseInt(id), ...results[i][1] }))
+    .filter(r => r.username)
+    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+}
+
+export async function getAccountRequest(id) {
+  const r = await redis.hgetall(`account_request:${id}`);
+  return r?.username ? { id: parseInt(id), ...r } : null;
+}
+
+export async function deleteAccountRequest(id) {
+  await redis.del(`account_request:${id}`);
+  await redis.srem('account_requests', String(id));
 }

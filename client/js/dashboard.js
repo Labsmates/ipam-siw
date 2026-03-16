@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, showToast, sortSites,
+  get, post, showToast, sortSites, showConfirm,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -15,10 +15,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Nav user info
   const user = getUser();
   document.getElementById('nav-username').textContent = user?.username || '';
-  document.getElementById('nav-role').textContent = user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';
-  document.getElementById('btn-logout').addEventListener('click', () => {
-    if (confirm('Se déconnecter ?')) logout();
+  document.getElementById('nav-role').textContent = user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
   });
+
+  // Viewers don't belong on dashboard.html — send them to site.html
+  if (user?.role === 'viewer') { window.location.replace('/site.html'); return; }
 
   // Admin link visibility
   if (user?.role === 'admin') {
