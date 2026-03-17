@@ -578,6 +578,54 @@ redis-cli SMEMBERS account_requests     # demandes de compte en attente
 
 ---
 
+### Diagnostic et réparation des utilisateurs
+
+```bash
+# Lister tous les IDs utilisateurs enregistrés
+redis-cli SMEMBERS users
+
+# Inspecter un utilisateur par son ID
+redis-cli HGETALL user:<id>
+
+# Vérifier l'index username → id
+redis-cli HGETALL users:idx:username
+
+# Chercher l'ID d'un utilisateur par son login (exact, sensible à la casse)
+redis-cli HGET users:idx:username ADMIN
+redis-cli HGET users:idx:username admin
+
+# Boucle de diagnostic — afficher tous les utilisateurs avec leur username
+for id in $(redis-cli SMEMBERS users); do
+  echo -n "user:$id → "
+  redis-cli HGET user:$id username
+done
+
+# ── Cas : compte ADMIN stocké en minuscules (username: admin) ──
+# Symptôme : connexion avec ADMIN impossible, index retourne (nil)
+# redis-cli HGET users:idx:username ADMIN  → (nil)
+# redis-cli HGET users:idx:username admin  → <uuid>
+
+# 1. Corriger le champ username dans le hash
+redis-cli HSET user:<id> username ADMIN
+
+# 2. Recréer l'entrée dans l'index avec la clé en majuscules
+redis-cli HSET users:idx:username ADMIN <id>
+
+# 3. Supprimer l'ancienne entrée en minuscules
+redis-cli HDEL users:idx:username admin
+
+# 4. Redémarrer le service
+systemctl restart ipam
+
+# Vérification finale
+redis-cli HGET users:idx:username ADMIN   # doit retourner le <uuid>
+redis-cli HGET user:<id> username         # doit retourner ADMIN
+```
+
+> **Note :** Depuis la version v2.1.1, la fonction `ensureDefaultAdmin` détecte et corrige automatiquement ce cas au démarrage du service. Le recours aux commandes manuelles ci-dessus n'est nécessaire que si la v2.1.1 n'est pas encore déployée.
+
+---
+
 ### Sauvegarde et restauration
 
 ```bash

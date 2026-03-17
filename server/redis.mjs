@@ -54,10 +54,27 @@ export async function getJwtSecret() {
 // USERS
 // =============================================================================
 export async function ensureDefaultAdmin() {
-  const count = await redis.scard('users');
-  if (count === 0) {
+  // Check if ADMIN exists in the username index
+  let adminId = await redis.hget('users:idx:username', 'ADMIN');
+
+  // If not found, scan all users to detect a lowercase 'admin' and repair it
+  if (!adminId) {
+    adminId = await redis.hget('users:idx:username', 'admin');
+    if (adminId) {
+      // Repair: normalize username to uppercase and fix the index
+      await redis.hset(`user:${adminId}`, 'username', 'ADMIN');
+      await redis.hset('users:idx:username', 'ADMIN', adminId);
+      await redis.hdel('users:idx:username', 'admin');
+      console.log('[init] Admin username normalisé en majuscules (réparation automatique)');
+      return;
+    }
+  }
+
+  // No admin at all — create one
+  if (!adminId) {
+    const count = await redis.scard('users');
     await createUser('ADMIN', process.env.DEFAULT_ADMIN_PASSWORD || 'SWI@IPAM2026$', 'admin');
-    console.log('[init] Admin par défaut créé');
+    console.log(`[init] Admin par défaut créé (${count} autre(s) utilisateur(s) existant(s))`);
   }
 }
 
