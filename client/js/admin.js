@@ -111,6 +111,10 @@ function renderUsers() {
         </span>
       </td>
       <td style="padding:12px 16px;color:#6e7681;font-size:12px;">${fmtDate(u.created_at)}</td>
+      <td style="padding:12px 16px;text-align:center;">
+        <span style="display:inline-block;background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${u.login_count || 0}</span>
+      </td>
+      <td style="padding:12px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${u.last_login ? fmtDate(u.last_login) : '<span style="color:#484f58">—</span>'}</td>
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
         <button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-reset-pw"
           style="background:#2e2000;color:#d29922;border:1px solid #5c4200;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">

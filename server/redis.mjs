@@ -103,6 +103,13 @@ export async function listUsers() {
     .sort((a, b) => a.created_at?.localeCompare(b.created_at || '') || 0);
 }
 
+export async function incrementLoginCount(id) {
+  const pipe = redis.pipeline();
+  pipe.hincrby(`user:${id}`, 'login_count', 1);
+  pipe.hset(`user:${id}`, 'last_login', now());
+  await pipe.exec();
+}
+
 export async function deleteUser(id) {
   const u = await redis.hgetall(`user:${id}`);
   if (!u?.username) return;

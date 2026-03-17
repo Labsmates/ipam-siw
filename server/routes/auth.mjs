@@ -2,7 +2,8 @@ import express from 'express';
 import jwt     from 'jsonwebtoken';
 import { getJwtSecret, ensureDefaultAdmin as _ensureAdmin,
          createUser, getUserByUsername, getUserById,
-         listUsers, deleteUser, updatePassword, updateUserRole, addLog } from '../redis.mjs';
+         listUsers, deleteUser, updatePassword, updateUserRole, addLog,
+         incrementLoginCount } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 import { sha256 } from '../utils.mjs';
 import { loginRateLimit } from '../middleware/security.mjs';
@@ -21,6 +22,7 @@ router.post('/login', loginRateLimit, async (req, res) => {
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
     // Succès : réinitialise le compteur de tentatives pour cette IP
     res.locals.resetLoginRate?.();
+    incrementLoginCount(user.id).catch(() => {});
     const secret = await getJwtSecret();
     const token  = jwt.sign(
       { userId: user.id, username: user.username, role: user.role },
@@ -44,7 +46,7 @@ router.get('/me', requireAuth, async (req, res) => {
 router.get('/users', requireAuth, requireAdmin, async (_req, res) => {
   try {
     const users = await listUsers();
-    res.json({ users: users.map(u => ({ id: u.id, username: u.username, full_name: u.full_name || '', role: u.role, created_at: u.created_at })) });
+    res.json({ users: users.map(u => ({ id: u.id, username: u.username, full_name: u.full_name || '', role: u.role, created_at: u.created_at, login_count: parseInt(u.login_count || '0', 10), last_login: u.last_login || null })) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
