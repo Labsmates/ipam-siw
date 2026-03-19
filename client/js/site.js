@@ -206,7 +206,13 @@ function getFilteredIPs() {
   let ips = siteData.ips || [];
   if (currentVlan !== 'all') ips = ips.filter(ip => String(ip.vlan_id) === String(currentVlan));
   if (filterStatus !== 'all') ips = ips.filter(ip => ip.status === filterStatus);
-  if (searchIP) ips = ips.filter(ip => ip.ip_address.includes(searchIP));
+  if (searchIP) {
+    const q = searchIP.toLowerCase();
+    ips = ips.filter(ip =>
+      ip.ip_address.includes(searchIP) ||
+      (ip.hostname && ip.hostname.toLowerCase().includes(q))
+    );
+  }
   return sortIPs(ips);
 }
 
