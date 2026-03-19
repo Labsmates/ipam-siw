@@ -17,7 +17,8 @@ const WIN_ROLES = [
   { code: 'IS', label: "Serveurs d'Impression" },
   { code: 'TS', label: 'Serveurs de Rebond' },
   { code: 'FI', label: 'Serveurs Impression & Fichiers' },
-  { code: 'FZ', label: 'Serveurs Fichiers Z' },
+  { code: 'ZN', label: 'Serveurs Fichier / APP' },
+  { code: 'QN', label: 'Serveurs de Qualif' },
   { code: 'AT', label: 'Serveurs STEI' },
   { code: 'SS', label: 'Serveurs de Sauvegarde' },
   { code: 'LD', label: 'Serveurs Landesk' },
@@ -59,11 +60,19 @@ function classifyHostname(raw) {
     return null;
   }
 
-  // Windows: extract role from last dash segment
+  // Windows: extract role from hostname
   // e.g. "758100SN-AP01" → suffix "AP01" → role "AP"
+  // e.g. "758100ZN-FS01" or "758100ZN-AP01" → prefix ends with "ZN" → role "ZN"
+  // e.g. "758100QN-AP01" → prefix ends with "QN" → role "QN"
   const lastDash = label.lastIndexOf('-');
   if (lastDash < 0) return null;
-  const m = label.slice(lastDash + 1).match(/^([A-Z]{2})\d+$/i);
+  const prefix = label.slice(0, lastDash);
+  const suffix = label.slice(lastDash + 1);
+  // ZN/QN: detected by the prefix ending (takes priority over suffix role)
+  if (/ZN$/i.test(prefix)) return { type: 'windows', role: 'ZN' };
+  if (/QN$/i.test(prefix)) return { type: 'windows', role: 'QN' };
+  // General: extract 2-letter role code from suffix
+  const m = suffix.match(/^([A-Z]{2})\d+$/i);
   if (!m) return null;
   return { type: 'windows', role: m[1].toUpperCase() };
 }

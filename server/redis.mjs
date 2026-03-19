@@ -455,24 +455,39 @@ export async function updateIp(id, { status, hostname }) {
 }
 
 export async function importIps(siteId, rows) {
-  // rows = [{ip, status?, hostname?}] — mark matching IPs in this site
+  // rows = [{ip, hostname?, vlan?, status?}]
+  // vlan field (VLAN number string, e.g. "100") is used for precise lookup when provided
   if (!rows.length) return 0;
 
-  const vlanIds = await redis.smembers(`site:${siteId}:vlans`);
+  // Load all VLANs for this site: build vlan_id_str → { dbId, ips:idx map }
+  const vlanDbIds = await redis.smembers(`site:${siteId}:vlans`);
   const pipe1 = redis.pipeline();
-  vlanIds.forEach(vid => pipe1.hgetall(`vlan:${vid}:ips:idx`));
-  const idxResults = await pipe1.exec();
-
-  // Build map: ip_address → ip_id
-  const addrToId = {};
-  idxResults.forEach(([, idx]) => {
-    if (idx) Object.entries(idx).forEach(([addr, ipId]) => { addrToId[addr] = ipId; });
+  vlanDbIds.forEach(vid => {
+    pipe1.hget(`vlan:${vid}`, 'vlan_id');      // vlan number (string)
+    pipe1.hgetall(`vlan:${vid}:ips:idx`);       // ip_address → ip_id
   });
+  const res1 = await pipe1.exec();
+
+  // Build two lookup structures:
+  //   vlanNumToIpIdx : vlan_id_str → { ip_address: ip_id }
+  //   addrToId       : ip_address → ip_id  (fallback, global across all VLANs)
+  const vlanNumToIpIdx = {};
+  const addrToId = {};
+  for (let i = 0; i < vlanDbIds.length; i++) {
+    const vlanNum = res1[i * 2][1];
+    const ipIdx   = res1[i * 2 + 1][1];
+    if (ipIdx) {
+      if (vlanNum) vlanNumToIpIdx[String(vlanNum)] = ipIdx;
+      Object.entries(ipIdx).forEach(([addr, ipId]) => { addrToId[addr] = ipId; });
+    }
+  }
 
   let updated = 0;
   const pipe2 = redis.pipeline();
   for (const row of rows) {
-    const ipId = addrToId[row.ip];
+    // Prefer VLAN-scoped lookup when row.vlan is provided
+    const scopedIdx = row.vlan ? vlanNumToIpIdx[String(row.vlan)] : null;
+    const ipId = (scopedIdx && scopedIdx[row.ip]) || addrToId[row.ip];
     if (ipId) {
       const fields = { status: row.status || 'Utilisé', updated_at: now() };
       if (row.hostname) fields.hostname = row.hostname;

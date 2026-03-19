@@ -333,26 +333,27 @@ async function toggleStatus(ipObj, targetStatus) {
 // ---------------------------------------------------------------------------
 function setupModals(user) {
 
-  // --- Reserve ---
-  document.getElementById('form-reserve').addEventListener('submit', async e => {
-    e.preventDefault();
+  // --- Reserve / Use ---
+  async function _assignIp(status, triggerBtn, loadingText) {
     const id       = document.getElementById('reserve-ip-id').value;
     const hostname = document.getElementById('reserve-hostname').value.trim();
-    const btn = e.target.querySelector('button[type=submit]');
-    btn.disabled = true; btn.textContent = 'Réservation…';
+    triggerBtn.disabled = true; triggerBtn.textContent = loadingText;
     try {
-      await put(`/api/ips/${encodeURIComponent(id)}`, { status: 'Réservée', hostname });
-      showToast('IP réservée avec succès', 'success');
+      await put(`/api/ips/${encodeURIComponent(id)}`, { status, hostname });
+      showToast(status === 'Réservée' ? 'IP réservée avec succès' : 'IP marquée comme utilisée', 'success');
       localStorage.setItem('ipam-ip-change', Date.now());
       closeModal('modal-reserve');
-      e.target.reset();
+      document.getElementById('form-reserve').reset();
       await loadSite();
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
-      btn.disabled = false; btn.textContent = 'Confirmer la réservation';
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = status === 'Réservée' ? 'Réserver' : 'Utiliser';
     }
-  });
+  }
+  document.getElementById('btn-do-reserve').addEventListener('click', function() { _assignIp('Réservée', this, 'Réservation…'); });
+  document.getElementById('btn-do-use').addEventListener('click', function() { _assignIp('Utilisé', this, 'En cours…'); });
   document.getElementById('btn-cancel-reserve').addEventListener('click', () => closeModal('modal-reserve'));
 
   // --- Rename hostname ---
@@ -431,13 +432,10 @@ function setupModals(user) {
 
     document.getElementById('form-import').addEventListener('submit', async e => {
       e.preventDefault();
-      const fileEl  = document.getElementById('import-file');
-      const vlanSel = document.getElementById('import-vlan');
-      const status  = document.getElementById('import-status').value;
+      const fileEl = document.getElementById('import-file');
       const btn = e.target.querySelector('button[type=submit]');
 
       if (!fileEl.files[0]) { showToast('Sélectionnez un fichier Excel', 'warn'); return; }
-      if (!vlanSel.value)   { showToast('Sélectionnez un VLAN', 'warn'); return; }
 
       btn.disabled = true; btn.textContent = 'Import…';
       try {
@@ -446,15 +444,26 @@ function setupModals(user) {
         const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
         const importRows = rawRows
           .slice(1)
-          .map(r => ({ ip: String(r[0]).trim(), hostname: String(r[1] ?? '').trim() }))
-          .filter(r => /^\d{1,3}(\.\d{1,3}){3}$/.test(r.ip) && r.hostname !== '');
+          .map(r => ({
+            ip:       String(r[0] ?? '').trim(),
+            hostname: String(r[1] ?? '').trim(),
+            vlan:     String(r[2] ?? '').trim(),
+          }))
+          .filter(r =>
+            /^\d{1,3}(\.\d{1,3}){3}$/.test(r.ip) &&
+            r.hostname !== '' &&
+            r.vlan !== ''
+          );
 
-        if (!importRows.length) { showToast('Aucune ligne valide (IP + Hostname requis, colonnes A et B)', 'warn'); btn.disabled = false; btn.textContent = 'Importer'; return; }
+        if (!importRows.length) {
+          showToast('Aucune ligne valide — colonnes requises : A = IP, B = Hostname, C = VLAN', 'warn');
+          btn.disabled = false; btn.textContent = 'Importer'; return;
+        }
 
         const res = await post(`/api/sites/${encodeURIComponent(siteId)}/ips/import`, {
-          rows: importRows.map(r => ({ ip: r.ip, hostname: r.hostname, status })),
+          rows: importRows.map(r => ({ ip: r.ip, hostname: r.hostname, vlan: r.vlan, status: 'Utilisé' })),
         });
-        showToast(`${res.updated} IP(s) mise(s) en ${status}`, 'success');
+        showToast(`${res.updated} IP(s) importée(s) — statut Utilisé`, 'success');
         closeModal('modal-import');
         e.target.reset();
         await loadSite();
@@ -541,12 +550,3 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Populate VLAN select in import modal when it opens
-document.addEventListener('click', e => {
-  if (e.target.id === 'btn-import') {
-    const sel = document.getElementById('import-vlan');
-    sel.innerHTML = (siteData?.vlans || []).map(v =>
-      `<option value="${v.id}">VLAN ${v.vlan_id} — ${v.network || '?'}</option>`
-    ).join('');
-  }
-});

@@ -119,10 +119,10 @@ router.put('/users/:id/password', requireAuth, async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
     if (!newPassword || newPassword.length < 8)
       return res.status(400).json({ error: 'Minimum 8 caractères' });
-    if (isSelf) {
+    if (isSelf && !isAdmin) {
       const user = await getUserById(req.params.id);
       if (!user || user.pw_hash !== sha256(currentPassword || ''))
-        return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+        return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
     }
     await updatePassword(req.params.id, newPassword);
     if (!isSelf) {
@@ -141,7 +141,7 @@ router.post('/me/password', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Minimum 8 caractères' });
     const user = await getUserById(req.user.userId);
     if (!user || user.pw_hash !== sha256(currentPassword || ''))
-      return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+      return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
     await updatePassword(req.user.userId, newPassword);
     await addLog(req.user.username, 'CHANGE_PASSWORD', `${req.user.username} a changé son mot de passe`, 'info');
     res.json({ ok: true });
