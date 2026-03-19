@@ -140,6 +140,39 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
       <div id="roles-grid-lin" style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:0;"></div>
     </div>
 
+    <!-- ═══ IP STATISTICS ═══ -->
+    <div style="margin-top:40px;margin-bottom:8px;padding-bottom:12px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <h2 style="color:#e6edf3;font-size:18px;font-weight:700;margin:0;letter-spacing:-.02em;">Statistiques des adresses IP</h2>
+    </div>
+
+    <!-- Global IP counters -->
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:14px;margin-top:20px;margin-bottom:28px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 180px;flex:1 1 180px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;">
+        <div style="font-size:12px;font-weight:600;color:#484f58;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Total IPAM</div>
+        <div id="ip-count-total" style="font-size:32px;font-weight:700;color:#e6edf3;letter-spacing:-.03em;">—</div>
+        <div style="font-size:11px;color:#484f58;margin-top:4px;">adresses gérées</div>
+      </div>
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 180px;flex:1 1 180px;background:#2e0d0d;border:1px solid #6b2020;border-radius:12px;padding:20px;">
+        <div style="font-size:12px;font-weight:600;color:#f8514988;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Utilisées</div>
+        <div id="ip-count-utilise" style="font-size:32px;font-weight:700;color:#f85149;letter-spacing:-.03em;">—</div>
+        <div style="font-size:11px;color:#6b2020;margin-top:4px;">IPs affectées</div>
+      </div>
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 180px;flex:1 1 180px;background:#0d2e1a;border:1px solid #2a5f38;border-radius:12px;padding:20px;">
+        <div style="font-size:12px;font-weight:600;color:#3fb95088;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Libres</div>
+        <div id="ip-count-libre" style="font-size:32px;font-weight:700;color:#3fb950;letter-spacing:-.03em;">—</div>
+        <div style="font-size:11px;color:#2a5f38;margin-top:4px;">IPs disponibles</div>
+      </div>
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 180px;flex:1 1 180px;background:#2e2000;border:1px solid #5c4200;border-radius:12px;padding:20px;">
+        <div style="font-size:12px;font-weight:600;color:#d2992288;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Réservées</div>
+        <div id="ip-count-reserve" style="font-size:32px;font-weight:700;color:#d29922;letter-spacing:-.03em;">—</div>
+        <div style="font-size:11px;color:#5c4200;margin-top:4px;">IPs réservées</div>
+      </div>
+    </div>
+
+    <!-- Per-site / per-VLAN breakdown -->
+    <div id="ip-sites-grid"></div>
+
   </div>
 </main>
 

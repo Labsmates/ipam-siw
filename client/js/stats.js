@@ -175,6 +175,9 @@ async function loadStats() {
     renderRoles('roles-grid-win', winRoleCounts, winTotal, '#58a6ff', '#1f6feb');
     renderRoles('roles-grid-lin', linRoleCounts, linTotal, '#3fb950', '#26a641');
 
+    // Render IP statistics
+    renderIpStats(sites, details);
+
     // Show content
     loadingEl.style.display = 'none';
     contentEl.classList.remove('hidden');
@@ -225,6 +228,108 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB) {
         </div>
       </div>
     `;
+  }).join('');
+}
+
+function renderIpStats(sites, details) {
+  // ── Global totals (aggregated per site by the server) ──────────────────────
+  let gTotal = 0, gUtilise = 0, gLibre = 0, gReserve = 0;
+  for (const s of sites) {
+    gTotal   += s.total   || 0;
+    gUtilise += s.utilise || 0;
+    gLibre   += s.libre   || 0;
+    gReserve += s.reserve || 0;
+  }
+  document.getElementById('ip-count-total').textContent   = gTotal.toLocaleString('fr');
+  document.getElementById('ip-count-utilise').textContent = gUtilise.toLocaleString('fr');
+  document.getElementById('ip-count-libre').textContent   = gLibre.toLocaleString('fr');
+  document.getElementById('ip-count-reserve').textContent = gReserve.toLocaleString('fr');
+
+  // ── Per-site / per-VLAN breakdown ─────────────────────────────────────────
+  const grid = document.getElementById('ip-sites-grid');
+  grid.innerHTML = sites.map((site, idx) => {
+    const detail = details[idx] || {};
+    const vlans  = detail.vlans || [];
+    const ips    = detail.ips   || [];
+
+    // vlan db id → VLAN metadata
+    const vlanMap = {};
+    for (const v of vlans) vlanMap[String(v.id)] = v;
+
+    // Count statuses per VLAN db id
+    const vlanStats = {};
+    for (const ip of ips) {
+      const vid = String(ip.vlan_id);
+      if (!vlanStats[vid]) vlanStats[vid] = { total: 0, utilise: 0, libre: 0, reserve: 0 };
+      vlanStats[vid].total++;
+      if      (ip.status === 'Utilisé')   vlanStats[vid].utilise++;
+      else if (ip.status === 'Libre')     vlanStats[vid].libre++;
+      else if (ip.status === 'Réservée')  vlanStats[vid].reserve++;
+    }
+
+    // Sort VLANs by VLAN number
+    const sortedVids = Object.keys(vlanStats)
+      .sort((a, b) => Number(vlanMap[a]?.vlan_id || 0) - Number(vlanMap[b]?.vlan_id || 0));
+
+    const sTotal = site.total || 0, sUtil = site.utilise || 0;
+    const sLibre = site.libre || 0, sRes  = site.reserve || 0;
+    const sPct   = sTotal ? Math.round(sUtil / sTotal * 100) : 0;
+
+    const rows = sortedVids.map(vid => {
+      const v   = vlanMap[vid] || {};
+      const s   = vlanStats[vid];
+      const pct = s.total ? Math.round(s.utilise / s.total * 100) : 0;
+      return `
+        <tr style="border-bottom:1px solid #21262d;"
+            onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
+          <td style="padding:10px 20px;">
+            <span style="font-size:12px;font-weight:700;color:#58a6ff;background:#0d2240;border:1px solid #1f4080;padding:2px 8px;border-radius:4px;white-space:nowrap;">VLAN ${esc(String(v.vlan_id || vid))}</span>
+          </td>
+          <td style="padding:10px 20px;font-size:12px;color:#8b949e;font-family:'JetBrains Mono',monospace;">${esc(v.network || '—')}</td>
+          <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;">${s.total.toLocaleString('fr')}</td>
+          <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#f85149;text-align:right;">${s.utilise.toLocaleString('fr')}</td>
+          <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#3fb950;text-align:right;">${s.libre.toLocaleString('fr')}</td>
+          <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#d29922;text-align:right;">${s.reserve.toLocaleString('fr')}</td>
+          <td style="padding:10px 20px;text-align:right;">
+            <div style="display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:7px;">
+              <div style="width:64px;height:5px;background:#21262d;border-radius:999px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:-webkit-linear-gradient(left,#f85149,#ff7b72);background:linear-gradient(90deg,#f85149,#ff7b72);border-radius:999px;"></div>
+              </div>
+              <span style="font-size:11px;color:#484f58;min-width:28px;text-align:right;">${pct}%</span>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;margin-bottom:14px;">
+        <!-- Site header -->
+        <div style="padding:14px 20px;background:#1c2128;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:10px;">
+          <span style="font-size:14px;font-weight:700;color:#e6edf3;">${esc(site.name)}</span>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:18px;font-size:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
+            <span style="color:#8b949e;">Total <strong style="color:#e6edf3;">${sTotal.toLocaleString('fr')}</strong></span>
+            <span style="color:#f85149;">Utilisé <strong>${sUtil.toLocaleString('fr')}</strong></span>
+            <span style="color:#3fb950;">Libre <strong>${sLibre.toLocaleString('fr')}</strong></span>
+            <span style="color:#d29922;">Réservée <strong>${sRes.toLocaleString('fr')}</strong></span>
+            <span style="color:#484f58;">Taux <strong style="color:#e6edf3;">${sPct}%</strong></span>
+          </div>
+        </div>
+        <!-- VLAN table -->
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#0d1117;">
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#484f58;text-align:left;border-bottom:1px solid #21262d;white-space:nowrap;">VLAN</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#484f58;text-align:left;border-bottom:1px solid #21262d;">Réseau</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#8b949e;text-align:right;border-bottom:1px solid #21262d;">Total</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#f85149;text-align:right;border-bottom:1px solid #21262d;">Utilisé</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#3fb950;text-align:right;border-bottom:1px solid #21262d;">Libre</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#d29922;text-align:right;border-bottom:1px solid #21262d;">Réservée</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#484f58;text-align:right;border-bottom:1px solid #21262d;">% util.</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }).join('');
 }
 
