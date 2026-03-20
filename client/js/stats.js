@@ -24,8 +24,9 @@ const WIN_ROLES = [
   { code: 'LD', label: 'Serveurs Landesk' },
   { code: 'AF', label: 'Serveurs PROCEF' },
   { code: 'PR', label: 'Serveurs de PRA' },
-  { code: 'AS', label: 'Serveurs de Socle' },
-  { code: 'AA', label: 'Serveurs Rebond SRW' },
+  { code: 'AS',    label: 'Serveurs de Socle' },
+  { code: 'AA',    label: 'Serveurs Rebond SRW' },
+  { code: 'IDRAC', label: 'IDRAC / iLO' },
 ];
 
 // Linux roles — only CFT and Nutanix are tracked
@@ -61,9 +62,11 @@ function classifyHostname(raw) {
   }
 
   // Windows: extract role from hostname
-  // e.g. "758100SN-AP01" → suffix "AP01" → role "AP"
-  // e.g. "758100ZN-FS01" or "758100ZN-AP01" → prefix ends with "ZN" → role "ZN"
-  // e.g. "758100QN-AP01" → prefix ends with "QN" → role "QN"
+  // e.g. "758100SN-AP01"      → suffix "AP01"  → role "AP"
+  // e.g. "758100ZN-FS01"      → prefix ends ZN → role "ZN"
+  // e.g. "758100QN-AP01"      → prefix ends QN → role "QN"
+  // e.g. "IDRAC-924700SN-AP01" or "ILO-924700SN-AP01" → role "IDRAC"
+  if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
   const lastDash = label.lastIndexOf('-');
   if (lastDash < 0) return null;
   const prefix = label.slice(0, lastDash);
