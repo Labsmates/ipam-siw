@@ -114,11 +114,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Search listeners — can be wired before data loads, _statsData guards re-render
   document.getElementById('search-role-win')?.addEventListener('input', e => {
     _searchRoleWin = e.target.value.trim();
-    if (_statsData) renderRoles('roles-grid-win', _statsData.winRoleCounts, _statsData.winTotal, '#58a6ff', '#1f6feb', _searchRoleWin);
+    if (_statsData) renderRoles('roles-grid-win', _statsData.winRoleCounts, _statsData.winTotal, '#58a6ff', '#1f6feb', _searchRoleWin, _statsData.winRoleHostnames);
   });
   document.getElementById('search-role-lin')?.addEventListener('input', e => {
     _searchRoleLin = e.target.value.trim();
-    if (_statsData) renderRoles('roles-grid-lin', _statsData.linRoleCounts, _statsData.linTotal, '#3fb950', '#26a641', _searchRoleLin);
+    if (_statsData) renderRoles('roles-grid-lin', _statsData.linRoleCounts, _statsData.linTotal, '#3fb950', '#26a641', _searchRoleLin, _statsData.linRoleHostnames);
   });
   document.getElementById('search-ip-site')?.addEventListener('input', e => {
     _searchIpSite = e.target.value.trim();
@@ -156,10 +156,12 @@ async function loadStats() {
     // Classify all hostnames — deduplicate: count each hostname only once
     let winTotal  = 0;
     let linTotal  = 0;
-    const winRoleCounts = {};
-    const linRoleCounts = {};
-    WIN_ROLES.forEach(r => { winRoleCounts[r.code] = 0; });
-    LIN_ROLES.forEach(r => { linRoleCounts[r.code] = 0; });
+    const winRoleCounts    = {};
+    const linRoleCounts    = {};
+    const winRoleHostnames = {};
+    const linRoleHostnames = {};
+    WIN_ROLES.forEach(r => { winRoleCounts[r.code] = 0; winRoleHostnames[r.code] = []; });
+    LIN_ROLES.forEach(r => { linRoleCounts[r.code] = 0; linRoleHostnames[r.code] = []; });
     const seen = new Set();
 
     for (const site of details) {
@@ -174,12 +176,19 @@ async function loadStats() {
         if (result.type === 'linux') {
           linTotal++;
           linRoleCounts[result.role] = (linRoleCounts[result.role] || 0) + 1;
+          if (!linRoleHostnames[result.role]) linRoleHostnames[result.role] = [];
+          linRoleHostnames[result.role].push(ip.hostname);
         } else if (result.type === 'windows') {
           winTotal++;
           winRoleCounts[result.role] = (winRoleCounts[result.role] || 0) + 1;
+          if (!winRoleHostnames[result.role]) winRoleHostnames[result.role] = [];
+          winRoleHostnames[result.role].push(ip.hostname);
         }
       }
     }
+    // Sort hostname lists alphabetically
+    Object.values(winRoleHostnames).forEach(arr => arr.sort());
+    Object.values(linRoleHostnames).forEach(arr => arr.sort());
 
     const total = winTotal + linTotal;
 
@@ -193,11 +202,11 @@ async function loadStats() {
     document.getElementById('count-total').textContent   = total.toLocaleString('fr');
 
     // Store for re-render on search change
-    _statsData = { sites, details, winRoleCounts, winTotal, linRoleCounts, linTotal };
+    _statsData = { sites, details, winRoleCounts, winTotal, linRoleCounts, linTotal, winRoleHostnames, linRoleHostnames };
 
     // Render roles grids (apply current search filters in case of refresh)
-    renderRoles('roles-grid-win', winRoleCounts, winTotal, '#58a6ff', '#1f6feb', _searchRoleWin);
-    renderRoles('roles-grid-lin', linRoleCounts, linTotal, '#3fb950', '#26a641', _searchRoleLin);
+    renderRoles('roles-grid-win', winRoleCounts, winTotal, '#58a6ff', '#1f6feb', _searchRoleWin, winRoleHostnames);
+    renderRoles('roles-grid-lin', linRoleCounts, linTotal, '#3fb950', '#26a641', _searchRoleLin, linRoleHostnames);
 
     // Render IP statistics
     renderIpStats(sites, details, _searchIpSite);
@@ -212,11 +221,10 @@ async function loadStats() {
   }
 }
 
-function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '') {
+function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '', roleHostnames = {}) {
   const grid = document.getElementById(gridId);
   const knownRoles = gridId.includes('win') ? WIN_ROLES : LIN_ROLES;
 
-  // Known roles first, then any extra codes found in data
   const knownCodes = new Set(knownRoles.map(r => r.code));
   const extraRoles = Object.keys(roleCounts)
     .filter(code => !knownCodes.has(code) && roleCounts[code] > 0)
@@ -225,7 +233,6 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '') {
 
   let allRoles = [...knownRoles, ...extraRoles];
 
-  // Filter by role code or label
   if (filter) {
     const q = filter.toUpperCase();
     allRoles = allRoles.filter(r => r.code.toUpperCase().includes(q) || r.label.toUpperCase().includes(q));
@@ -238,6 +245,44 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '') {
 
   const maxCount = Math.max(1, ...allRoles.map(r => roleCounts[r.code] || 0));
 
+  // Mode détail (filtre actif) : pleine largeur + liste des serveurs
+  if (filter) {
+    grid.innerHTML = allRoles.map((r, i) => {
+      const count    = roleCounts[r.code] || 0;
+      const pct      = total ? Math.round(count / total * 100) : 0;
+      const hostnames = roleHostnames[r.code] || [];
+      const borderT  = i > 0 ? 'border-top:1px solid #21262d;' : '';
+
+      const serverChips = hostnames.map(h =>
+        `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#c9d1d9;background:#21262d;border:1px solid #30363d;border-radius:4px;padding:2px 8px;white-space:nowrap;">${esc(h)}</span>`
+      ).join('');
+
+      return `
+        <div style="${borderT}width:100%;padding:16px 20px;box-sizing:border-box;">
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:8px;">
+            <div>
+              <span style="font-size:12px;font-weight:700;color:${colorA};background:${colorA}18;border:1px solid ${colorA}44;padding:1px 7px;border-radius:4px;margin-right:8px;">${esc(r.code)}</span>
+              <span style="font-size:13px;color:#e6edf3;">${esc(r.label)}</span>
+            </div>
+            <div style="text-align:right;-ms-flex-negative:0;flex-shrink:0;margin-left:12px;">
+              <span style="font-size:20px;font-weight:700;color:#e6edf3;">${count.toLocaleString('fr')}</span>
+              <span style="font-size:11px;color:#484f58;margin-left:4px;">${pct}%</span>
+            </div>
+          </div>
+          <div style="height:4px;background:#21262d;border-radius:999px;overflow:hidden;margin-bottom:${hostnames.length ? '14px' : '0'};">
+            <div style="height:100%;width:100%;background:-webkit-linear-gradient(left,${colorA},${colorB});background:linear-gradient(90deg,${colorA},${colorB});border-radius:999px;"></div>
+          </div>
+          ${hostnames.length ? `
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:6px;">
+            ${serverChips}
+          </div>` : `<div style="font-size:12px;color:#484f58;font-style:italic;">Aucun serveur trouvé pour ce rôle</div>`}
+        </div>
+      `;
+    }).join('');
+    return;
+  }
+
+  // Mode résumé (sans filtre) : grille 2 colonnes
   grid.innerHTML = allRoles.map((r, i) => {
     const count  = roleCounts[r.code] || 0;
     const pct    = total ? Math.round(count / total * 100) : 0;
