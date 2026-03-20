@@ -45,36 +45,36 @@ function classifyHostname(raw) {
   const lower = raw.toLowerCase();
 
   const isWindows = lower.endsWith(WIN_DOMAIN);
-  // Match either Linux domain (longest first to avoid partial match)
-  const isLinux = LIN_DOMAINS.some(d => lower.endsWith(d));
-  if (!isWindows && !isLinux) return null;
+  const isLinux   = LIN_DOMAINS.some(d => lower.endsWith(d));
 
-  const label = raw.split('.')[0]; // first DNS label, e.g. "758100SN-AP01" or "bxXG01"
+  // If a domain suffix is present but matches neither Windows nor Linux → ignore
+  const hasDot = raw.includes('.');
+  if (hasDot && !isWindows && !isLinux) return null;
+
+  const label = raw.split('.')[0]; // first DNS label (or full name if no dot)
 
   if (isLinux) {
-    // Nutanix: hostname starts with "SP" (covers SPHY and other SP* variants)
+    // Nutanix: hostname starts with "SP"
     if (/^SP/i.test(label)) return { type: 'linux', role: 'SPHY' };
     // CFT: [2-letter prefix] + XG + digits, e.g. bxXG01
-    const m = label.match(/^[A-Z]{2}XG\d+$/i);
-    if (m) return { type: 'linux', role: 'XG' };
-    // All other Linux hostnames are ignored (not tracked)
+    if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
     return null;
   }
 
-  // Windows: extract role from hostname
-  // e.g. "758100SN-AP01"      → suffix "AP01"  → role "AP"
-  // e.g. "758100ZN-FS01"      → prefix ends ZN → role "ZN"
-  // e.g. "758100QN-AP01"      → prefix ends QN → role "QN"
-  // e.g. "IDRAC-924700SN-AP01" or "ILO-924700SN-AP01" → role "IDRAC"
+  // Windows classification — works for full FQDN (*.dct.adt.local)
+  // AND for short names stored without domain suffix (e.g. "758100SN-AP01")
+  // e.g. "758100SN-AP01"        → suffix "AP01"  → role "AP"
+  // e.g. "758100ZN-FS01"        → prefix ends ZN → role "ZN"
+  // e.g. "758100QN-AP01"        → prefix ends QN → role "QN"
+  // e.g. "IDRAC-924700SN-AP01"  → starts IDRAC-  → role "IDRAC"
+  // e.g. "ILO-924700SN-AP01"    → starts ILO-    → role "IDRAC"
   if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
   const lastDash = label.lastIndexOf('-');
   if (lastDash < 0) return null;
   const prefix = label.slice(0, lastDash);
   const suffix = label.slice(lastDash + 1);
-  // ZN/QN: detected by the prefix ending (takes priority over suffix role)
   if (/ZN$/i.test(prefix)) return { type: 'windows', role: 'ZN' };
   if (/QN$/i.test(prefix)) return { type: 'windows', role: 'QN' };
-  // General: extract 2-letter role code from suffix
   const m = suffix.match(/^([A-Z]{2})\d+$/i);
   if (!m) return null;
   return { type: 'windows', role: m[1].toUpperCase() };
