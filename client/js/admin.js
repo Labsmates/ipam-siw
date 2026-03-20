@@ -251,6 +251,7 @@ async function confirmDeleteUser(uid, uname) {
 // SITES
 // =============================================================================
 let allSites = [];
+let searchSite = '';
 
 async function loadSites() {
   try {
@@ -262,11 +263,13 @@ async function loadSites() {
 
 function renderSites() {
   const tbody = document.getElementById('sites-tbody');
-  if (!allSites.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun site</td></tr>';
+  const q = searchSite.toLowerCase();
+  const filtered = q ? allSites.filter(s => s.name.toLowerCase().includes(q)) : allSites;
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
     return;
   }
-  tbody.innerHTML = allSites.map(s => `
+  tbody.innerHTML = filtered.map(s => `
     <tr style="border-bottom:1px solid #21262d;"
         onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
       <td style="padding:12px 16px;color:#e6edf3;font-weight:600;">${esc(s.name)}</td>
@@ -298,6 +301,12 @@ function renderSites() {
 }
 
 function setupSiteModals() {
+  // Search site
+  document.getElementById('search-site')?.addEventListener('input', e => {
+    searchSite = e.target.value.trim();
+    renderSites();
+  });
+
   // Create site
   document.getElementById('btn-create-site').addEventListener('click', () => openModal('modal-create-site'));
   document.getElementById('btn-cancel-create-site').addEventListener('click', () => closeModal('modal-create-site'));
