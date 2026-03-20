@@ -88,6 +88,7 @@ const USERNAME_RE = /^[PX][A-Z]{3}\d{3}$/;
 
 function renderUsers() {
   const currentUser = getUser();
+  const isSuperAdmin = currentUser?.username?.toLowerCase() === 'admin';
   const tbody = document.getElementById('users-tbody');
   if (!allUsers.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8b949e;padding:32px;">Aucun utilisateur</td></tr>';
@@ -100,7 +101,17 @@ function renderUsers() {
   };
   const roleLabel = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
 
-  tbody.innerHTML = allUsers.map(u => `
+  tbody.innerHTML = allUsers.map(u => {
+    const isOwnAccount  = u.id === currentUser?.id;
+    const isSuperAcct   = u.username?.toLowerCase() === 'admin';
+    // Réinitialiser MDP : super admin → tous / admin normal → son compte uniquement
+    const showReset     = isSuperAdmin || isOwnAccount;
+    // Supprimer : super admin uniquement, pas sur soi-même, pas sur le compte admin
+    const showDelete    = isSuperAdmin && !isOwnAccount && !isSuperAcct;
+    // Changer le rôle : super admin uniquement, pas sur le compte admin
+    const showRole      = isSuperAdmin && !isSuperAcct;
+
+    return `
     <tr style="border-bottom:1px solid #21262d;"
         onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
       <td style="padding:12px 16px;color:#e6edf3;font-weight:700;font-family:monospace;letter-spacing:.04em;">${esc(u.username)}</td>
@@ -116,23 +127,21 @@ function renderUsers() {
       </td>
       <td style="padding:12px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${u.last_login ? fmtDate(u.last_login) : '<span style="color:#484f58">—</span>'}</td>
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
-        <button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-reset-pw"
+        ${showReset ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-reset-pw"
           style="background:#2e2000;color:#d29922;border:1px solid #5c4200;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Réinitialiser MDP
-        </button>
-        ${(u.role !== 'admin' || currentUser?.username?.toLowerCase() === 'admin') && u.username?.toLowerCase() !== 'admin' ? `
-        <button data-uid="${u.id}" data-uname="${esc(u.username)}" data-urole="${u.role}" class="btn-change-role"
+        </button>` : ''}
+        ${showRole ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" data-urole="${u.role}" class="btn-change-role"
           style="background:#1c2128;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Changer le rôle
         </button>` : ''}
-        ${u.id !== currentUser?.id ? `
-        <button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-del-user"
+        ${showDelete ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-del-user"
           style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Supprimer
         </button>` : ''}
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 
   document.querySelectorAll('.btn-reset-pw').forEach(btn => {
     btn.addEventListener('click', () => openResetPwModal(btn.dataset.uid, btn.dataset.uname));
