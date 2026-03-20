@@ -356,33 +356,6 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
   </div>
 </div>
 
-<!-- Add VLAN -->
-<div id="modal-vlan-desc" class="modal-overlay hidden">
-  <div class="modal-box" style="max-width:420px">
-    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
-      <div>
-        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Description du VLAN</div>
-        <div id="vlan-desc-label" style="font-size:13px;color:#8b949e;margin-top:3px"></div>
-      </div>
-      <button onclick="closeModal('modal-vlan-desc')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <form id="form-vlan-desc">
-      <input type="hidden" id="vlan-desc-vid">
-      <div style="margin-bottom:18px">
-        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle / Description</label>
-        <input id="vlan-desc-input" class="inp" placeholder="ex : Serveurs de fichiers ZN" maxlength="120">
-        <div style="font-size:11px;color:#484f58;margin-top:5px">Laisser vide pour supprimer la description</div>
-      </div>
-      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
-        <button type="button" id="btn-cancel-vlan-desc" class="btn btn-g">Annuler</button>
-        <button type="submit" class="btn btn-ok">Enregistrer</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <div id="modal-add-vlan" class="modal-overlay hidden">
   <div class="modal-box">
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">

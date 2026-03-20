@@ -165,8 +165,6 @@ function renderVlanTabs() {
   const vlans   = siteData.vlans || [];
   const tabsEl  = document.getElementById('vlan-tabs');
   const infoEl  = document.getElementById('vlan-info');
-  const isAdmin = user?.role === 'admin';
-
   const tabs = [
     { id: 'all', label: 'Tous', network: '', description: '' },
     ...vlans.map(v => ({ id: v.id, vlan_id: v.vlan_id, label: `VLAN ${v.vlan_id}`, network: v.network || '', description: v.description || '', v })),
@@ -180,16 +178,8 @@ function renderVlanTabs() {
 
     let descLine = '';
     if (t.id !== 'all') {
-      const descText = t.description
-        ? `<span style="font-size:10px;color:#8b949e;font-weight:400;">${esc(t.description)}</span>`
-        : (isAdmin ? `<span style="font-size:10px;color:#6e7681;font-style:italic;">Ajouter un rôle…</span>` : '');
-      const pencil = isAdmin
-        ? `<span class="btn-edit-vlan-desc" data-vid="${t.id}" style="display:inline-flex;align-items:center;margin-left:5px;color:#6e7681;cursor:pointer;vertical-align:middle;line-height:1;" title="Modifier la description">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-           </span>`
-        : '';
-      if (descText || pencil) {
-        descLine = `<span style="display:block;line-height:1.4;margin-top:2px;">${descText}${pencil}</span>`;
+      if (t.description) {
+        descLine = `<span style="display:block;line-height:1.4;margin-top:2px;"><span style="font-size:10px;color:#8b949e;font-weight:400;">${esc(t.description)}</span></span>`;
       }
     }
 
@@ -216,23 +206,6 @@ function renderVlanTabs() {
     });
   });
 
-  // Pencil — edit description (admin only)
-  tabsEl.querySelectorAll('.btn-edit-vlan-desc').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const vid = btn.dataset.vid;
-      const vlan = vlans.find(v => String(v.id) === String(vid));
-      if (!vlan) return;
-      openVlanDescModal(vid, vlan.vlan_id, vlan.description || '');
-    });
-  });
-}
-
-function openVlanDescModal(vid, vlanId, currentDesc) {
-  document.getElementById('vlan-desc-vid').value   = vid;
-  document.getElementById('vlan-desc-label').textContent = `VLAN ${vlanId}`;
-  document.getElementById('vlan-desc-input').value  = currentDesc;
-  openModal('modal-vlan-desc');
 }
 
 // ---------------------------------------------------------------------------
@@ -578,22 +551,6 @@ function setupModals(user) {
 
   }
 
-  // Modal description VLAN (admin)
-  document.getElementById('btn-cancel-vlan-desc')?.addEventListener('click', () => closeModal('modal-vlan-desc'));
-  document.getElementById('form-vlan-desc')?.addEventListener('submit', async e => {
-    e.preventDefault();
-    const vid  = document.getElementById('vlan-desc-vid').value;
-    const desc = document.getElementById('vlan-desc-input').value.trim();
-    const btn  = e.target.querySelector('button[type=submit]');
-    btn.disabled = true; btn.textContent = 'Enregistrement…';
-    try {
-      await put(`/api/vlans/${encodeURIComponent(vid)}`, { description: desc });
-      showToast('Description mise à jour', 'success');
-      closeModal('modal-vlan-desc');
-      await loadSite();
-    } catch (err) { showToast(err.message, 'error'); }
-    finally { btn.disabled = false; btn.textContent = 'Enregistrer'; }
-  });
 
   // Pagination
   document.getElementById('btn-prev').addEventListener('click', () => { page--; renderTable(); });
