@@ -307,6 +307,28 @@ function setupSiteModals() {
     renderSites();
   });
 
+  // Cleanup broadcast IPs
+  document.getElementById('btn-cleanup-broadcast').addEventListener('click', async () => {
+    const ok = await showConfirm({
+      title: 'Supprimer les IPs broadcast',
+      message: 'Cette action supprime définitivement toutes les adresses broadcast (par adresse calculée ou hostname "Broadcast") de tous les sites. Continuer ?',
+      confirmText: 'Supprimer',
+      danger: true,
+    });
+    if (!ok) return;
+    const btn = document.getElementById('btn-cleanup-broadcast');
+    btn.disabled = true; btn.textContent = 'Nettoyage…';
+    try {
+      const res = await post('/api/sites/cleanup-broadcast', {});
+      showToast(`${res.deleted} IP(s) broadcast supprimée(s)`, res.deleted > 0 ? 'success' : 'info');
+      await loadSites();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> Supprimer IPs broadcast';
+    }
+  });
+
   // Create site
   document.getElementById('btn-create-site').addEventListener('click', () => openModal('modal-create-site'));
   document.getElementById('btn-cancel-create-site').addEventListener('click', () => closeModal('modal-create-site'));

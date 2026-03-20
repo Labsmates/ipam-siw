@@ -479,6 +479,52 @@ export async function updateIp(id, { status, hostname }) {
   await redis.hset(`ip:${id}`, patch);
 }
 
+// Supprime définitivement toutes les IPs broadcast de tous les sites
+// (adresse = broadcast calculée du VLAN, ou hostname contient 'broadcast')
+export async function cleanupBroadcastIps() {
+  const siteIds = await redis.smembers('sites');
+  let deleted = 0;
+  const report = [];
+
+  for (const siteId of siteIds) {
+    const vlanIds = await redis.smembers(`site:${siteId}:vlans`);
+    for (const vlanId of vlanIds) {
+      const vlan = await redis.hgetall(`vlan:${vlanId}`);
+      if (!vlan?.vlan_id) continue;
+
+      const bcast = computeBroadcast(vlan.network, vlan.mask);
+      const ipIds = await redis.smembers(`vlan:${vlanId}:ips`);
+      if (!ipIds.length) continue;
+
+      const pipe = redis.pipeline();
+      ipIds.forEach(ipId => pipe.hgetall(`ip:${ipId}`));
+      const results = await pipe.exec();
+
+      const toDelete = [];
+      results.forEach(([, ip], i) => {
+        if (!ip?.ip_address) return;
+        const isBcastAddr = bcast && ip.ip_address === bcast;
+        const isBcastHost = ip.hostname && ip.hostname.trim().toLowerCase().includes('broadcast');
+        if (isBcastAddr || isBcastHost) toDelete.push({ ipId: ipIds[i], ip });
+      });
+
+      if (!toDelete.length) continue;
+
+      const pipe2 = redis.pipeline();
+      for (const { ipId, ip } of toDelete) {
+        pipe2.del(`ip:${ipId}`);
+        pipe2.srem(`vlan:${vlanId}:ips`, ipId);
+        pipe2.hdel(`vlan:${vlanId}:ips:idx`, ip.ip_address);
+        deleted++;
+        report.push(`${ip.ip_address} (VLAN ${vlan.vlan_id})`);
+      }
+      await pipe2.exec();
+    }
+  }
+
+  return { deleted, report };
+}
+
 export async function importIps(siteId, rows) {
   // rows = [{ip, hostname?, vlan?, status?}]
   // vlan field (VLAN number string, e.g. "100") is used for precise lookup when provided

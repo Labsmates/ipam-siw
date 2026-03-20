@@ -1,6 +1,6 @@
 import express from 'express';
 import { createSite, getSite, listSitesWithStats, getSiteData,
-         renameSite, deleteSite, createVlan, importIps, addLog } from '../redis.mjs';
+         renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -92,6 +92,15 @@ router.post('/:id/ips/import', requireAuth, async (req, res) => {
     const updated = await importIps(req.params.id, rows);
     await addLog(req.user.username, 'IMPORT', `${updated} IP(s) importée(s) sur site #${req.params.id}`, 'ok');
     res.json({ ok: true, updated });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/sites/cleanup-broadcast (admin)
+router.post('/cleanup-broadcast', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await cleanupBroadcastIps();
+    await addLog(req.user.username, 'CLEANUP', `${result.deleted} IP(s) broadcast supprimée(s)`, 'ok');
+    res.json({ ok: true, deleted: result.deleted, report: result.report });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
