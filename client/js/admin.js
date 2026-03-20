@@ -362,6 +362,8 @@ async function confirmDeleteSite(sid, sname) {
 // VLANS
 // =============================================================================
 let allVlans = [];
+let searchVlanId   = '';
+let searchVlanSite = '';
 
 async function loadVlans() {
   try {
@@ -382,11 +384,18 @@ async function loadVlans() {
 
 function renderVlans() {
   const tbody = document.getElementById('vlans-tbody');
-  if (!allVlans.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun VLAN</td></tr>';
+  const qId   = searchVlanId.toLowerCase();
+  const qSite = searchVlanSite.toLowerCase();
+  const filtered = allVlans.filter(v =>
+    (!qId   || String(v.vlan_id).includes(qId)) &&
+    (!qSite || v.site_name.toLowerCase().includes(qSite))
+  );
+  if (!filtered.length) {
+    const msg = (qId || qSite) ? 'Aucun VLAN ne correspond à la recherche' : 'Aucun VLAN';
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">${msg}</td></tr>`;
     return;
   }
-  tbody.innerHTML = allVlans.map(v => `
+  tbody.innerHTML = filtered.map(v => `
     <tr style="border-bottom:1px solid #21262d;"
         onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
       <td style="padding:12px 16px;color:#8b949e;font-size:13px;">${esc(v.site_name)}</td>
@@ -414,6 +423,16 @@ function renderVlans() {
 }
 
 function setupVlanModals() {
+  // Search
+  document.getElementById('search-vlan-id')?.addEventListener('input', e => {
+    searchVlanId = e.target.value.trim();
+    renderVlans();
+  });
+  document.getElementById('search-vlan-site')?.addEventListener('input', e => {
+    searchVlanSite = e.target.value.trim();
+    renderVlans();
+  });
+
   document.getElementById('btn-cancel-rename-vlan').addEventListener('click', () => closeModal('modal-rename-vlan'));
   document.getElementById('form-rename-vlan').addEventListener('submit', async e => {
     e.preventDefault();

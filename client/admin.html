@@ -172,8 +172,14 @@ th{text-align:left}
     </div>
 
     <div id="pane-sites" class="admin-pane hidden">
-      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
         <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Gestion des sites</h3>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:340px;">
+          <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;">
+            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="search-site" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px" placeholder="Rechercher un site…">
+          </div>
+        </div>
         <button id="btn-create-site" class="btn btn-p btn-sm">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nouveau site
@@ -195,8 +201,18 @@ th{text-align:left}
     </div>
 
     <div id="pane-vlans" class="admin-pane hidden">
-      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
         <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Gestion des VLANs</h3>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:480px;">
+          <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;">
+            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="search-vlan-id" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px" placeholder="Rechercher un VLAN ID…">
+          </div>
+          <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;">
+            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="search-vlan-site" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px" placeholder="Rechercher un site…">
+          </div>
+        </div>
       </div>
       <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
         <table>

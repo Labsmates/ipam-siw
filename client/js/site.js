@@ -221,7 +221,9 @@ function getBroadcastSet() {
 // ---------------------------------------------------------------------------
 function getFilteredIPs() {
   const broadcasts = getBroadcastSet();
-  let ips = (siteData.ips || []).filter(ip => !broadcasts.has(ip.ip_address));
+  let ips = (siteData.ips || []).filter(ip =>
+    !broadcasts.has(ip.ip_address) && ip.hostname?.toLowerCase() !== 'broadcast'
+  );
   if (currentVlan !== 'all') ips = ips.filter(ip => String(ip.vlan_id) === String(currentVlan));
   if (filterStatus !== 'all') ips = ips.filter(ip => ip.status === filterStatus);
   if (searchIP) {

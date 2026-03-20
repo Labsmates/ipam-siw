@@ -292,6 +292,7 @@ export async function getSiteData(id) {
     .map((ipId, i) => ({ id: parseInt(ipId), ...ipResults[i][1] }))
     .filter(ip => {
       if (!ip.ip_address) return false;
+      if (ip.hostname?.toLowerCase() === 'broadcast') return false;
       const bcast = broadcastByVlan[String(ip.vlan_id)];
       return !bcast || ip.ip_address !== bcast;
     });
