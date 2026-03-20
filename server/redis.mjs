@@ -292,9 +292,12 @@ export async function getSiteData(id) {
     .map((ipId, i) => ({ id: parseInt(ipId), ...ipResults[i][1] }))
     .filter(ip => {
       if (!ip.ip_address) return false;
-      if (ip.hostname?.toLowerCase() === 'broadcast') return false;
+      // Masquer si hostname contient "broadcast" (insensible casse, espaces ignorés)
+      if (ip.hostname && ip.hostname.trim().toLowerCase().includes('broadcast')) return false;
+      // Masquer si l'adresse IP correspond à l'adresse de broadcast calculée du VLAN
       const bcast = broadcastByVlan[String(ip.vlan_id)];
-      return !bcast || ip.ip_address !== bcast;
+      if (bcast && ip.ip_address === bcast) return false;
+      return true;
     });
 
   return {
@@ -506,8 +509,9 @@ export async function importIps(siteId, rows) {
   let updated = 0;
   const pipe2 = redis.pipeline();
   for (const row of rows) {
-    // Ignorer les adresses de broadcast
+    // Ignorer les adresses de broadcast (par adresse ou par hostname)
     if (broadcastSet.has(row.ip)) continue;
+    if (row.hostname && row.hostname.trim().toLowerCase().includes('broadcast')) continue;
     // Prefer VLAN-scoped lookup when row.vlan is provided
     const scopedIdx = row.vlan ? vlanNumToIpIdx[String(row.vlan)] : null;
     const ipId = (scopedIdx && scopedIdx[row.ip]) || addrToId[row.ip];

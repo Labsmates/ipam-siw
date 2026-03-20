@@ -111,20 +111,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     _refreshTimer = setTimeout(() => loadStats(), 800);
   });
 
-  // Search listeners — can be wired before data loads, _statsData guards re-render
-  document.getElementById('search-role-win')?.addEventListener('input', e => {
-    _searchRoleWin = e.target.value.trim();
-    if (_statsData) renderRoles('roles-grid-win', _statsData.winRoleCounts, _statsData.winTotal, '#58a6ff', '#1f6feb', _searchRoleWin, _statsData.winRoleHostnames);
-  });
-  document.getElementById('search-role-lin')?.addEventListener('input', e => {
-    _searchRoleLin = e.target.value.trim();
-    if (_statsData) renderRoles('roles-grid-lin', _statsData.linRoleCounts, _statsData.linTotal, '#3fb950', '#26a641', _searchRoleLin, _statsData.linRoleHostnames);
-  });
-  document.getElementById('search-ip-site')?.addEventListener('input', e => {
-    _searchIpSite = e.target.value.trim();
-    if (_statsData) renderIpStats(_statsData.sites, _statsData.details, _searchIpSite);
-  });
-
   await loadStats();
 });
 
@@ -214,6 +200,23 @@ async function loadStats() {
     // Show content
     loadingEl.style.display = 'none';
     contentEl.classList.remove('hidden');
+
+    // Wire search inputs once (first load only)
+    if (!_statsData._listenersWired) {
+      _statsData._listenersWired = true;
+      document.getElementById('search-role-win')?.addEventListener('input', e => {
+        _searchRoleWin = e.target.value.trim();
+        renderRoles('roles-grid-win', _statsData.winRoleCounts, _statsData.winTotal, '#58a6ff', '#1f6feb', _searchRoleWin, _statsData.winRoleHostnames);
+      });
+      document.getElementById('search-role-lin')?.addEventListener('input', e => {
+        _searchRoleLin = e.target.value.trim();
+        renderRoles('roles-grid-lin', _statsData.linRoleCounts, _statsData.linTotal, '#3fb950', '#26a641', _searchRoleLin, _statsData.linRoleHostnames);
+      });
+      document.getElementById('search-ip-site')?.addEventListener('input', e => {
+        _searchIpSite = e.target.value.trim();
+        renderIpStats(_statsData.sites, _statsData.details, _searchIpSite);
+      });
+    }
 
   } catch (err) {
     showToast(err.message, 'error');
