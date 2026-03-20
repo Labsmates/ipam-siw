@@ -59,7 +59,11 @@ export async function api(method, path, body) {
     throw new Error('Erreur réseau — serveur inaccessible');
   }
 
-  if (res.status === 401) { logout(); return; }
+  if (res.status === 401) {
+    const data = await res.json().catch(() => ({}));
+    if (token) { logout(); return; }
+    throw new Error(data.error || 'Identifiant ou mot de passe incorrect');
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
