@@ -356,12 +356,13 @@ export async function createVlan(siteId, vlanIdStr, network, mask, gateway, ipLi
     vlanDbId = String(await redis.incr('seq:vlans'));
     const pipe = redis.pipeline();
     pipe.hset(`vlan:${vlanDbId}`, {
-      site_id:    String(siteId),
-      vlan_id:    vlanIdStr,
-      network:    network  || '',
-      mask:       mask     || '',
-      gateway:    gateway  || '',
-      created_at: now(),
+      site_id:     String(siteId),
+      vlan_id:     vlanIdStr,
+      network:     network  || '',
+      mask:        mask     || '',
+      gateway:     gateway  || '',
+      created_at:  now(),
+      description: getVlanAutoDesc(vlanIdStr),
     });
     pipe.hset(`site:${siteId}:vlans:idx`, vlanIdStr, vlanDbId);
     pipe.sadd(`site:${siteId}:vlans`, vlanDbId);
@@ -407,6 +408,42 @@ export async function createVlan(siteId, vlanIdStr, network, mask, gateway, ipLi
   }
 
   return { vlanDbId: parseInt(vlanDbId), added };
+}
+
+// ---------------------------------------------------------------------------
+// Auto-description VLAN basée sur le VLAN ID
+// ---------------------------------------------------------------------------
+const VLAN_DESC_MAP = {
+  202: 'METIER', 1461: 'METIER', 50: 'METIER', 42: 'METIER',
+  43:  'METIER', 403:  'METIER', 1491: 'METIER',
+  203: 'ADMIN',  1460: 'ADMIN',  1490: 'ADMIN',
+  1499: 'IPMI',  600:  'IPMI',   1479: 'IPMI',
+  37:  'PROCEF', 300:  'PROCEF',
+};
+
+export function getVlanAutoDesc(vlanId) {
+  return VLAN_DESC_MAP[parseInt(vlanId)] || 'AUTRES';
+}
+
+export async function autoTagAllVlans() {
+  const keys = await redis.keys('vlan:*');
+  const vlanKeys = keys.filter(k => /^vlan:\d+$/.test(k));
+  if (!vlanKeys.length) return 0;
+
+  const pipe1 = redis.pipeline();
+  vlanKeys.forEach(k => pipe1.hgetall(k));
+  const results = await pipe1.exec();
+
+  const pipe2 = redis.pipeline();
+  let updated = 0;
+  for (let i = 0; i < vlanKeys.length; i++) {
+    const vlan = results[i][1];
+    if (!vlan?.vlan_id || vlan.description) continue;
+    pipe2.hset(vlanKeys[i], 'description', getVlanAutoDesc(vlan.vlan_id));
+    updated++;
+  }
+  if (updated > 0) await pipe2.exec();
+  return updated;
 }
 
 export async function getVlan(id) {

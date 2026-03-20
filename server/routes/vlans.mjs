@@ -1,8 +1,17 @@
 import express from 'express';
-import { getVlan, updateVlan, deleteVlan, addLog } from '../redis.mjs';
+import { getVlan, updateVlan, deleteVlan, autoTagAllVlans, addLog } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
+
+// POST /api/vlans/auto-tag (admin) — re-tag tous les VLANs sans description
+router.post('/auto-tag', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const count = await autoTagAllVlans();
+    await addLog(req.user.username, 'AUTO_TAG_VLANS', `${count} VLAN(s) auto-tagués`, 'info');
+    res.json({ ok: true, count });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // PUT /api/vlans/:id (admin)
 router.put('/:id', requireAuth, requireAdmin, async (req, res) => {

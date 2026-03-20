@@ -11,6 +11,7 @@ import vlanRequestsRouter    from './routes/vlan_requests.mjs';
 import accountRequestsRouter from './routes/account_requests.mjs';
 import { securityHeaders } from './middleware/security.mjs';
 import { ensureDefaultAdmin } from './routes/auth.mjs';
+import { autoTagAllVlans }   from './redis.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT      = parseInt(process.env.PORT || '3000');
@@ -39,6 +40,8 @@ app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '../client/index.h
 
 // Init & start
 await ensureDefaultAdmin();
+const tagged = await autoTagAllVlans();
+if (tagged > 0) console.log(`[init] ${tagged} VLAN(s) auto-tagués`);
 app.listen(PORT, BIND, () => {
   console.log(`IPAM SIW v2 démarré sur ${BIND}:${PORT} [${process.env.NODE_ENV || 'development'}]`);
 });
