@@ -43,36 +43,36 @@ const LIN_DOMAINS = ['.hdcadmin.sf.intra.laposte.fr', '.sf.intra.laposte.fr'];
 function classifyHostname(raw) {
   if (!raw) return null;
   const lower = raw.toLowerCase();
-
-  const isWindows = lower.endsWith(WIN_DOMAIN);
-  const isLinux   = LIN_DOMAINS.some(d => lower.endsWith(d));
-
-  // Hostname must end with a known domain suffix
-  if (!isWindows && !isLinux) return null;
-
   const label = raw.split('.')[0]; // first DNS label, e.g. "758100ZN-FS01"
 
+  // IDRAC/ILO — détecté par préfixe, indépendant du suffixe de domaine
+  // Ex: IDRAC-924700SN-AP01  ou  ILO-924700SN-FS01.dct.adt.local
+  if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
+
+  // ZN / QN — détectés par préfixe, indépendant du suffixe de domaine
+  // Ex: 758100ZN-FS01.dct.adt.local  ou  924700QN-AP01
+  const lastDash = label.lastIndexOf('-');
+  if (lastDash >= 0) {
+    const prefix = label.slice(0, lastDash);
+    if (/ZN$/i.test(prefix)) return { type: 'windows', role: 'ZN' };
+    if (/QN$/i.test(prefix)) return { type: 'windows', role: 'QN' };
+  }
+
+  // Toutes les autres catégories nécessitent un suffixe de domaine connu
+  const isWindows = lower.endsWith(WIN_DOMAIN);
+  const isLinux   = LIN_DOMAINS.some(d => lower.endsWith(d));
+  if (!isWindows && !isLinux) return null;
+
   if (isLinux) {
-    // Nutanix: hostname starts with "SP"
     if (/^SP/i.test(label)) return { type: 'linux', role: 'SPHY' };
-    // CFT: [2-letter prefix] + XG + digits, e.g. bxXG01
     if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
     return null;
   }
 
-  // Windows — tous les serveurs ont le suffixe .dct.adt.local
-  // "758100ZN-FS01.dct.adt.local"    → ZN
-  // "758100QN-AP01.dct.adt.local"    → QN
-  // "924700SN-AP01.dct.adt.local"    → AP
-  // "24700SN-FS01.dct.adt.local"     → FS
-  // "ILO-924700SN-FS01.dct.adt.local"→ IDRAC
-  if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
-  const lastDash = label.lastIndexOf('-');
+  // Windows (.dct.adt.local) — rôle déterminé par les 2 lettres après le dernier tiret
+  // Ex: 924700SN-AP01.dct.adt.local → AP,  24700SN-FS01.dct.adt.local → FS
   if (lastDash < 0) return null;
-  const prefix = label.slice(0, lastDash);
   const suffix = label.slice(lastDash + 1);
-  if (/ZN$/i.test(prefix)) return { type: 'windows', role: 'ZN' };
-  if (/QN$/i.test(prefix)) return { type: 'windows', role: 'QN' };
   const m = suffix.match(/^([A-Z]{2})\d+$/i);
   if (!m) return null;
   return { type: 'windows', role: m[1].toUpperCase() };
