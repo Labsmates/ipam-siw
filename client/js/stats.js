@@ -238,7 +238,7 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '', rol
 
   if (filter) {
     const q = filter.toUpperCase();
-    allRoles = allRoles.filter(r => r.code.toUpperCase().includes(q) || r.label.toUpperCase().includes(q));
+    allRoles = allRoles.filter(r => r.code.toUpperCase().startsWith(q));
   }
 
   if (!allRoles.length) {
