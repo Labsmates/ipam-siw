@@ -585,13 +585,17 @@ th{text-align:left}
     </div>
     <form id="form-rename-vlan">
       <input type="hidden" id="rename-vlan-id">
-      <div style="margin-bottom:18px">
+      <div style="margin-bottom:14px">
         <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Nouveau VLAN ID <span style="color:#f85149">*</span></label>
         <input id="rename-vlan-value" class="inp" type="number" min="1" max="4094" required>
       </div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle / Description <span style="font-size:11px;font-weight:400;color:#484f58">(optionnel)</span></label>
+        <input id="rename-vlan-description" class="inp" type="text" placeholder="ex : Serveurs de fichiers ZN" maxlength="120">
+      </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
         <button type="button" id="btn-cancel-rename-vlan" class="btn btn-g">Annuler</button>
-        <button type="submit" class="btn btn-p"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Renommer</button>
+        <button type="submit" class="btn btn-p"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Enregistrer</button>
       </div>
     </form>
   </div>

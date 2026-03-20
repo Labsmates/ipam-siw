@@ -431,10 +431,13 @@ function renderVlans() {
     <tr style="border-bottom:1px solid #21262d;"
         onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
       <td style="padding:12px 16px;color:#8b949e;font-size:13px;">${esc(v.site_name)}</td>
-      <td style="padding:12px 16px;color:#e6edf3;font-weight:600;font-family:'JetBrains Mono',monospace;">VLAN ${esc(String(v.vlan_id))}</td>
+      <td style="padding:12px 16px;">
+        <span style="color:#e6edf3;font-weight:600;font-family:'JetBrains Mono',monospace;">VLAN ${esc(String(v.vlan_id))}</span>
+        ${v.description ? `<br><span style="color:#8b949e;font-size:12px;">${esc(v.description)}</span>` : ''}
+      </td>
       <td style="padding:12px 16px;color:#8b949e;font-size:13px;">${esc(v.network || '—')}</td>
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
-        <button data-vid="${v.id}" data-vlan="${esc(String(v.vlan_id))}" data-site="${esc(v.site_name)}" data-net="${esc(v.network||'')}" class="btn-rename-vlan"
+        <button data-vid="${v.id}" data-vlan="${esc(String(v.vlan_id))}" data-site="${esc(v.site_name)}" data-net="${esc(v.network||'')}" data-desc="${esc(v.description||'')}" class="btn-rename-vlan"
           style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Renommer
         </button>
@@ -447,7 +450,7 @@ function renderVlans() {
   `).join('');
 
   document.querySelectorAll('.btn-rename-vlan').forEach(btn => {
-    btn.addEventListener('click', () => openRenameVlanModal(btn.dataset.vid, btn.dataset.vlan, btn.dataset.site, btn.dataset.net));
+    btn.addEventListener('click', () => openRenameVlanModal(btn.dataset.vid, btn.dataset.vlan, btn.dataset.site, btn.dataset.net, btn.dataset.desc));
   });
   document.querySelectorAll('.btn-del-vlan').forEach(btn => {
     btn.addEventListener('click', () => confirmDeleteVlan(btn.dataset.vid, btn.dataset.vlan, btn.dataset.site));
@@ -473,7 +476,8 @@ function setupVlanModals() {
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true; btn.textContent = 'Renommage…';
     try {
-      await put(`/api/vlans/${encodeURIComponent(vid)}`, { vlan_id: newVlanId });
+      const description = document.getElementById('rename-vlan-description').value.trim();
+      await put(`/api/vlans/${encodeURIComponent(vid)}`, { vlan_id: newVlanId, description });
       showToast(`VLAN renommé en ${newVlanId}`, 'success');
       closeModal('modal-rename-vlan');
       await loadVlans();
@@ -482,10 +486,11 @@ function setupVlanModals() {
   });
 }
 
-function openRenameVlanModal(vid, vlanId, siteName, network) {
+function openRenameVlanModal(vid, vlanId, siteName, network, description = '') {
   document.getElementById('rename-vlan-id').value = vid;
   document.getElementById('rename-vlan-value').value = vlanId;
   document.getElementById('rename-vlan-subtitle').textContent = `${siteName} — ${network || 'réseau non défini'}`;
+  document.getElementById('rename-vlan-description').value = description;
   openModal('modal-rename-vlan');
 }
 

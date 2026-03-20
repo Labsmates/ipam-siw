@@ -414,7 +414,7 @@ export async function getVlan(id) {
   return v?.vlan_id ? { id: parseInt(id), ...v } : null;
 }
 
-export async function updateVlan(id, { vlan_id, network, mask, gateway }) {
+export async function updateVlan(id, { vlan_id, network, mask, gateway, description }) {
   const vlan = await redis.hgetall(`vlan:${id}`);
   if (!vlan?.vlan_id) throw new Error('VLAN introuvable');
 
@@ -430,9 +430,10 @@ export async function updateVlan(id, { vlan_id, network, mask, gateway }) {
   }
 
   const fields = {};
-  if (network  !== undefined) fields.network  = network;
-  if (mask     !== undefined) fields.mask     = mask;
-  if (gateway  !== undefined) fields.gateway  = gateway;
+  if (network      !== undefined) fields.network      = network;
+  if (mask         !== undefined) fields.mask         = mask;
+  if (gateway      !== undefined) fields.gateway      = gateway;
+  if (description  !== undefined) fields.description  = description;
   if (Object.keys(fields).length) await redis.hset(`vlan:${id}`, fields);
 }
 
