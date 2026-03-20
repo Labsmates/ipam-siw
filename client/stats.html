@@ -124,18 +124,30 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 
     <!-- Windows by role -->
     <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;margin-bottom:28px;">
-      <div style="padding:16px 20px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="#58a6ff"><rect x="2" y="2" width="9" height="9"/><rect x="13" y="2" width="9" height="9"/><rect x="2" y="13" width="9" height="9"/><rect x="13" y="13" width="9" height="9"/></svg>
-        <h3 style="color:#e6edf3;font-size:15px;font-weight:700;margin:0;">Serveurs Windows par rôle</h3>
+      <div style="padding:16px 20px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#58a6ff"><rect x="2" y="2" width="9" height="9"/><rect x="13" y="2" width="9" height="9"/><rect x="2" y="13" width="9" height="9"/><rect x="13" y="13" width="9" height="9"/></svg>
+          <h3 style="color:#e6edf3;font-size:15px;font-weight:700;margin:0;">Serveurs Windows par rôle</h3>
+        </div>
+        <div style="position:relative;">
+          <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="search-role-win" class="inp" style="padding-left:28px;font-size:12px;padding-top:6px;padding-bottom:6px;width:160px;" placeholder="Filtrer par rôle…">
+        </div>
       </div>
       <div id="roles-grid-win" style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:0;"></div>
     </div>
 
     <!-- Linux by role -->
     <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;margin-bottom:28px;">
-      <div style="padding:16px 20px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        <h3 style="color:#e6edf3;font-size:15px;font-weight:700;margin:0;">Serveurs Linux par rôle</h3>
+      <div style="padding:16px 20px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <h3 style="color:#e6edf3;font-size:15px;font-weight:700;margin:0;">Serveurs Linux par rôle</h3>
+        </div>
+        <div style="position:relative;">
+          <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="search-role-lin" class="inp" style="padding-left:28px;font-size:12px;padding-top:6px;padding-bottom:6px;width:160px;" placeholder="Filtrer par rôle…">
+        </div>
       </div>
       <div id="roles-grid-lin" style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:0;"></div>
     </div>
@@ -171,6 +183,12 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     </div>
 
     <!-- Per-site / per-VLAN breakdown -->
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;margin-bottom:16px;">
+      <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:340px;">
+        <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="search-ip-site" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px;" placeholder="Rechercher un site…">
+      </div>
+    </div>
     <div id="ip-sites-grid"></div>
 
   </div>

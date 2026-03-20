@@ -81,6 +81,12 @@ function classifyHostname(raw) {
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+// Stored data for re-render on search change
+let _statsData = null;
+let _searchRoleWin = '';
+let _searchRoleLin = '';
+let _searchIpSite  = '';
+
 document.addEventListener('DOMContentLoaded', async () => {
   checkHttps();
   if (!requireAuth()) return;
@@ -103,6 +109,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key !== 'ipam-ip-change') return;
     clearTimeout(_refreshTimer);
     _refreshTimer = setTimeout(() => loadStats(), 800);
+  });
+
+  // Search listeners — can be wired before data loads, _statsData guards re-render
+  document.getElementById('search-role-win')?.addEventListener('input', e => {
+    _searchRoleWin = e.target.value.trim();
+    if (_statsData) renderRoles('roles-grid-win', _statsData.winRoleCounts, _statsData.winTotal, '#58a6ff', '#1f6feb', _searchRoleWin);
+  });
+  document.getElementById('search-role-lin')?.addEventListener('input', e => {
+    _searchRoleLin = e.target.value.trim();
+    if (_statsData) renderRoles('roles-grid-lin', _statsData.linRoleCounts, _statsData.linTotal, '#3fb950', '#26a641', _searchRoleLin);
+  });
+  document.getElementById('search-ip-site')?.addEventListener('input', e => {
+    _searchIpSite = e.target.value.trim();
+    if (_statsData) renderIpStats(_statsData.sites, _statsData.details, _searchIpSite);
   });
 
   await loadStats();
@@ -172,12 +192,15 @@ async function loadStats() {
     document.getElementById('count-linux').textContent   = linTotal.toLocaleString('fr');
     document.getElementById('count-total').textContent   = total.toLocaleString('fr');
 
-    // Render roles grids
-    renderRoles('roles-grid-win', winRoleCounts, winTotal, '#58a6ff', '#1f6feb');
-    renderRoles('roles-grid-lin', linRoleCounts, linTotal, '#3fb950', '#26a641');
+    // Store for re-render on search change
+    _statsData = { sites, details, winRoleCounts, winTotal, linRoleCounts, linTotal };
+
+    // Render roles grids (apply current search filters in case of refresh)
+    renderRoles('roles-grid-win', winRoleCounts, winTotal, '#58a6ff', '#1f6feb', _searchRoleWin);
+    renderRoles('roles-grid-lin', linRoleCounts, linTotal, '#3fb950', '#26a641', _searchRoleLin);
 
     // Render IP statistics
-    renderIpStats(sites, details);
+    renderIpStats(sites, details, _searchIpSite);
 
     // Show content
     loadingEl.style.display = 'none';
@@ -189,7 +212,7 @@ async function loadStats() {
   }
 }
 
-function renderRoles(gridId, roleCounts, total, colorA, colorB) {
+function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '') {
   const grid = document.getElementById(gridId);
   const knownRoles = gridId.includes('win') ? WIN_ROLES : LIN_ROLES;
 
@@ -200,7 +223,19 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB) {
     .sort()
     .map(code => ({ code, label: 'Rôle ' + code }));
 
-  const allRoles = [...knownRoles, ...extraRoles];
+  let allRoles = [...knownRoles, ...extraRoles];
+
+  // Filter by role code or label
+  if (filter) {
+    const q = filter.toUpperCase();
+    allRoles = allRoles.filter(r => r.code.toUpperCase().includes(q) || r.label.toUpperCase().includes(q));
+  }
+
+  if (!allRoles.length) {
+    grid.innerHTML = `<div style="padding:24px;color:#8b949e;font-size:13px;text-align:center;">Aucun rôle ne correspond à « ${esc(filter)} »</div>`;
+    return;
+  }
+
   const maxCount = Math.max(1, ...allRoles.map(r => roleCounts[r.code] || 0));
 
   grid.innerHTML = allRoles.map((r, i) => {
@@ -232,8 +267,8 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB) {
   }).join('');
 }
 
-function renderIpStats(sites, details) {
-  // ── Global totals (aggregated per site by the server) ──────────────────────
+function renderIpStats(sites, details, siteFilter = '') {
+  // ── Global totals — always all sites, not affected by filter ──────────────
   let gTotal = 0, gUtilise = 0, gLibre = 0, gReserve = 0;
   for (const s of sites) {
     gTotal   += s.total   || 0;
@@ -246,9 +281,18 @@ function renderIpStats(sites, details) {
   document.getElementById('ip-count-libre').textContent   = gLibre.toLocaleString('fr');
   document.getElementById('ip-count-reserve').textContent = gReserve.toLocaleString('fr');
 
-  // ── Per-site / per-VLAN breakdown ─────────────────────────────────────────
+  // ── Per-site / per-VLAN breakdown (filtered by site name) ─────────────────
   const grid = document.getElementById('ip-sites-grid');
-  grid.innerHTML = sites.map((site, idx) => {
+  const q = siteFilter.toLowerCase();
+  const visibleSites = q ? sites.filter(s => s.name.toLowerCase().includes(q)) : sites;
+
+  if (!visibleSites.length) {
+    grid.innerHTML = `<div style="padding:32px;color:#8b949e;font-size:13px;text-align:center;">Aucun site ne correspond à « ${esc(siteFilter)} »</div>`;
+    return;
+  }
+
+  grid.innerHTML = visibleSites.map(site => {
+    const idx = sites.indexOf(site);
     const detail = details[idx] || {};
     const vlans  = detail.vlans || [];
     const ips    = detail.ips   || [];
