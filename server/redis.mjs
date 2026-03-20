@@ -39,6 +39,15 @@ redis.on('connect', ()  => console.log('[Redis] Connecté'));
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const now = () => new Date().toISOString();
 
+// Calcule l'adresse de broadcast d'un réseau (network + mask en notation pointée)
+function computeBroadcast(network, mask) {
+  if (!network || !mask) return null;
+  const n = network.split('.').map(Number);
+  const m = mask.split('.').map(Number);
+  if (n.length !== 4 || m.length !== 4 || n.some(isNaN) || m.some(isNaN)) return null;
+  return n.map((b, i) => (b | (~m[i] & 0xFF))).join('.');
+}
+
 // ── JWT Secret ────────────────────────────────────────────────────────────────
 export async function getJwtSecret() {
   let secret = await redis.get('system:jwt_secret');
@@ -271,9 +280,21 @@ export async function getSiteData(id) {
   const pipe3 = redis.pipeline();
   allIpIds.forEach(ipId => pipe3.hgetall(`ip:${ipId}`));
   const ipResults = await pipe3.exec();
+
+  // Broadcast addresses per VLAN (masquées partout)
+  const broadcastByVlan = {};
+  for (const v of vlans) {
+    const bcast = computeBroadcast(v.network, v.mask);
+    if (bcast) broadcastByVlan[String(v.id)] = bcast;
+  }
+
   const ips = allIpIds
     .map((ipId, i) => ({ id: parseInt(ipId), ...ipResults[i][1] }))
-    .filter(ip => ip.ip_address);
+    .filter(ip => {
+      if (!ip.ip_address) return false;
+      const bcast = broadcastByVlan[String(ip.vlan_id)];
+      return !bcast || ip.ip_address !== bcast;
+    });
 
   return {
     site: { id: parseInt(id), ...site },
@@ -463,28 +484,29 @@ export async function importIps(siteId, rows) {
   const vlanDbIds = await redis.smembers(`site:${siteId}:vlans`);
   const pipe1 = redis.pipeline();
   vlanDbIds.forEach(vid => {
-    pipe1.hget(`vlan:${vid}`, 'vlan_id');      // vlan number (string)
-    pipe1.hgetall(`vlan:${vid}:ips:idx`);       // ip_address → ip_id
+    pipe1.hgetall(`vlan:${vid}`);          // all VLAN fields (vlan_id, network, mask…)
+    pipe1.hgetall(`vlan:${vid}:ips:idx`);  // ip_address → ip_id
   });
   const res1 = await pipe1.exec();
 
-  // Build two lookup structures:
-  //   vlanNumToIpIdx : vlan_id_str → { ip_address: ip_id }
-  //   addrToId       : ip_address → ip_id  (fallback, global across all VLANs)
+  // Build lookup structures + broadcast set
   const vlanNumToIpIdx = {};
   const addrToId = {};
+  const broadcastSet = new Set();
   for (let i = 0; i < vlanDbIds.length; i++) {
-    const vlanNum = res1[i * 2][1];
-    const ipIdx   = res1[i * 2 + 1][1];
-    if (ipIdx) {
-      if (vlanNum) vlanNumToIpIdx[String(vlanNum)] = ipIdx;
-      Object.entries(ipIdx).forEach(([addr, ipId]) => { addrToId[addr] = ipId; });
-    }
+    const vlanData = res1[i * 2][1];      // { vlan_id, network, mask, … }
+    const ipIdx    = res1[i * 2 + 1][1]; // { ip_address: ip_id }
+    if (vlanData?.vlan_id) vlanNumToIpIdx[String(vlanData.vlan_id)] = ipIdx || {};
+    const bcast = computeBroadcast(vlanData?.network, vlanData?.mask);
+    if (bcast) broadcastSet.add(bcast);
+    if (ipIdx) Object.entries(ipIdx).forEach(([addr, ipId]) => { addrToId[addr] = ipId; });
   }
 
   let updated = 0;
   const pipe2 = redis.pipeline();
   for (const row of rows) {
+    // Ignorer les adresses de broadcast
+    if (broadcastSet.has(row.ip)) continue;
     // Prefer VLAN-scoped lookup when row.vlan is provided
     const scopedIdx = row.vlan ? vlanNumToIpIdx[String(row.vlan)] : null;
     const ipId = (scopedIdx && scopedIdx[row.ip]) || addrToId[row.ip];

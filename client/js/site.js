@@ -200,10 +200,28 @@ function renderVlanTabs() {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Broadcast helper
+// ---------------------------------------------------------------------------
+function computeBroadcast(network, mask) {
+  if (!network || !mask) return null;
+  const n = network.split('.').map(Number);
+  const m = mask.split('.').map(Number);
+  if (n.length !== 4 || m.length !== 4 || n.some(isNaN) || m.some(isNaN)) return null;
+  return n.map((b, i) => (b | (~m[i] & 0xFF))).join('.');
+}
+
+function getBroadcastSet() {
+  return new Set(
+    (siteData.vlans || []).map(v => computeBroadcast(v.network, v.mask)).filter(Boolean)
+  );
+}
+
 // IP Table
 // ---------------------------------------------------------------------------
 function getFilteredIPs() {
-  let ips = siteData.ips || [];
+  const broadcasts = getBroadcastSet();
+  let ips = (siteData.ips || []).filter(ip => !broadcasts.has(ip.ip_address));
   if (currentVlan !== 'all') ips = ips.filter(ip => String(ip.vlan_id) === String(currentVlan));
   if (filterStatus !== 'all') ips = ips.filter(ip => ip.status === filterStatus);
   if (searchIP) {
@@ -448,6 +466,7 @@ function setupModals(user) {
         const wb = XLSX.read(await fileEl.files[0].arrayBuffer(), { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const broadcasts = getBroadcastSet();
         const importRows = rawRows
           .slice(1)
           .map(r => ({
@@ -457,6 +476,7 @@ function setupModals(user) {
           }))
           .filter(r =>
             /^\d{1,3}(\.\d{1,3}){3}$/.test(r.ip) &&
+            !broadcasts.has(r.ip) &&
             r.hostname !== '' &&
             r.vlan !== ''
           );
