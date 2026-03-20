@@ -92,7 +92,7 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
 router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { role } = req.body || {};
-    const isSuperAdmin = req.user.username === 'ADMIN';
+    const isSuperAdmin = req.user.username?.toLowerCase() === 'admin';
     const validRoles = isSuperAdmin ? ['admin', 'user', 'viewer'] : ['user', 'viewer'];
     if (!validRoles.includes(role))
       return res.status(400).json({ error: 'Rôle invalide' });
@@ -100,7 +100,7 @@ router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
       return res.status(403).json({ error: 'Seul le super administrateur peut attribuer le rôle administrateur' });
     const target = await getUserById(req.params.id);
     if (!target) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    if (target.username === 'ADMIN')
+    if (target.username?.toLowerCase() === 'admin')
       return res.status(403).json({ error: 'Impossible de modifier le rôle du super administrateur' });
     if (target.role === 'admin' && !isSuperAdmin)
       return res.status(403).json({ error: 'Seul le super administrateur peut modifier le rôle d\'un administrateur' });

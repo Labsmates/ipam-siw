@@ -108,8 +108,7 @@ function renderUsers() {
     const showReset     = isSuperAdmin || isOwnAccount;
     // Supprimer : super admin uniquement, pas sur soi-même, pas sur le compte admin
     const showDelete    = isSuperAdmin && !isOwnAccount && !isSuperAcct;
-    // Changer le rôle : tous les admins peuvent basculer viewer ↔ utilisateur
-    // (pas sur le compte admin, pas sur son propre compte)
+    // Changer le rôle : pas sur le compte super admin, pas sur son propre compte
     const showRole      = !isSuperAcct && !isOwnAccount;
 
     return `
