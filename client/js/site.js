@@ -182,9 +182,9 @@ function renderVlanTabs() {
     if (t.id !== 'all') {
       const descText = t.description
         ? `<span style="font-size:10px;color:#8b949e;font-weight:400;">${esc(t.description)}</span>`
-        : (isAdmin ? `<span style="font-size:10px;color:#484f58;font-style:italic;">Ajouter un rôle…</span>` : '');
+        : (isAdmin ? `<span style="font-size:10px;color:#6e7681;font-style:italic;">Ajouter un rôle…</span>` : '');
       const pencil = isAdmin
-        ? `<span class="btn-edit-vlan-desc" data-vid="${t.id}" style="display:inline-flex;align-items:center;margin-left:5px;color:#484f58;cursor:pointer;vertical-align:middle;line-height:1;" title="Modifier la description">
+        ? `<span class="btn-edit-vlan-desc" data-vid="${t.id}" style="display:inline-flex;align-items:center;margin-left:5px;color:#6e7681;cursor:pointer;vertical-align:middle;line-height:1;" title="Modifier la description">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
            </span>`
         : '';
