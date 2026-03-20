@@ -47,11 +47,10 @@ function classifyHostname(raw) {
   const isWindows = lower.endsWith(WIN_DOMAIN);
   const isLinux   = LIN_DOMAINS.some(d => lower.endsWith(d));
 
-  // If a domain suffix is present but matches neither Windows nor Linux → ignore
-  const hasDot = raw.includes('.');
-  if (hasDot && !isWindows && !isLinux) return null;
+  // Hostname must end with a known domain suffix
+  if (!isWindows && !isLinux) return null;
 
-  const label = raw.split('.')[0]; // first DNS label (or full name if no dot)
+  const label = raw.split('.')[0]; // first DNS label, e.g. "758100ZN-FS01"
 
   if (isLinux) {
     // Nutanix: hostname starts with "SP"
@@ -61,13 +60,12 @@ function classifyHostname(raw) {
     return null;
   }
 
-  // Windows classification — works for full FQDN (*.dct.adt.local)
-  // AND for short names stored without domain suffix (e.g. "758100SN-AP01")
-  // e.g. "758100SN-AP01"        → suffix "AP01"  → role "AP"
-  // e.g. "758100ZN-FS01"        → prefix ends ZN → role "ZN"
-  // e.g. "758100QN-AP01"        → prefix ends QN → role "QN"
-  // e.g. "IDRAC-924700SN-AP01"  → starts IDRAC-  → role "IDRAC"
-  // e.g. "ILO-924700SN-AP01"    → starts ILO-    → role "IDRAC"
+  // Windows — tous les serveurs ont le suffixe .dct.adt.local
+  // "758100ZN-FS01.dct.adt.local"    → ZN
+  // "758100QN-AP01.dct.adt.local"    → QN
+  // "924700SN-AP01.dct.adt.local"    → AP
+  // "24700SN-FS01.dct.adt.local"     → FS
+  // "ILO-924700SN-FS01.dct.adt.local"→ IDRAC
   if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
   const lastDash = label.lastIndexOf('-');
   if (lastDash < 0) return null;
