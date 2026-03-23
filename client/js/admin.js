@@ -4,11 +4,12 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, delBody, patch, showToast, fmtDate, openModal, closeModal, sortSites, showConfirm,
+  get, post, put, del, delBody, patch, showToast, fmtDate, openModal, closeModal, sortSites, showConfirm, initTheme,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   checkHttps();
+  initTheme();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -37,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
   function setTabActive(tab, active) {
-    tab.style.color = active ? '#58a6ff' : '#8b949e';
+    tab.style.color = active ? '#58a6ff' : 'var(--tx-3)';
     tab.style.borderBottomColor = active ? '#58a6ff' : 'transparent';
     tab.style.background = active ? '#0d2240' : 'transparent';
   }
@@ -91,13 +92,13 @@ function renderUsers() {
   const isSuperAdmin = currentUser?.username?.toLowerCase() === 'admin';
   const tbody = document.getElementById('users-tbody');
   if (!allUsers.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8b949e;padding:32px;">Aucun utilisateur</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--tx-3);padding:32px;">Aucun utilisateur</td></tr>';
     return;
   }
   const roleStyle = {
     admin:  'color:#58a6ff;background:#0d2240;border:1px solid #1f4080',
     user:   'color:#3fb950;background:#0d2a1a;border:1px solid #1a5c30',
-    viewer: 'color:#8b949e;background:#1c2128;border:1px solid #30363d',
+    viewer: 'color:var(--tx-3);background:var(--bg-3);border:1px solid var(--brd)',
   };
   const roleLabel = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
 
@@ -112,27 +113,27 @@ function renderUsers() {
     const showRole      = !isSuperAcct && !isOwnAccount;
 
     return `
-    <tr style="border-bottom:1px solid #21262d;"
-        onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-      <td style="padding:12px 16px;color:#e6edf3;font-weight:700;font-family:monospace;letter-spacing:.04em;">${esc(u.username)}</td>
-      <td style="padding:12px 16px;color:#c9d1d9;font-size:13px;">${esc(u.full_name || '—')}</td>
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:12px 16px;color:var(--tx-1);font-weight:700;font-family:monospace;letter-spacing:.04em;">${esc(u.username)}</td>
+      <td style="padding:12px 16px;color:var(--tx-2);font-size:13px;">${esc(u.full_name || '—')}</td>
       <td style="padding:12px 16px;">
         <span style="${roleStyle[u.role] || roleStyle.user};display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;">
           ${roleLabel[u.role] || 'Utilisateur'}
         </span>
       </td>
-      <td style="padding:12px 16px;color:#6e7681;font-size:12px;">${fmtDate(u.created_at)}</td>
+      <td style="padding:12px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(u.created_at)}</td>
       <td style="padding:12px 16px;text-align:center;">
         <span style="display:inline-block;background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${u.login_count || 0}</span>
       </td>
-      <td style="padding:12px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${u.last_login ? fmtDate(u.last_login) : '<span style="color:#484f58">—</span>'}</td>
+      <td style="padding:12px 16px;color:var(--tx-4);font-size:12px;white-space:nowrap;">${u.last_login ? fmtDate(u.last_login) : '<span style="color:var(--tx-5)">—</span>'}</td>
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
         ${showReset ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-reset-pw"
           style="background:#2e2000;color:#d29922;border:1px solid #5c4200;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Réinitialiser MDP
         </button>` : ''}
         ${showRole ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" data-urole="${u.role}" class="btn-change-role"
-          style="background:#1c2128;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          style="background:var(--bg-3);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Changer le rôle
         </button>` : ''}
         ${showDelete ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-del-user"
@@ -228,11 +229,11 @@ function openChangeRoleModal(uid, uname, currentRole) {
   if (currentRole !== 'viewer') options.push({ value: 'viewer', label: 'Lecteur',          desc: 'Lecture seule — Tableau de bord & Statistiques uniquement' });
   if (currentRole !== 'admin' && isSuperAdmin) options.push({ value: 'admin', label: 'Administrateur', desc: 'Accès complet + panneau d\'administration' });
   document.getElementById('change-role-options').innerHTML = options.map((o, i) => `
-    <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;padding:10px 12px;border:1px solid #30363d;border-radius:8px;cursor:pointer;background:#0d1117">
+    <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--brd);border-radius:8px;cursor:pointer;background:var(--bg-1)">
       <input type="radio" name="new-role-radio" value="${o.value}" ${i === 0 ? 'checked' : ''} style="accent-color:#58a6ff">
       <div>
-        <div style="font-size:13px;font-weight:600;color:#e6edf3">${o.label}</div>
-        <div style="font-size:12px;color:#8b949e;margin-top:2px">${o.desc}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--tx-1)">${o.label}</div>
+        <div style="font-size:12px;color:var(--tx-3);margin-top:2px">${o.desc}</div>
       </div>
     </label>
   `).join('');
@@ -275,22 +276,22 @@ function renderSites() {
   const q = searchSite.toLowerCase();
   const filtered = q ? allSites.filter(s => s.name.toLowerCase().includes(q)) : allSites;
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--tx-3);padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map(s => `
-    <tr style="border-bottom:1px solid #21262d;"
-        onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-      <td style="padding:12px 16px;color:#e6edf3;font-weight:600;">${esc(s.name)}</td>
-      <td style="padding:12px 16px;color:#8b949e;">${(s.vlan_count || 0)} VLAN(s)</td>
-      <td style="padding:12px 16px;color:#8b949e;">${(s.total || 0).toLocaleString('fr')} IPs</td>
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:12px 16px;color:var(--tx-1);font-weight:600;">${esc(s.name)}</td>
+      <td style="padding:12px 16px;color:var(--tx-3);">${(s.vlan_count || 0)} VLAN(s)</td>
+      <td style="padding:12px 16px;color:var(--tx-3);">${(s.total || 0).toLocaleString('fr')} IPs</td>
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
         <a href="/site.html?id=${encodeURIComponent(s.id)}"
           style="background:#0d2240;color:#58a6ff;border:1px solid #1f4080;border-radius:6px;padding:4px 10px;font-size:12px;text-decoration:none;">
           Voir
         </a>
         <button data-sid="${s.id}" data-sname="${esc(s.name)}" class="btn-rename-site"
-          style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          style="background:var(--bg-4);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Renommer
         </button>
         <button data-sid="${s.id}" data-sname="${esc(s.name)}" class="btn-del-site"
@@ -423,21 +424,21 @@ function renderVlans() {
   );
   if (!filtered.length) {
     const msg = (qId || qSite) ? 'Aucun VLAN ne correspond à la recherche' : 'Aucun VLAN';
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">${msg}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--tx-3);padding:32px;">${msg}</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map(v => `
-    <tr style="border-bottom:1px solid #21262d;"
-        onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-      <td style="padding:12px 16px;color:#8b949e;font-size:13px;">${esc(v.site_name)}</td>
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:12px 16px;color:var(--tx-3);font-size:13px;">${esc(v.site_name)}</td>
       <td style="padding:12px 16px;">
-        <span style="color:#e6edf3;font-weight:600;font-family:'JetBrains Mono',monospace;">VLAN ${esc(String(v.vlan_id))}</span>
-        ${v.description ? `<br><span style="color:#8b949e;font-size:12px;">${esc(v.description)}</span>` : ''}
+        <span style="color:var(--tx-1);font-weight:600;font-family:'JetBrains Mono',monospace;">VLAN ${esc(String(v.vlan_id))}</span>
+        ${v.description ? `<br><span style="color:var(--tx-3);font-size:12px;">${esc(v.description)}</span>` : ''}
       </td>
-      <td style="padding:12px 16px;color:#8b949e;font-size:13px;">${esc(v.network || '—')}</td>
+      <td style="padding:12px 16px;color:var(--tx-3);font-size:13px;">${esc(v.network || '—')}</td>
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
         <button data-vid="${v.id}" data-vlan="${esc(String(v.vlan_id))}" data-site="${esc(v.site_name)}" data-net="${esc(v.network||'')}" data-desc="${esc(v.description||'')}" class="btn-rename-vlan"
-          style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          style="background:var(--bg-4);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Renommer
         </button>
         <button data-vid="${v.id}" data-vlan="${esc(String(v.vlan_id))}" data-site="${esc(v.site_name)}" class="btn-del-vlan"
@@ -563,17 +564,17 @@ function renderLogs() {
 
   const tbody = document.getElementById('logs-tbody');
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:32px;">Aucun résultat</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--tx-3);padding:32px;">Aucun résultat</td></tr>';
     return;
   }
   const isSuperAdmin = getUser()?.username?.toLowerCase() === 'admin';
   tbody.innerHTML = filtered.map((l, i) => `
-    <tr style="border-bottom:1px solid #21262d;"
-        onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-      <td style="padding:10px 16px;color:#6e7681;font-size:12px;white-space:nowrap;">${fmtDate(l.created_at)}</td>
-      <td style="padding:10px 16px;color:#8b949e;font-size:13px;">${esc(l.username || '—')}</td>
-      <td style="padding:10px 16px;color:#e6edf3;font-size:13px;">${esc(l.action || '')}</td>
-      <td style="padding:10px 16px;color:#8b949e;font-size:12px;font-family:monospace;">${esc(l.details || '')}</td>
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:10px 16px;color:var(--tx-4);font-size:12px;white-space:nowrap;">${fmtDate(l.created_at)}</td>
+      <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${esc(l.username || '—')}</td>
+      <td style="padding:10px 16px;color:var(--tx-1);font-size:13px;">${esc(l.action || '')}</td>
+      <td style="padding:10px 16px;color:var(--tx-3);font-size:12px;font-family:monospace;">${esc(l.details || '')}</td>
       <td style="padding:6px 12px;text-align:right;white-space:nowrap;">
         ${isSuperAdmin ? `<button class="btn-del-log" data-idx="${i}"
           style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:4px;"
@@ -648,7 +649,7 @@ async function loadAdminSidebar() {
       listEl.innerHTML = filtered.map(s =>
         `<a href="/site.html?id=${encodeURIComponent(s.id)}" class="site-item">
           <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px">${esc(s.name)}</span>
-          <span style="font-size:11px;color:#484f58;-ms-flex-negative:0;flex-shrink:0">${s.total || 0}</span>
+          <span style="font-size:11px;color:var(--tx-5);-ms-flex-negative:0;flex-shrink:0">${s.total || 0}</span>
         </a>`
       ).join('');
     }
@@ -693,16 +694,16 @@ function renderVlanRequests(requests) {
 
   empty.classList.add('hidden');
   tbody.innerHTML = requests.map(r => `
-    <tr style="border-bottom:1px solid #21262d;"
-        onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-      <td style="padding:11px 16px;font-size:13px;font-weight:600;color:#e6edf3;">${esc(r.site_name)}</td>
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:11px 16px;font-size:13px;font-weight:600;color:var(--tx-1);">${esc(r.site_name)}</td>
       <td style="padding:11px 16px;font-size:13px;color:#58a6ff;font-weight:700;">${esc(r.vlan_id)}</td>
-      <td style="padding:11px 16px;font-size:13px;font-family:monospace;color:#e6edf3;">${esc(r.network || '—')}</td>
-      <td style="padding:11px 16px;font-size:12px;color:#8b949e;">${esc(r.gateway || '—')} / ${esc(r.mask || '—')}</td>
+      <td style="padding:11px 16px;font-size:13px;font-family:monospace;color:var(--tx-1);">${esc(r.network || '—')}</td>
+      <td style="padding:11px 16px;font-size:12px;color:var(--tx-3);">${esc(r.gateway || '—')} / ${esc(r.mask || '—')}</td>
       <td style="padding:11px 16px;">
         <span style="background:#58a6ff18;border:1px solid #58a6ff44;color:#58a6ff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:600;">${esc(r.username)}</span>
       </td>
-      <td style="padding:11px 16px;font-size:12px;color:#6e7681;white-space:nowrap;">${fmtDate(r.created_at)}</td>
+      <td style="padding:11px 16px;font-size:12px;color:var(--tx-4);white-space:nowrap;">${fmtDate(r.created_at)}</td>
       <td style="padding:11px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
         <button data-rid="${r.id}" class="btn-approve-vlan"
           style="background:#1a3d2b;color:#3fb950;border:1px solid #2a5f38;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
@@ -774,13 +775,13 @@ function renderAccountRequests(requests) {
 
   empty.classList.add('hidden');
   tbody.innerHTML = requests.map(r => `
-    <tr style="border-bottom:1px solid #21262d;"
-        onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-      <td style="padding:11px 16px;font-size:13px;font-weight:600;color:#e6edf3;">${esc(r.full_name)}</td>
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:11px 16px;font-size:13px;font-weight:600;color:var(--tx-1);">${esc(r.full_name)}</td>
       <td style="padding:11px 16px;">
         <span style="background:#58a6ff18;border:1px solid #58a6ff44;color:#58a6ff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:600;font-family:monospace;">${esc(r.username)}</span>
       </td>
-      <td style="padding:11px 16px;font-size:12px;color:#6e7681;white-space:nowrap;">${fmtDate(r.created_at)}</td>
+      <td style="padding:11px 16px;font-size:12px;color:var(--tx-4);white-space:nowrap;">${fmtDate(r.created_at)}</td>
       <td style="padding:11px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
         <button data-rid="${r.id}" class="btn-approve-account"
           style="background:#1a3d2b;color:#3fb950;border:1px solid #2a5f38;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
@@ -835,11 +836,11 @@ function setupExport() {
     const filtered = q ? sorted.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sorted;
     listEl.innerHTML = filtered.map(s => `
       <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;-webkit-transition:background .1s;transition:background .1s"
-             onmouseenter="this.style.background='#1c2128'" onmouseleave="this.style.background=''">
+             onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background=''">
         <input type="checkbox" class="export-cb" data-id="${s.id}" data-name="${esc(s.name)}"
                style="accent-color:#58a6ff;width:14px;height:14px;-ms-flex-negative:0;flex-shrink:0">
-        <span style="font-size:13px;color:#e6edf3;-webkit-box-flex:1;-ms-flex:1;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
-        <span style="font-size:11px;color:#484f58;-ms-flex-negative:0;flex-shrink:0">${s.total || 0} IPs</span>
+        <span style="font-size:13px;color:var(--tx-1);-webkit-box-flex:1;-ms-flex:1;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+        <span style="font-size:11px;color:var(--tx-5);-ms-flex-negative:0;flex-shrink:0">${s.total || 0} IPs</span>
       </label>
     `).join('');
     listEl.querySelectorAll('.export-cb').forEach(cb => cb.addEventListener('change', updateCount));

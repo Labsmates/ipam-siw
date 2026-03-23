@@ -2,12 +2,13 @@
 // IPAM SIW — auth.js  (login page)
 // =============================================================================
 
-import { post, setSession, getToken, checkHttps, showToast } from './api.js';
+import { post, setSession, getToken, checkHttps, showToast, initTheme } from './api.js';
 
 const DASH = '/site.html';
 
 document.addEventListener('DOMContentLoaded', () => {
   checkHttps();
+  initTheme();
 
   // Already logged in? redirect
   if (getToken()) { window.location.replace(DASH); return; }

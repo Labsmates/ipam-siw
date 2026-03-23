@@ -5,7 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, del, showToast, sortIPs, sortSites, statusBadge, fmtDate,
-  openModal, closeModal, cidrToIPs, showConfirm,
+  openModal, closeModal, cidrToIPs, showConfirm, initTheme,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
@@ -25,6 +25,7 @@ const PER_PAGE = 50;
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
   checkHttps();
+  initTheme();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -172,14 +173,14 @@ function renderVlanTabs() {
 
   tabsEl.innerHTML = tabs.map(t => {
     const networkPart = t.network
-      ? ` <span style="font-size:11px;font-weight:400;color:#6e7681;margin-left:4px;">(${t.network})</span>`
+      ? ` <span style="font-size:11px;font-weight:400;color:var(--tx-4);margin-left:4px;">(${t.network})</span>`
       : '';
     const isActive = String(currentVlan) === String(t.id);
 
     let descLine = '';
     if (t.id !== 'all') {
       if (t.description) {
-        descLine = `<span style="display:block;line-height:1.4;margin-top:2px;"><span style="font-size:10px;color:#8b949e;font-weight:400;">${esc(t.description)}</span></span>`;
+        descLine = `<span style="display:block;line-height:1.4;margin-top:2px;"><span style="font-size:10px;color:var(--tx-3);font-weight:400;">${esc(t.description)}</span></span>`;
       }
     }
 
@@ -276,22 +277,22 @@ function renderTable() {
       const toggleTitle  = ip.status === 'Utilisé' ? 'Passer en Réservée' : 'Passer en Utilisé';
 
       return `
-        <tr style="border-bottom:1px solid #21262d;-webkit-transition:background .1s;transition:background .1s;"
-            onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
-          <td style="padding:10px 16px;color:#e6edf3;font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
-          <td style="padding:10px 16px;color:#8b949e;font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ip.hostname || '<span style="color:#484f58">—</span>'}</td>
+        <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
+            onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+          <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
+          <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
           <td style="padding:10px 16px;">${statusBadge(ip.status)}</td>
-          <td style="padding:10px 16px;color:#8b949e;font-size:13px;">${vlanLabel}</td>
-          <td style="padding:10px 16px;color:#6e7681;font-size:12px;">${fmtDate(ip.updated_at)}</td>
+          <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
+          <td style="padding:10px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(ip.updated_at)}</td>
           <td style="padding:10px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
             ${canReserve ? `<button class="btn btn-sm btn-ok btn-action" data-id="${ip.id}" data-action="reserve">Réserver</button>` : ''}
             ${canRelease ? `<button class="btn btn-sm btn-d btn-action" data-id="${ip.id}" data-action="release">Libérer</button>` : ''}
             ${canToggle ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="toggle-status" data-target="${toggleTarget}" title="${toggleTitle}"
-              style="background:#1c2128;color:#e3b341;border:1px solid #3d3012;">
+              style="background:var(--bg-3);color:#e3b341;border:1px solid #3d3012;">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>` : ''}
             ${!isViewer ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="rename"
-              style="background:#1c2128;color:#8b949e;border:1px solid #30363d;">
+              style="background:var(--bg-3);color:var(--tx-3);border:1px solid var(--brd);">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>` : ''}
           </td>
@@ -575,7 +576,7 @@ async function loadSidebar() {
         return `<a href="/site.html?id=${encodeURIComponent(s.id)}"
           class="site-item${active ? ' on' : ''}">
           <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px">${esc(s.name)}</span>
-          <span style="font-size:11px;color:${active ? '#58a6ff' : '#484f58'};-ms-flex-negative:0;flex-shrink:0">${s.total || 0}</span>
+          <span style="font-size:11px;color:${active ? '#58a6ff' : 'var(--tx-5)'};-ms-flex-negative:0;flex-shrink:0">${s.total || 0}</span>
         </a>`;
       }).join('');
     }

@@ -6,43 +6,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IPAM SIW — Administration</title>
 <link rel="stylesheet" href="/vendor/fonts.css">
+<link rel="stylesheet" href="/css/theme.css">
 <script src="/js/protect.js"></script>
 <script src="/vendor/tailwind.min.js"></script>
 <script src="/vendor/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box}
-body{background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;height:100vh;overflow:hidden}
+body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;height:100vh;overflow:hidden}
 ::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:#0d1117}
-::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+::-webkit-scrollbar-track{background:var(--bg-1)}
+::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
-*{scrollbar-width:thin;scrollbar-color:#30363d #0d1117}
+*{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
 .hidden{display:none!important}
 input,select,textarea,button{-webkit-appearance:none;appearance:none}
 input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
 input:focus,select:focus,textarea:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
 button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-.inp{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+.inp{width:100%;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;color:var(--tx-1);font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
 .inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
-.inp::placeholder{color:#8b949e}
+.inp::placeholder{color:var(--tx-3)}
 .btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;border:none;padding:8px 16px;outline:none}
 .btn:active{-webkit-transform:scale(.97);transform:scale(.97)}
 .btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-.btn-p{background:#58a6ff;color:#0d1117}.btn-p:hover{background:#79b8ff}
+.btn-p{background:#58a6ff;color:var(--bg-1)}.btn-p:hover{background:#79b8ff}
 .btn-d{background:#f8514918;color:#f85149;border:1px solid #f8514940}.btn-d:hover{background:#f8514930}
-.btn-g{background:#21262d;color:#e6edf3;border:1px solid #30363d}.btn-g:hover{background:#2d333b}
+.btn-g{background:var(--bg-4);color:var(--tx-1);border:1px solid var(--brd)}.btn-g:hover{background:var(--bg-hover)}
 .btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
 .btn-warn{background:#d2992218;color:#d29922;border:1px solid #d2992240}.btn-warn:hover{background:#d2992230}
 .modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.65);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:200;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px}
-.modal-box{background:#21262d;border:1px solid #30363d;border-radius:12px;padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
+.modal-box{background:var(--bg-4);border:1px solid var(--brd);border-radius:12px;padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
 @-webkit-keyframes mfade{from{opacity:0;-webkit-transform:scale(.92) translateY(12px);transform:scale(.92) translateY(12px)}to{opacity:1;-webkit-transform:none;transform:none}}
 @keyframes mfade{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
-.admin-tab{padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;border:none;border-top:none;border-left:none;border-right:none;background:transparent;border-bottom:2px solid transparent;color:#8b949e;-webkit-transition:all .15s;transition:all .15s}
-.admin-tab:hover{color:#e6edf3}
+.admin-tab{padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;border:none;border-top:none;border-left:none;border-right:none;background:transparent;border-bottom:2px solid transparent;color:var(--tx-3);-webkit-transition:all .15s;transition:all .15s}
+.admin-tab:hover{color:var(--tx-1)}
 .admin-pane{-webkit-box-flex:1;-ms-flex:1;flex:1}
-.site-item{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;padding:9px 16px;border-left:2px solid transparent;-webkit-transition:all .1s;transition:all .1s;font-size:13px;color:#c9d1d9;text-decoration:none}
-.site-item:hover{background:#1c2128;color:#e6edf3}
-#sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:#161b22;border-right:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;z-index:10}
+.site-item{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;padding:9px 16px;border-left:2px solid transparent;-webkit-transition:all .1s;transition:all .1s;font-size:13px;color:var(--tx-2);text-decoration:none}
+.site-item:hover{background:var(--bg-3);color:var(--tx-1)}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:var(--bg-2);border-right:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;z-index:10}
 #app-main{margin-left:260px;height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;overflow:hidden}
 table{border-collapse:collapse;width:100%}
 th{text-align:left}
@@ -53,7 +54,7 @@ th{text-align:left}
 <!-- ══════════════════ SIDEBAR ══════════════════ -->
 <div id="sidebar">
 
-  <div style="padding:18px 16px 12px;border-bottom:1px solid #30363d">
+  <div style="padding:18px 16px 12px;border-bottom:1px solid var(--brd)">
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px">
       <div style="width:30px;height:30px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 14px rgba(88,166,255,.35);-ms-flex-negative:0;flex-shrink:0">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -65,21 +66,21 @@ th{text-align:left}
       </div>
       <div>
         <div style="font-size:14px;font-weight:700;letter-spacing:-0.02em">IPAM SIW</div>
-        <div style="font-size:11px;color:#8b949e">Gestion des adresses IP</div>
+        <div style="font-size:11px;color:var(--tx-3)">Gestion des adresses IP</div>
       </div>
     </div>
   </div>
 
-  <div style="padding:10px 10px 6px;border-bottom:1px solid #30363d">
-    <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#8b949e;background:#21262d;border:1px solid #30363d;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='#2d333b'" onmouseleave="this.style.background='#21262d'">
+  <div style="padding:10px 10px 6px;border-bottom:1px solid var(--brd)">
+    <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Tableau de bord IPAM
     </a>
-    <a href="/stats.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#8b949e;background:#21262d;border:1px solid #30363d;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='#2d333b'" onmouseleave="this.style.background='#21262d'">
+    <a href="/stats.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Statistiques
     </a>
-    <a href="/archive.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#8b949e;background:#21262d;border:1px solid #30363d;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='#2d333b'" onmouseleave="this.style.background='#21262d'">
+    <a href="/archive.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
       Archive
     </a>
@@ -91,20 +92,21 @@ th{text-align:left}
 
   <div style="padding:10px 10px 6px">
     <div style="position:relative">
-      <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input id="sidebar-search" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher un site…">
     </div>
   </div>
 
   <div id="site-list" style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto"></div>
 
-  <div style="padding:12px 14px;border-top:1px solid #30363d">
-    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:9px 11px">
+  <div style="padding:12px 14px;border-top:1px solid var(--brd)">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:9px 11px">
       <div style="min-width:0">
-        <div id="nav-username" style="font-size:13px;font-weight:600;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-        <div id="nav-role" style="font-size:11px;color:#8b949e;margin-top:1px"></div>
+        <div id="nav-username" style="font-size:13px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="nav-role" style="font-size:11px;color:var(--tx-3);margin-top:1px"></div>
       </div>
-      <button id="btn-logout" title="Déconnexion" style="-ms-flex-negative:0;flex-shrink:0;margin-left:8px;padding:6px 10px;border-radius:6px;border:1px solid #f8514940;background:#f8514918;color:#f85149;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
+      <button id="btn-theme" title="Passer en mode clair" style="-ms-flex-negative:0;flex-shrink:0;margin-left:8px;padding:6px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'"></button>
+      <button id="btn-logout" title="Déconnexion" style="-ms-flex-negative:0;flex-shrink:0;margin-left:4px;padding:6px 10px;border-radius:6px;border:1px solid #f8514940;background:#f8514918;color:#f85149;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
@@ -115,17 +117,17 @@ th{text-align:left}
 <!-- ══════════════════ MAIN ══════════════════ -->
 <div id="app-main">
 
-  <div style="padding:20px 28px 0;border-bottom:1px solid #30363d;-ms-flex-negative:0;flex-shrink:0">
+  <div style="padding:20px 28px 0;border-bottom:1px solid var(--brd);-ms-flex-negative:0;flex-shrink:0">
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;margin-bottom:16px">
       <div style="width:36px;height:36px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:9px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 16px rgba(88,166,255,.3)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </div>
       <div>
         <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0">Administration IPAM</h1>
-        <div style="font-size:12px;color:#8b949e">Gestion des utilisateurs, sites et journaux</div>
+        <div style="font-size:12px;color:var(--tx-3)">Gestion des utilisateurs, sites et journaux</div>
       </div>
     </div>
-    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:0;border-bottom:1px solid #30363d;margin-bottom:-1px">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:0;border-bottom:1px solid var(--brd);margin-bottom:-1px">
       <button class="admin-tab" data-tab="users">Utilisateurs</button>
       <button class="admin-tab" data-tab="sites">Sites</button>
       <button class="admin-tab" data-tab="vlans">VLANs</button>
@@ -147,23 +149,23 @@ th{text-align:left}
 
     <div id="pane-users" class="admin-pane">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
-        <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Gestion des utilisateurs</h3>
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Gestion des utilisateurs</h3>
         <button id="btn-create-user" class="btn btn-p btn-sm">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nouvel utilisateur
         </button>
       </div>
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;overflow:hidden">
         <table>
           <thead>
-            <tr style="background:#0d1117;border-bottom:1px solid #21262d">
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Identifiant</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Nom &amp; Prénom</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Rôle</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Créé le</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center">Connexions</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Dernière connexion</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
+            <tr style="background:var(--bg-1);border-bottom:1px solid var(--bg-4)">
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Identifiant</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Nom &amp; Prénom</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Rôle</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Créé le</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center">Connexions</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Dernière connexion</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="users-tbody"></tbody>
@@ -173,10 +175,10 @@ th{text-align:left}
 
     <div id="pane-sites" class="admin-pane hidden">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
-        <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Gestion des sites</h3>
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Gestion des sites</h3>
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:340px;">
           <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;">
-            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input id="search-site" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px" placeholder="Rechercher un site…">
           </div>
         </div>
@@ -189,14 +191,14 @@ th{text-align:left}
           Nouveau site
         </button>
       </div>
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;overflow:hidden">
         <table>
           <thead>
-            <tr style="background:#0d1117;border-bottom:1px solid #21262d">
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Nom</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">VLANs</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">IPs</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
+            <tr style="background:var(--bg-1);border-bottom:1px solid var(--bg-4)">
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Nom</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">VLANs</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">IPs</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="sites-tbody"></tbody>
@@ -206,26 +208,26 @@ th{text-align:left}
 
     <div id="pane-vlans" class="admin-pane hidden">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
-        <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Gestion des VLANs</h3>
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Gestion des VLANs</h3>
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:480px;">
           <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;">
-            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input id="search-vlan-id" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px" placeholder="Rechercher un VLAN ID…">
           </div>
           <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;">
-            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input id="search-vlan-site" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px" placeholder="Rechercher un site…">
           </div>
         </div>
       </div>
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;overflow:hidden">
         <table>
           <thead>
-            <tr style="background:#0d1117;border-bottom:1px solid #21262d">
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Site</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">VLAN ID</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Réseau</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
+            <tr style="background:var(--bg-1);border-bottom:1px solid var(--bg-4)">
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Site</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">VLAN ID</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Réseau</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="vlans-tbody"></tbody>
@@ -235,7 +237,7 @@ th{text-align:left}
 
     <div id="pane-logs" class="admin-pane hidden">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:14px">
-        <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Journaux d'activité</h3>
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Journaux d'activité</h3>
         <button id="btn-clear-logs" class="btn btn-d btn-sm hidden">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
           Effacer les journaux
@@ -245,7 +247,7 @@ th{text-align:left}
       <!-- Filtres -->
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-ms-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:12px">
         <div style="position:relative">
-          <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <input id="log-filter-date" type="date" class="inp" style="padding-left:32px;font-size:13px;padding-top:7px;padding-bottom:7px;width:170px;color-scheme:dark">
         </div>
         <select id="log-filter-action" class="inp" style="font-size:13px;padding-top:7px;padding-bottom:7px;width:200px;cursor:pointer">
@@ -255,17 +257,17 @@ th{text-align:left}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
           Réinitialiser
         </button>
-        <span id="log-count" style="font-size:12px;color:#8b949e;margin-left:auto"></span>
+        <span id="log-count" style="font-size:12px;color:var(--tx-3);margin-left:auto"></span>
       </div>
 
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden;overflow-x:auto">
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;overflow:hidden;overflow-x:auto">
         <table>
           <thead>
-            <tr style="background:#0d1117;border-bottom:1px solid #21262d">
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Date</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Utilisateur</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Action</th>
-              <th style="padding:10px 16px;color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Détail</th>
+            <tr style="background:var(--bg-1);border-bottom:1px solid var(--bg-4)">
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Date</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Utilisateur</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Action</th>
+              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Détail</th>
               <th style="padding:10px 16px;width:40px"></th>
             </tr>
           </thead>
@@ -277,7 +279,7 @@ th{text-align:left}
     <!-- ── Export ── -->
     <div id="pane-export" class="admin-pane hidden">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px">
-        <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Export Excel</h3>
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Export Excel</h3>
         <button id="btn-do-export" class="btn btn-p">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Télécharger
@@ -287,22 +289,22 @@ th{text-align:left}
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:20px;-webkit-box-align:start;-ms-flex-align:start;align-items:flex-start;-ms-flex-wrap:wrap;flex-wrap:wrap">
 
         <!-- Sites -->
-        <div style="-webkit-box-flex:1;-ms-flex:1 1 340px;flex:1 1 340px;background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
-          <div style="padding:12px 16px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between">
-            <span style="font-size:13px;font-weight:600;color:#e6edf3">Sélection des sites</span>
+        <div style="-webkit-box-flex:1;-ms-flex:1 1 340px;flex:1 1 340px;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;overflow:hidden">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between">
+            <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Sélection des sites</span>
             <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px">
               <button id="btn-select-all" class="btn btn-g btn-sm">Tout</button>
               <button id="btn-deselect-all" class="btn btn-g btn-sm">Aucun</button>
             </div>
           </div>
-          <div style="padding:8px 10px;border-bottom:1px solid #30363d">
+          <div style="padding:8px 10px;border-bottom:1px solid var(--brd)">
             <div style="position:relative">
-              <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input id="export-search" class="inp" style="padding-left:28px;font-size:12px;padding-top:7px;padding-bottom:7px" placeholder="Filtrer les sites…">
             </div>
           </div>
           <div id="export-site-list" style="max-height:320px;overflow-y:auto;padding:6px 0"></div>
-          <div style="padding:8px 16px;border-top:1px solid #30363d;font-size:12px;color:#8b949e">
+          <div style="padding:8px 16px;border-top:1px solid var(--brd);font-size:12px;color:var(--tx-3)">
             <span id="export-selection-count">0 site(s) sélectionné(s)</span>
           </div>
         </div>
@@ -310,8 +312,8 @@ th{text-align:left}
         <!-- Options -->
         <div style="-webkit-box-flex:0;-ms-flex:0 0 260px;flex:0 0 260px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:14px">
 
-          <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px">
-            <div style="font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:12px">Format</div>
+          <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Format</div>
             <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;font-size:13px">
               <input type="radio" name="export-format" value="multi" checked style="accent-color:#58a6ff;width:14px;height:14px">
               Un onglet par site
@@ -322,8 +324,8 @@ th{text-align:left}
             </label>
           </div>
 
-          <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px">
-            <div style="font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:12px">Filtre statut</div>
+          <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Filtre statut</div>
             <select id="export-filter-status" class="inp" style="font-size:13px;padding:8px 12px;cursor:pointer">
               <option value="all">Tous les statuts</option>
               <option value="Libre">Libre uniquement</option>
@@ -332,8 +334,8 @@ th{text-align:left}
             </select>
           </div>
 
-          <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px">
-            <div style="font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:12px">Colonnes incluses</div>
+          <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Colonnes incluses</div>
             <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:7px">
               <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;cursor:pointer;font-size:13px">
                 <input type="checkbox" id="col-site" checked disabled style="accent-color:#58a6ff;width:14px;height:14px"> Site
@@ -367,30 +369,30 @@ th{text-align:left}
     <div id="pane-vlan-requests" class="admin-pane hidden">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
         <div>
-          <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Demandes de VLAN en attente</h3>
-          <div style="font-size:12px;color:#8b949e;margin-top:3px">Validez ou refusez les demandes soumises par les utilisateurs</div>
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Demandes de VLAN en attente</h3>
+          <div style="font-size:12px;color:var(--tx-3);margin-top:3px">Validez ou refusez les demandes soumises par les utilisateurs</div>
         </div>
         <button id="btn-refresh-vlan-requests" class="btn btn-g btn-sm">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
           Actualiser
         </button>
       </div>
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;overflow:hidden">
         <table style="width:100%;border-collapse:collapse">
           <thead>
-            <tr style="border-bottom:1px solid #30363d">
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Site</th>
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">VLAN ID</th>
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Réseau</th>
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Gateway / Masque</th>
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Demandé par</th>
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Date</th>
+            <tr style="border-bottom:1px solid var(--brd)">
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Site</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">VLAN ID</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Réseau</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Gateway / Masque</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Demandé par</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Date</th>
               <th style="padding:11px 16px;text-align:right"></th>
             </tr>
           </thead>
           <tbody id="vlan-requests-tbody"></tbody>
         </table>
-        <div id="vlan-requests-empty" class="hidden" style="padding:48px;text-align:center;color:#484f58;font-size:13px;">Aucune demande en attente</div>
+        <div id="vlan-requests-empty" class="hidden" style="padding:48px;text-align:center;color:var(--tx-5);font-size:13px;">Aucune demande en attente</div>
       </div>
     </div>
 
@@ -398,33 +400,33 @@ th{text-align:left}
     <div id="pane-account-requests" class="admin-pane hidden">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:16px">
         <div>
-          <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0">Demandes de création de compte</h3>
-          <div style="font-size:12px;color:#8b949e;margin-top:3px">Approuvez ou refusez les demandes soumises depuis la page de connexion</div>
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Demandes de création de compte</h3>
+          <div style="font-size:12px;color:var(--tx-3);margin-top:3px">Approuvez ou refusez les demandes soumises depuis la page de connexion</div>
         </div>
         <button id="btn-refresh-account-requests" class="btn btn-g btn-sm">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
           Actualiser
         </button>
       </div>
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;overflow:hidden">
         <table style="width:100%;border-collapse:collapse">
           <thead>
-            <tr style="border-bottom:1px solid #30363d">
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Nom &amp; Prénom</th>
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Identifiant</th>
-              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:#8b949e;text-align:left;text-transform:uppercase;letter-spacing:.05em">Date</th>
+            <tr style="border-bottom:1px solid var(--brd)">
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Nom &amp; Prénom</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Identifiant</th>
+              <th style="padding:11px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-align:left;text-transform:uppercase;letter-spacing:.05em">Date</th>
               <th style="padding:11px 16px;text-align:right"></th>
             </tr>
           </thead>
           <tbody id="account-requests-tbody"></tbody>
         </table>
-        <div id="account-requests-empty" class="hidden" style="padding:48px;text-align:center;color:#484f58;font-size:13px;">Aucune demande en attente</div>
+        <div id="account-requests-empty" class="hidden" style="padding:48px;text-align:center;color:var(--tx-5);font-size:13px;">Aucune demande en attente</div>
       </div>
     </div>
 
     <div id="pane-password" class="admin-pane hidden" style="max-width:480px">
-      <h3 style="color:#e6edf3;font-size:16px;font-weight:700;margin:0 0 20px">Changer mon mot de passe</h3>
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:24px">
+      <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 20px">Changer mon mot de passe</h3>
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:24px">
         <form id="form-change-pw">
           <div style="margin-bottom:14px">
             <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Mot de passe actuel</label>
@@ -455,7 +457,7 @@ th{text-align:left}
   <div class="modal-box">
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
       <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Créer un utilisateur</div>
-      <button onclick="closeModal('modal-create-user')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button onclick="closeModal('modal-create-user')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <form id="form-create-user">
       <div style="display:grid;gap:14px;margin-bottom:18px">
@@ -466,7 +468,7 @@ th{text-align:left}
         <div>
           <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Identifiant <span style="color:#f85149">*</span></label>
           <input id="new-username" class="inp" type="text" autocapitalize="characters" placeholder="ex: PJFY579" maxlength="7" style="text-transform:uppercase;font-family:monospace;letter-spacing:.05em">
-          <div style="font-size:11px;color:#8b949e;margin-top:5px">Commence par P ou X · 3 lettres · 3 chiffres (ex: PJFY579)</div>
+          <div style="font-size:11px;color:var(--tx-3);margin-top:5px">Commence par P ou X · 3 lettres · 3 chiffres (ex: PJFY579)</div>
         </div>
         <div>
           <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Mot de passe <span style="color:#f85149">*</span></label>
@@ -492,7 +494,7 @@ th{text-align:left}
 <div id="modal-reset-pw" class="modal-overlay hidden">
   <div class="modal-box" style="width:400px">
     <div style="font-size:17px;font-weight:700;margin-bottom:6px">Réinitialiser le mot de passe</div>
-    <div id="reset-pw-subtitle" style="font-size:13px;color:#8b949e;margin-bottom:18px"></div>
+    <div id="reset-pw-subtitle" style="font-size:13px;color:var(--tx-3);margin-bottom:18px"></div>
     <form id="form-reset-pw">
       <input type="hidden" id="reset-pw-uid">
       <div style="margin-bottom:18px">
@@ -512,9 +514,9 @@ th{text-align:left}
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
       <div>
         <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Créer un nouveau site</div>
-        <div style="font-size:13px;color:#8b949e;margin-top:3px">Vous pourrez ajouter des plages IP ensuite</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Vous pourrez ajouter des plages IP ensuite</div>
       </div>
-      <button onclick="closeModal('modal-create-site')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button onclick="closeModal('modal-create-site')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <form id="form-create-site">
       <div style="margin-bottom:18px">
@@ -533,7 +535,7 @@ th{text-align:left}
   <div class="modal-box" style="width:400px">
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
       <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Renommer le site</div>
-      <button onclick="closeModal('modal-rename-site')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button onclick="closeModal('modal-rename-site')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <form id="form-rename-site">
       <input type="hidden" id="rename-site-id">
@@ -555,9 +557,9 @@ th{text-align:left}
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
       <div>
         <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Changer le rôle</div>
-        <div id="change-role-subtitle" style="font-size:13px;color:#8b949e;margin-top:3px"></div>
+        <div id="change-role-subtitle" style="font-size:13px;color:var(--tx-3);margin-top:3px"></div>
       </div>
-      <button onclick="closeModal('modal-change-role')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button onclick="closeModal('modal-change-role')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <form id="form-change-role">
       <input type="hidden" id="change-role-uid">
@@ -579,9 +581,9 @@ th{text-align:left}
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
       <div>
         <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Renommer le VLAN</div>
-        <div id="rename-vlan-subtitle" style="font-size:13px;color:#8b949e;margin-top:3px"></div>
+        <div id="rename-vlan-subtitle" style="font-size:13px;color:var(--tx-3);margin-top:3px"></div>
       </div>
-      <button onclick="closeModal('modal-rename-vlan')" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button onclick="closeModal('modal-rename-vlan')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <form id="form-rename-vlan">
       <input type="hidden" id="rename-vlan-id">
@@ -590,7 +592,7 @@ th{text-align:left}
         <input id="rename-vlan-value" class="inp" type="number" min="1" max="4094" required>
       </div>
       <div style="margin-bottom:18px">
-        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle / Description <span style="font-size:11px;font-weight:400;color:#484f58">(optionnel)</span></label>
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle / Description <span style="font-size:11px;font-weight:400;color:var(--tx-5)">(optionnel)</span></label>
         <input id="rename-vlan-description" class="inp" type="text" placeholder="ex : Serveurs de fichiers ZN" maxlength="120">
       </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">

@@ -6,35 +6,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IPAM SIW — Sites</title>
   <link rel="stylesheet" href="/vendor/fonts.css">
+<link rel="stylesheet" href="/css/theme.css">
   <script src="/js/protect.js"></script>
 <script src="/vendor/tailwind.min.js"></script>
   <style>
     *{box-sizing:border-box}
-    body{background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0}
+    body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0}
     ::-webkit-scrollbar{width:5px;height:5px}
-    ::-webkit-scrollbar-track{background:#0d1117}
-    ::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+    ::-webkit-scrollbar-track{background:var(--bg-1)}
+    ::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
     ::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
-    *{scrollbar-width:thin;scrollbar-color:#30363d #0d1117}
+    *{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
     .hidden{display:none!important}
     input,button{-webkit-appearance:none;appearance:none}
     input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
     .modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.65);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:200;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px}
-    .modal-box{background:#21262d;border:1px solid #30363d;border-radius:12px;padding:28px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
+    .modal-box{background:var(--bg-4);border:1px solid var(--brd);border-radius:12px;padding:28px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
     @-webkit-keyframes mfade{from{opacity:0;-webkit-transform:scale(.92) translateY(12px);transform:scale(.92) translateY(12px)}to{opacity:1;-webkit-transform:none;transform:none}}
     @keyframes mfade{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
-    .inp{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:14px;outline:none;width:100%;box-sizing:border-box;-webkit-transition:border-color .15s;transition:border-color .15s}
+    .inp{background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;color:var(--tx-1);font-size:14px;outline:none;width:100%;box-sizing:border-box;-webkit-transition:border-color .15s;transition:border-color .15s}
     .inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
-    .inp::placeholder{color:#8b949e}
-    .btn-p{background:#58a6ff;color:#0d1117;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:background .15s;transition:background .15s}
+    .inp::placeholder{color:var(--tx-3)}
+    .btn-p{background:#58a6ff;color:var(--bg-1);border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:background .15s;transition:background .15s}
     .btn-p:hover{background:#79b8ff}
-    .btn-g{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:background .15s;transition:background .15s}
-    .btn-g:hover{background:#2d333b}
+    .btn-g{background:var(--bg-4);color:var(--tx-1);border:1px solid var(--brd);border-radius:8px;padding:9px 18px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:background .15s;transition:background .15s}
+    .btn-g:hover{background:var(--bg-hover)}
     .hidden{display:none!important}
     input:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
     button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-    .inp{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:9px 14px;color:#e6edf3;font-size:13px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
-    .inp::placeholder{color:#8b949e}
+    .inp{background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:9px 14px;color:var(--tx-1);font-size:13px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+    .inp::placeholder{color:var(--tx-3)}
     .inp:focus{border-color:#58a6ff!important}
     #sites-grid{
       display:-webkit-box;display:-ms-flexbox;display:flex;
@@ -49,37 +50,37 @@
 <body>
 
   <!-- NAV -->
-  <nav style="background:#161b22;border-bottom:1px solid #30363d;padding:0 24px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;height:56px;position:-webkit-sticky;position:sticky;top:0;z-index:100;">
+  <nav style="background:var(--bg-2);border-bottom:1px solid var(--brd);padding:0 24px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;height:56px;position:-webkit-sticky;position:sticky;top:0;z-index:100;">
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:16px;">
       <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;text-decoration:none;">
         <div style="width:28px;height:28px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:7px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 10px rgba(88,166,255,.3)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
         </div>
-        <span style="color:#e6edf3;font-weight:700;font-size:15px;letter-spacing:-.01em;">IPAM SIW</span>
+        <span style="color:var(--tx-1);font-weight:700;font-size:15px;letter-spacing:-.01em;">IPAM SIW</span>
       </a>
-      <a href="/stats.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+      <a href="/stats.html" style="color:var(--tx-3);font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Statistiques
       </a>
-      <a href="/export.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+      <a href="/export.html" style="color:var(--tx-3);font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export Excel
       </a>
-      <a href="/archive.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+      <a href="/archive.html" style="color:var(--tx-3);font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
         Archive
       </a>
-      <a id="nav-admin-link" href="/admin.html" class="hidden" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+      <a id="nav-admin-link" href="/admin.html" class="hidden" style="color:var(--tx-3);font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Administration
       </a>
     </div>
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:14px;">
       <div style="text-align:right;">
-        <div id="nav-username" style="color:#e6edf3;font-size:13px;font-weight:600;"></div>
-        <div id="nav-role" style="color:#8b949e;font-size:11px;"></div>
+        <div id="nav-username" style="color:var(--tx-1);font-size:13px;font-weight:600;"></div>
+        <div id="nav-role" style="color:var(--tx-3);font-size:11px;"></div>
       </div>
-      <button id="btn-change-pw" title="Changer mon mot de passe" style="background:#21262d;border:1px solid #30363d;border-radius:8px;color:#8b949e;font-size:12px;padding:6px 10px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#2d333b';this.style.color='#e6edf3'" onmouseleave="this.style.background='#21262d';this.style.color='#8b949e'">
+      <button id="btn-change-pw" title="Changer mon mot de passe" style="background:var(--bg-4);border:1px solid var(--brd);border-radius:8px;color:var(--tx-3);font-size:12px;padding:6px 10px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       </button>
       <button id="btn-logout" style="background:#f8514918;border:1px solid #f8514940;border-radius:8px;color:#f85149;font-size:12px;padding:6px 14px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
@@ -98,8 +99,8 @@
                 -webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;
                 margin-bottom:28px;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:16px;">
       <div>
-        <h2 style="color:#e6edf3;font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;">Sites réseau</h2>
-        <p id="site-count" style="color:#8b949e;font-size:13px;margin:4px 0 0;"></p>
+        <h2 style="color:var(--tx-1);font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;">Sites réseau</h2>
+        <p id="site-count" style="color:var(--tx-3);font-size:13px;margin:4px 0 0;"></p>
       </div>
       <input id="search-site" class="inp" type="search" placeholder="Rechercher un site…" style="width:260px;">
     </div>
@@ -109,12 +110,12 @@
 
     <!-- Empty state -->
     <div id="empty-state" class="hidden"
-         style="text-align:center;padding:80px 24px;color:#8b949e;">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#30363d" stroke-width="1.5"
+         style="text-align:center;padding:80px 24px;color:var(--tx-3);">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--brd)" stroke-width="1.5"
            style="margin:0 auto 16px;display:block;">
         <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
       </svg>
-      <p style="font-size:15px;font-weight:600;color:#484f58;margin:0;">Aucun site trouvé</p>
+      <p style="font-size:15px;font-weight:600;color:var(--tx-5);margin:0;">Aucun site trouvé</p>
     </div>
 
   </main>
@@ -124,19 +125,19 @@
     <div class="modal-box">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:20px">
         <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Changer mon mot de passe</div>
-        <button id="btn-cancel-change-pw" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <button id="btn-cancel-change-pw" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <form id="form-change-pw">
         <div style="margin-bottom:14px">
-          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:#e6edf3">Mot de passe actuel</label>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:var(--tx-1)">Mot de passe actuel</label>
           <input id="cpw-current" class="inp" type="password" required>
         </div>
         <div style="margin-bottom:14px">
-          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:#e6edf3">Nouveau mot de passe <span style="color:#f85149">*</span></label>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:var(--tx-1)">Nouveau mot de passe <span style="color:#f85149">*</span></label>
           <input id="cpw-new" class="inp" type="password" minlength="8" required>
         </div>
         <div style="margin-bottom:20px">
-          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:#e6edf3">Confirmer le nouveau mot de passe <span style="color:#f85149">*</span></label>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:var(--tx-1)">Confirmer le nouveau mot de passe <span style="color:#f85149">*</span></label>
           <input id="cpw-confirm" class="inp" type="password" minlength="8" required>
         </div>
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">

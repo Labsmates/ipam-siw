@@ -1,0 +1,91 @@
+/* =============================================================================
+   IPAM SIW — Thème sombre / clair
+   Les variables --bg-X, --tx-X, --brd sont utilisées dans tous les inline styles
+   et les blocs <style>. Basculer la classe "light" sur <html> change tout.
+   ============================================================================= */
+
+:root {
+  --bg-1:    #0d1117;   /* fond le plus sombre */
+  --bg-2:    #161b22;   /* surface principale  */
+  --bg-3:    #1c2128;   /* surface élevée      */
+  --bg-4:    #21262d;   /* fond subtil / bord  */
+  --bg-hover:#2d333b;   /* survol              */
+  --brd:     #30363d;   /* bordure principale  */
+  --tx-1:    #e6edf3;   /* texte principal     */
+  --tx-2:    #c9d1d9;   /* texte secondaire    */
+  --tx-3:    #8b949e;   /* texte atténué       */
+  --tx-4:    #6e7681;   /* texte discret       */
+  --tx-5:    #484f58;   /* texte très discret  */
+  --shadow:  rgba(0,0,0,.6);
+  --overlay: rgba(0,0,0,.7);
+}
+
+html.light {
+  --bg-1:    #ffffff;
+  --bg-2:    #f6f8fa;
+  --bg-3:    #eaeef2;
+  --bg-4:    #d8dee4;
+  --bg-hover:#c6ccd2;
+  --brd:     #d0d7de;
+  --tx-1:    #1f2328;
+  --tx-2:    #24292f;
+  --tx-3:    #57606a;
+  --tx-4:    #6e7781;
+  --tx-5:    #848d97;
+  --shadow:  rgba(0,0,0,.12);
+  --overlay: rgba(0,0,0,.4);
+}
+
+/* ── Overrides globaux mode clair ─────────────────────────────────────────── */
+
+html.light body { background: var(--bg-2); color: var(--tx-1); }
+
+/* Overlay modal */
+html.light .modal-overlay { background: var(--overlay) !important; }
+
+/* Scrollbar */
+html.light ::-webkit-scrollbar-track { background: var(--bg-2); }
+html.light ::-webkit-scrollbar-thumb { background: var(--bg-4); }
+
+/* Inputs */
+html.light .inp {
+  background: var(--bg-1) !important;
+  border-color: var(--brd) !important;
+  color: var(--tx-1) !important;
+}
+
+/* Boutons génériques */
+html.light .btn-g {
+  background: var(--bg-4) !important;
+  border-color: var(--brd) !important;
+  color: var(--tx-2) !important;
+}
+
+/* Badges role viewer (fond neutre) */
+html.light span[style*="background:#1c2128"] {
+  background: var(--bg-3) !important;
+  color: var(--tx-3) !important;
+  border-color: var(--brd) !important;
+}
+
+/* Badges role admin (bleu teinté → restent bleus, on ajuste juste le fond) */
+html.light span[style*="background:#0d2240"] {
+  background: #ddf4ff !important;
+  border-color: #218bff !important;
+}
+
+/* Badges role user (vert teinté) */
+html.light span[style*="background:#0d2a1a"] {
+  background: #dafbe1 !important;
+  border-color: #2da44e !important;
+}
+
+/* Status badge Utilisé (rouge) — garder */
+html.light span[style*="background:#f8514918"] { background: #fff1f0 !important; }
+
+/* Onglet VLAN actif (fond bleu) — garder identifiable */
+html.light .vlan-tab.on {
+  background: #ddf4ff !important;
+  color: #0969da !important;
+  border-bottom-color: #0969da !important;
+}

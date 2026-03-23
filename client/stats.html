@@ -6,26 +6,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IPAM SIW — Statistiques</title>
 <link rel="stylesheet" href="/vendor/fonts.css">
+<link rel="stylesheet" href="/css/theme.css">
 <script src="/js/protect.js"></script>
 <script src="/vendor/tailwind.min.js"></script>
 <style>
 *{box-sizing:border-box}
-body{background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0}
+body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0}
 ::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:#0d1117}
-::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+::-webkit-scrollbar-track{background:var(--bg-1)}
+::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
-*{scrollbar-width:thin;scrollbar-color:#30363d #0d1117}
+*{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
 .hidden{display:none!important}
-.inp{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+.inp{width:100%;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;color:var(--tx-1);font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
 .inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
-.inp::-webkit-input-placeholder{color:#8b949e}
-.inp::placeholder{color:#8b949e}
+.inp::-webkit-input-placeholder{color:var(--tx-3)}
+.inp::placeholder{color:var(--tx-3)}
 input,button{-webkit-appearance:none;appearance:none}
 input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
 input:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
 button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-.spinner{width:36px;height:36px;border:3px solid #30363d;border-top-color:#58a6ff;border-radius:50%;-webkit-animation:sp .7s linear infinite;animation:sp .7s linear infinite}
+.spinner{width:36px;height:36px;border:3px solid var(--brd);border-top-color:#58a6ff;border-radius:50%;-webkit-animation:sp .7s linear infinite;animation:sp .7s linear infinite}
 @-webkit-keyframes sp{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
 @keyframes sp{to{transform:rotate(360deg)}}
 </style>
@@ -33,36 +34,37 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 <body>
 
 <!-- NAV -->
-<nav style="background:#161b22;border-bottom:1px solid #30363d;padding:0 24px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;height:56px;position:-webkit-sticky;position:sticky;top:0;z-index:100;">
+<nav style="background:var(--bg-2);border-bottom:1px solid var(--brd);padding:0 24px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;height:56px;position:-webkit-sticky;position:sticky;top:0;z-index:100;">
   <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:16px;">
     <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;text-decoration:none;">
       <div style="width:28px;height:28px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:7px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 10px rgba(88,166,255,.3)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
       </div>
-      <span style="color:#e6edf3;font-weight:700;font-size:15px;letter-spacing:-.01em;">IPAM SIW</span>
+      <span style="color:var(--tx-1);font-weight:700;font-size:15px;letter-spacing:-.01em;">IPAM SIW</span>
     </a>
     <a href="/stats.html" style="color:#58a6ff;font-size:13px;text-decoration:none;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Statistiques
     </a>
-    <a href="/export.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+    <a href="/export.html" style="color:var(--tx-3);font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export Excel
     </a>
-    <a href="/archive.html" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+    <a href="/archive.html" style="color:var(--tx-3);font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
       Archive
     </a>
-    <a id="nav-admin-link" href="/admin.html" class="hidden" style="color:#8b949e;font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='#e6edf3'" onmouseleave="this.style.color='#8b949e'">
+    <a id="nav-admin-link" href="/admin.html" class="hidden" style="color:var(--tx-3);font-size:13px;text-decoration:none;-webkit-transition:color .15s;transition:color .15s;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Administration
     </a>
   </div>
   <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
     <div style="text-align:right;">
-      <div id="nav-username" style="color:#e6edf3;font-size:13px;font-weight:600;"></div>
-      <div id="nav-role" style="color:#8b949e;font-size:11px;"></div>
+      <div id="nav-username" style="color:var(--tx-1);font-size:13px;font-weight:600;"></div>
+      <div id="nav-role" style="color:var(--tx-3);font-size:11px;"></div>
     </div>
+    <button id="btn-theme" title="Passer en mode clair" style="background:var(--bg-4);border:1px solid var(--brd);border-radius:8px;color:var(--tx-3);font-size:12px;padding:6px 10px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'"></button>
     <button id="btn-logout" style="background:#f8514918;border:1px solid #f8514940;border-radius:8px;color:#f85149;font-size:12px;padding:6px 14px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:5px" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Déconnexion
@@ -75,14 +77,14 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 
   <!-- Title -->
   <div style="margin-bottom:28px;">
-    <h2 style="color:#e6edf3;font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;">Statistiques des serveurs</h2>
-    <p id="stats-subtitle" style="color:#8b949e;font-size:13px;margin:4px 0 0;"></p>
+    <h2 style="color:var(--tx-1);font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;">Statistiques des serveurs</h2>
+    <p id="stats-subtitle" style="color:var(--tx-3);font-size:13px;margin:4px 0 0;"></p>
   </div>
 
   <!-- Loading state -->
   <div id="stats-loading" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:16px;padding:80px 24px;">
     <div class="spinner"></div>
-    <p id="stats-loading-msg" style="color:#8b949e;font-size:13px;margin:0;">Chargement des données…</p>
+    <p id="stats-loading-msg" style="color:var(--tx-3);font-size:13px;margin:0;">Chargement des données…</p>
   </div>
 
   <!-- Content (hidden while loading) -->
@@ -91,50 +93,50 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     <!-- Global counters -->
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:16px;margin-bottom:28px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
 
-      <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;">
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:24px;">
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;margin-bottom:12px;">
           <div style="width:34px;height:34px;background:#0d2240;border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg>
           </div>
-          <span style="font-size:13px;font-weight:600;color:#8b949e;">Serveurs Windows</span>
+          <span style="font-size:13px;font-weight:600;color:var(--tx-3);">Serveurs Windows</span>
         </div>
         <div id="count-windows" style="font-size:36px;font-weight:700;color:#58a6ff;letter-spacing:-.03em;">—</div>
-        <div style="font-size:12px;color:#484f58;margin-top:4px;">Pattern: XXXXXXXX-RRZZ</div>
+        <div style="font-size:12px;color:var(--tx-5);margin-top:4px;">Pattern: XXXXXXXX-RRZZ</div>
       </div>
 
-      <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;">
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:24px;">
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;margin-bottom:12px;">
           <div style="width:34px;height:34px;background:#0d2e1a;border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
           </div>
-          <span style="font-size:13px;font-weight:600;color:#8b949e;">Serveurs Linux</span>
+          <span style="font-size:13px;font-weight:600;color:var(--tx-3);">Serveurs Linux</span>
         </div>
         <div id="count-linux" style="font-size:36px;font-weight:700;color:#3fb950;letter-spacing:-.03em;">—</div>
-        <div style="font-size:12px;color:#484f58;margin-top:4px;">Domaine: .sf.intra.laposte.fr</div>
+        <div style="font-size:12px;color:var(--tx-5);margin-top:4px;">Domaine: .sf.intra.laposte.fr</div>
       </div>
 
-      <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;">
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:24px;">
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;margin-bottom:12px;">
-          <div style="width:34px;height:34px;background:#21262d;border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b949e" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div style="width:34px;height:34px;background:var(--bg-4);border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tx-3)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
-          <span style="font-size:13px;font-weight:600;color:#8b949e;">Total analysés</span>
+          <span style="font-size:13px;font-weight:600;color:var(--tx-3);">Total analysés</span>
         </div>
-        <div id="count-total" style="font-size:36px;font-weight:700;color:#e6edf3;letter-spacing:-.03em;">—</div>
-        <div style="font-size:12px;color:#484f58;margin-top:4px;">IPs utilisées avec hostname</div>
+        <div id="count-total" style="font-size:36px;font-weight:700;color:var(--tx-1);letter-spacing:-.03em;">—</div>
+        <div style="font-size:12px;color:var(--tx-5);margin-top:4px;">IPs utilisées avec hostname</div>
       </div>
 
     </div>
 
     <!-- Windows by role -->
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;margin-bottom:28px;">
-      <div style="padding:16px 20px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;overflow:hidden;margin-bottom:28px;">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="#58a6ff"><rect x="2" y="2" width="9" height="9"/><rect x="13" y="2" width="9" height="9"/><rect x="2" y="13" width="9" height="9"/><rect x="13" y="13" width="9" height="9"/></svg>
-          <h3 style="color:#e6edf3;font-size:15px;font-weight:700;margin:0;">Serveurs Windows par rôle</h3>
+          <h3 style="color:var(--tx-1);font-size:15px;font-weight:700;margin:0;">Serveurs Windows par rôle</h3>
         </div>
         <div style="position:relative;">
-          <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input id="search-role-win" class="inp" style="padding-left:28px;font-size:12px;padding-top:6px;padding-bottom:6px;width:160px;" placeholder="Filtrer par rôle…">
         </div>
       </div>
@@ -142,14 +144,14 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     </div>
 
     <!-- Linux by role -->
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;margin-bottom:28px;">
-      <div style="padding:16px 20px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;overflow:hidden;margin-bottom:28px;">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          <h3 style="color:#e6edf3;font-size:15px;font-weight:700;margin:0;">Serveurs Linux par rôle</h3>
+          <h3 style="color:var(--tx-1);font-size:15px;font-weight:700;margin:0;">Serveurs Linux par rôle</h3>
         </div>
         <div style="position:relative;">
-          <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <svg style="position:absolute;left:9px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input id="search-role-lin" class="inp" style="padding-left:28px;font-size:12px;padding-top:6px;padding-bottom:6px;width:160px;" placeholder="Filtrer par rôle…">
         </div>
       </div>
@@ -157,17 +159,17 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     </div>
 
     <!-- ═══ IP STATISTICS ═══ -->
-    <div style="margin-top:40px;margin-bottom:8px;padding-bottom:12px;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
+    <div style="margin-top:40px;margin-bottom:8px;padding-bottom:12px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-      <h2 style="color:#e6edf3;font-size:18px;font-weight:700;margin:0;letter-spacing:-.02em;">Statistiques des adresses IP</h2>
+      <h2 style="color:var(--tx-1);font-size:18px;font-weight:700;margin:0;letter-spacing:-.02em;">Statistiques des adresses IP</h2>
     </div>
 
     <!-- Global IP counters -->
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:14px;margin-top:20px;margin-bottom:28px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
-      <div style="-webkit-box-flex:1;-ms-flex:1 1 180px;flex:1 1 180px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;">
-        <div style="font-size:12px;font-weight:600;color:#484f58;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Total IPAM</div>
-        <div id="ip-count-total" style="font-size:32px;font-weight:700;color:#e6edf3;letter-spacing:-.03em;">—</div>
-        <div style="font-size:11px;color:#484f58;margin-top:4px;">adresses gérées</div>
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 180px;flex:1 1 180px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px;">
+        <div style="font-size:12px;font-weight:600;color:var(--tx-5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Total IPAM</div>
+        <div id="ip-count-total" style="font-size:32px;font-weight:700;color:var(--tx-1);letter-spacing:-.03em;">—</div>
+        <div style="font-size:11px;color:var(--tx-5);margin-top:4px;">adresses gérées</div>
       </div>
       <div style="-webkit-box-flex:1;-ms-flex:1 1 180px;flex:1 1 180px;background:#2e0d0d;border:1px solid #6b2020;border-radius:12px;padding:20px;">
         <div style="font-size:12px;font-weight:600;color:#f8514988;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Utilisées</div>
@@ -189,7 +191,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     <!-- Per-site / per-VLAN breakdown -->
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;margin-bottom:16px;">
       <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:340px;">
-        <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:#8b949e;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input id="search-ip-site" class="inp" style="padding-left:30px;font-size:13px;padding-top:7px;padding-bottom:7px;" placeholder="Rechercher un site…">
       </div>
     </div>

@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, showToast, sortSites, showConfirm,
+  get, showToast, sortSites, showConfirm, initTheme,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
@@ -89,6 +89,7 @@ let _searchIpSite  = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
   checkHttps();
+  initTheme();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -242,7 +243,7 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '', rol
   }
 
   if (!allRoles.length) {
-    grid.innerHTML = `<div style="padding:24px;color:#8b949e;font-size:13px;text-align:center;">Aucun rôle ne correspond à « ${esc(filter)} »</div>`;
+    grid.innerHTML = `<div style="padding:24px;color:var(--tx-3);font-size:13px;text-align:center;">Aucun rôle ne correspond à « ${esc(filter)} »</div>`;
     return;
   }
 
@@ -254,10 +255,10 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '', rol
       const count    = roleCounts[r.code] || 0;
       const pct      = total ? Math.round(count / total * 100) : 0;
       const hostnames = roleHostnames[r.code] || [];
-      const borderT  = i > 0 ? 'border-top:1px solid #21262d;' : '';
+      const borderT  = i > 0 ? 'border-top:1px solid var(--bg-4);' : '';
 
       const serverChips = hostnames.map(h =>
-        `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#c9d1d9;background:#21262d;border:1px solid #30363d;border-radius:4px;padding:2px 8px;white-space:nowrap;">${esc(h)}</span>`
+        `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx-2);background:var(--bg-4);border:1px solid var(--brd);border-radius:4px;padding:2px 8px;white-space:nowrap;">${esc(h)}</span>`
       ).join('');
 
       return `
@@ -265,20 +266,20 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '', rol
           <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:8px;">
             <div>
               <span style="font-size:12px;font-weight:700;color:${colorA};background:${colorA}18;border:1px solid ${colorA}44;padding:1px 7px;border-radius:4px;margin-right:8px;">${esc(r.code)}</span>
-              <span style="font-size:13px;color:#e6edf3;">${esc(r.label)}</span>
+              <span style="font-size:13px;color:var(--tx-1);">${esc(r.label)}</span>
             </div>
             <div style="text-align:right;-ms-flex-negative:0;flex-shrink:0;margin-left:12px;">
-              <span style="font-size:20px;font-weight:700;color:#e6edf3;">${count.toLocaleString('fr')}</span>
-              <span style="font-size:11px;color:#484f58;margin-left:4px;">${pct}%</span>
+              <span style="font-size:20px;font-weight:700;color:var(--tx-1);">${count.toLocaleString('fr')}</span>
+              <span style="font-size:11px;color:var(--tx-5);margin-left:4px;">${pct}%</span>
             </div>
           </div>
-          <div style="height:4px;background:#21262d;border-radius:999px;overflow:hidden;margin-bottom:${hostnames.length ? '14px' : '0'};">
+          <div style="height:4px;background:var(--bg-4);border-radius:999px;overflow:hidden;margin-bottom:${hostnames.length ? '14px' : '0'};">
             <div style="height:100%;width:100%;background:-webkit-linear-gradient(left,${colorA},${colorB});background:linear-gradient(90deg,${colorA},${colorB});border-radius:999px;"></div>
           </div>
           ${hostnames.length ? `
           <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:6px;">
             ${serverChips}
-          </div>` : `<div style="font-size:12px;color:#484f58;font-style:italic;">Aucun serveur trouvé pour ce rôle</div>`}
+          </div>` : `<div style="font-size:12px;color:var(--tx-5);font-style:italic;">Aucun serveur trouvé pour ce rôle</div>`}
         </div>
       `;
     }).join('');
@@ -292,22 +293,22 @@ function renderRoles(gridId, roleCounts, total, colorA, colorB, filter = '', rol
     const barW   = Math.round(count / maxCount * 100);
     const col    = i % 2;
     const row    = Math.floor(i / 2);
-    const borderT = row > 0 ? 'border-top:1px solid #21262d;' : '';
-    const borderR = col === 0 ? 'border-right:1px solid #21262d;' : '';
+    const borderT = row > 0 ? 'border-top:1px solid var(--bg-4);' : '';
+    const borderR = col === 0 ? 'border-right:1px solid var(--bg-4);' : '';
 
     return `
       <div style="${borderT}${borderR}-webkit-box-flex:0;-ms-flex:0 0 50%;flex:0 0 50%;min-width:0;padding:16px 20px;box-sizing:border-box;">
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:8px;">
           <div>
             <span style="font-size:12px;font-weight:700;color:${colorA};background:${colorA}18;border:1px solid ${colorA}44;padding:1px 7px;border-radius:4px;margin-right:8px;">${esc(r.code)}</span>
-            <span style="font-size:13px;color:#e6edf3;">${esc(r.label)}</span>
+            <span style="font-size:13px;color:var(--tx-1);">${esc(r.label)}</span>
           </div>
           <div style="text-align:right;-ms-flex-negative:0;flex-shrink:0;margin-left:12px;">
-            <span style="font-size:20px;font-weight:700;color:#e6edf3;">${count.toLocaleString('fr')}</span>
-            <span style="font-size:11px;color:#484f58;margin-left:4px;">${pct}%</span>
+            <span style="font-size:20px;font-weight:700;color:var(--tx-1);">${count.toLocaleString('fr')}</span>
+            <span style="font-size:11px;color:var(--tx-5);margin-left:4px;">${pct}%</span>
           </div>
         </div>
-        <div style="height:4px;background:#21262d;border-radius:999px;overflow:hidden;">
+        <div style="height:4px;background:var(--bg-4);border-radius:999px;overflow:hidden;">
           <div style="height:100%;width:${barW}%;background:-webkit-linear-gradient(left,${colorA},${colorB});background:linear-gradient(90deg,${colorA},${colorB});border-radius:999px;-webkit-transition:width .4s ease;transition:width .4s ease;"></div>
         </div>
       </div>
@@ -335,7 +336,7 @@ function renderIpStats(sites, details, siteFilter = '') {
   const visibleSites = q ? sites.filter(s => s.name.toLowerCase().includes(q)) : sites;
 
   if (!visibleSites.length) {
-    grid.innerHTML = `<div style="padding:32px;color:#8b949e;font-size:13px;text-align:center;">Aucun site ne correspond à « ${esc(siteFilter)} »</div>`;
+    grid.innerHTML = `<div style="padding:32px;color:var(--tx-3);font-size:13px;text-align:center;">Aucun site ne correspond à « ${esc(siteFilter)} »</div>`;
     return;
   }
 
@@ -373,51 +374,51 @@ function renderIpStats(sites, details, siteFilter = '') {
       const s   = vlanStats[vid];
       const pct = s.total ? Math.round(s.utilise / s.total * 100) : 0;
       return `
-        <tr style="border-bottom:1px solid #21262d;"
-            onmouseenter="this.style.background='#161b22'" onmouseleave="this.style.background=''">
+        <tr style="border-bottom:1px solid var(--bg-4);"
+            onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
           <td style="padding:10px 20px;">
             <span style="font-size:12px;font-weight:700;color:#58a6ff;background:#0d2240;border:1px solid #1f4080;padding:2px 8px;border-radius:4px;white-space:nowrap;">VLAN ${esc(String(v.vlan_id || vid))}</span>
           </td>
-          <td style="padding:10px 20px;font-size:12px;color:#8b949e;font-family:'JetBrains Mono',monospace;">${esc(v.network || '—')}</td>
-          <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;">${s.total.toLocaleString('fr')}</td>
+          <td style="padding:10px 20px;font-size:12px;color:var(--tx-3);font-family:'JetBrains Mono',monospace;">${esc(v.network || '—')}</td>
+          <td style="padding:10px 20px;font-size:13px;font-weight:700;color:var(--tx-1);text-align:right;">${s.total.toLocaleString('fr')}</td>
           <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#f85149;text-align:right;">${s.utilise.toLocaleString('fr')}</td>
           <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#3fb950;text-align:right;">${s.libre.toLocaleString('fr')}</td>
           <td style="padding:10px 20px;font-size:13px;font-weight:700;color:#d29922;text-align:right;">${s.reserve.toLocaleString('fr')}</td>
           <td style="padding:10px 20px;text-align:right;">
             <div style="display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:7px;">
-              <div style="width:64px;height:5px;background:#21262d;border-radius:999px;overflow:hidden;">
+              <div style="width:64px;height:5px;background:var(--bg-4);border-radius:999px;overflow:hidden;">
                 <div style="height:100%;width:${pct}%;background:-webkit-linear-gradient(left,#f85149,#ff7b72);background:linear-gradient(90deg,#f85149,#ff7b72);border-radius:999px;"></div>
               </div>
-              <span style="font-size:11px;color:#484f58;min-width:28px;text-align:right;">${pct}%</span>
+              <span style="font-size:11px;color:var(--tx-5);min-width:28px;text-align:right;">${pct}%</span>
             </div>
           </td>
         </tr>`;
     }).join('');
 
     return `
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;margin-bottom:14px;">
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;overflow:hidden;margin-bottom:14px;">
         <!-- Site header -->
-        <div style="padding:14px 20px;background:#1c2128;border-bottom:1px solid #30363d;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:10px;">
-          <span style="font-size:14px;font-weight:700;color:#e6edf3;">${esc(site.name)}</span>
+        <div style="padding:14px 20px;background:var(--bg-3);border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:10px;">
+          <span style="font-size:14px;font-weight:700;color:var(--tx-1);">${esc(site.name)}</span>
           <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:18px;font-size:12px;-ms-flex-wrap:wrap;flex-wrap:wrap;">
-            <span style="color:#8b949e;">Total <strong style="color:#e6edf3;">${sTotal.toLocaleString('fr')}</strong></span>
+            <span style="color:var(--tx-3);">Total <strong style="color:var(--tx-1);">${sTotal.toLocaleString('fr')}</strong></span>
             <span style="color:#f85149;">Utilisé <strong>${sUtil.toLocaleString('fr')}</strong></span>
             <span style="color:#3fb950;">Libre <strong>${sLibre.toLocaleString('fr')}</strong></span>
             <span style="color:#d29922;">Réservée <strong>${sRes.toLocaleString('fr')}</strong></span>
-            <span style="color:#484f58;">Taux <strong style="color:#e6edf3;">${sPct}%</strong></span>
+            <span style="color:var(--tx-5);">Taux <strong style="color:var(--tx-1);">${sPct}%</strong></span>
           </div>
         </div>
         <!-- VLAN table -->
         <table style="width:100%;border-collapse:collapse;">
           <thead>
-            <tr style="background:#0d1117;">
-              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#484f58;text-align:left;border-bottom:1px solid #21262d;white-space:nowrap;">VLAN</th>
-              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#484f58;text-align:left;border-bottom:1px solid #21262d;">Réseau</th>
-              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#8b949e;text-align:right;border-bottom:1px solid #21262d;">Total</th>
-              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#f85149;text-align:right;border-bottom:1px solid #21262d;">Utilisé</th>
-              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#3fb950;text-align:right;border-bottom:1px solid #21262d;">Libre</th>
-              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#d29922;text-align:right;border-bottom:1px solid #21262d;">Réservée</th>
-              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#484f58;text-align:right;border-bottom:1px solid #21262d;">% util.</th>
+            <tr style="background:var(--bg-1);">
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:var(--tx-5);text-align:left;border-bottom:1px solid var(--bg-4);white-space:nowrap;">VLAN</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:var(--tx-5);text-align:left;border-bottom:1px solid var(--bg-4);">Réseau</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:var(--tx-3);text-align:right;border-bottom:1px solid var(--bg-4);">Total</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#f85149;text-align:right;border-bottom:1px solid var(--bg-4);">Utilisé</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#3fb950;text-align:right;border-bottom:1px solid var(--bg-4);">Libre</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:#d29922;text-align:right;border-bottom:1px solid var(--bg-4);">Réservée</th>
+              <th style="padding:8px 20px;font-size:11px;font-weight:600;color:var(--tx-5);text-align:right;border-bottom:1px solid var(--bg-4);">% util.</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
