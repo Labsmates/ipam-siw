@@ -418,7 +418,7 @@ const VLAN_DESC_MAP = {
   43:  'METIER', 403:  'METIER', 1491: 'METIER',
   203: 'ADMIN',  1460: 'ADMIN',  1490: 'ADMIN',
   1499: 'IPMI',  300:  'IPMI',   1479: 'IPMI',
-  37:  'PROCEF', 600:  'PROCEF',
+  600: 'PROCEF', 37:  'PROCEF',
 };
 
 export function getVlanAutoDesc(vlanId) {
@@ -434,11 +434,14 @@ export async function autoTagAllVlans() {
   vlanKeys.forEach(k => pipe1.hgetall(k));
   const results = await pipe1.exec();
 
+  const AUTO_TAGS = new Set(Object.values(VLAN_DESC_MAP));
   const pipe2 = redis.pipeline();
   let updated = 0;
   for (let i = 0; i < vlanKeys.length; i++) {
     const vlan = results[i][1];
-    if (!vlan?.vlan_id || vlan.description) continue;
+    if (!vlan?.vlan_id) continue;
+    // Skip si description manuelle (non générée automatiquement)
+    if (vlan.description && !AUTO_TAGS.has(vlan.description)) continue;
     pipe2.hset(vlanKeys[i], 'description', getVlanAutoDesc(vlan.vlan_id));
     updated++;
   }
