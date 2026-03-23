@@ -417,8 +417,8 @@ const VLAN_DESC_MAP = {
   202: 'METIER', 1461: 'METIER', 50: 'METIER', 42: 'METIER',
   43:  'METIER', 403:  'METIER', 1491: 'METIER',
   203: 'ADMIN',  1460: 'ADMIN',  1490: 'ADMIN',
-  1499: 'IPMI',  600:  'IPMI',   1479: 'IPMI',
-  37:  'PROCEF', 300:  'PROCEF',
+  1499: 'IPMI',  300:  'IPMI',   1479: 'IPMI',
+  37:  'PROCEF', 600:  'PROCEF',
 };
 
 export function getVlanAutoDesc(vlanId) {
