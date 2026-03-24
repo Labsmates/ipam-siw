@@ -36,6 +36,12 @@ html.light {
   --overlay: rgba(0,0,0,.45);
 }
 
+/* ── Sélection de texte dans les champs ───────────────────────────────────── */
+input, textarea, select {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* ── Overrides globaux mode clair ─────────────────────────────────────────── */
 
 html.light body { background: var(--bg-2); color: var(--tx-1); }
