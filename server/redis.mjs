@@ -434,15 +434,18 @@ export async function autoTagAllVlans() {
   vlanKeys.forEach(k => pipe1.hgetall(k));
   const results = await pipe1.exec();
 
-  const AUTO_TAGS = new Set(Object.values(VLAN_DESC_MAP));
   const pipe2 = redis.pipeline();
   let updated = 0;
   for (let i = 0; i < vlanKeys.length; i++) {
     const vlan = results[i][1];
     if (!vlan?.vlan_id) continue;
-    // Skip si description manuelle (non générée automatiquement)
-    if (vlan.description && !AUTO_TAGS.has(vlan.description)) continue;
-    pipe2.hset(vlanKeys[i], 'description', getVlanAutoDesc(vlan.vlan_id));
+    const inMap = VLAN_DESC_MAP[parseInt(vlan.vlan_id)] !== undefined;
+    // VLANs dans la map : la map fait autorité (corrige les anciennes valeurs)
+    // VLANs hors map : seulement si pas encore de description (préserve les descriptions manuelles)
+    if (!inMap && vlan.description) continue;
+    const desc = getVlanAutoDesc(vlan.vlan_id);
+    if (vlan.description === desc) continue; // déjà correct
+    pipe2.hset(vlanKeys[i], 'description', desc);
     updated++;
   }
   if (updated > 0) await pipe2.exec();
