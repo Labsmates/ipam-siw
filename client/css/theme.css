@@ -21,18 +21,18 @@
 }
 
 html.light {
-  --bg-1:    #ffffff;
-  --bg-2:    #f6f8fa;
-  --bg-3:    #eaeef2;
-  --bg-4:    #d8dee4;
-  --bg-hover:#c6ccd2;
-  --brd:     #d0d7de;
-  --tx-1:    #1f2328;
+  --bg-1:    #e8ecf0;
+  --bg-2:    #dde2e8;
+  --bg-3:    #d2d8df;
+  --bg-4:    #c4ccd5;
+  --bg-hover:#b8c1cb;
+  --brd:     #adb6c0;
+  --tx-1:    #1a1f24;
   --tx-2:    #24292f;
-  --tx-3:    #57606a;
-  --tx-4:    #6e7781;
-  --tx-5:    #848d97;
-  --shadow:  rgba(0,0,0,.12);
+  --tx-3:    #4a5460;
+  --tx-4:    #5e6a76;
+  --tx-5:    #7a8795;
+  --shadow:  rgba(0,0,0,.18);
   --overlay: rgba(0,0,0,.4);
 }
 
