@@ -21,19 +21,19 @@
 }
 
 html.light {
-  --bg-1:    #e8ecf0;
-  --bg-2:    #dde2e8;
-  --bg-3:    #d2d8df;
-  --bg-4:    #c4ccd5;
-  --bg-hover:#b0bac5;
-  --brd:     #8a97a5;
-  --tx-1:    #0a0d10;
-  --tx-2:    #0d1117;
-  --tx-3:    #2c3640;
-  --tx-4:    #3d4a56;
-  --tx-5:    #556070;
-  --shadow:  rgba(0,0,0,.22);
-  --overlay: rgba(0,0,0,.4);
+  --bg-1:    #cdd5de;   /* fond principal      */
+  --bg-2:    #bcc6d1;   /* surface principale  */
+  --bg-3:    #aab5c3;   /* surface élevée      */
+  --bg-4:    #98a5b5;   /* fond subtil / bord  */
+  --bg-hover:#8896a8;   /* survol              */
+  --brd:     #6b7c8f;   /* bordure principale  */
+  --tx-1:    #000000;   /* texte principal     */
+  --tx-2:    #0a0e13;   /* texte secondaire    */
+  --tx-3:    #1a2530;   /* texte atténué       */
+  --tx-4:    #263240;   /* texte discret       */
+  --tx-5:    #374555;   /* texte très discret  */
+  --shadow:  rgba(0,0,0,.28);
+  --overlay: rgba(0,0,0,.45);
 }
 
 /* ── Overrides globaux mode clair ─────────────────────────────────────────── */
