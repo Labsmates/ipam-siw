@@ -59,9 +59,8 @@ ipam ALL=(root) NOPASSWD: /usr/bin/systemctl restart ipam
 ipam ALL=(root) NOPASSWD: /usr/bin/systemctl restart redis
 ipam ALL=(root) NOPASSWD: /usr/bin/systemctl reload httpd
 
-# Redémarrage / arrêt du serveur
-ipam ALL=(root) NOPASSWD: /usr/sbin/shutdown -r +0
-ipam ALL=(root) NOPASSWD: /usr/sbin/shutdown -h +0
+# Redémarrage / arrêt du serveur (sans restriction d'arguments — délai et message variables)
+ipam ALL=(root) NOPASSWD: /usr/sbin/shutdown
 
 # Journaux
 ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u ipam -n 100 --no-pager

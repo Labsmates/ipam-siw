@@ -360,20 +360,20 @@ async function serverAction(action) {
   const confirmed = await showConfirm({
     title:       isReboot ? 'Redémarrer le serveur' : 'Arrêter le serveur',
     message:     isReboot
-      ? 'Le serveur va redémarrer.\n\nTous les utilisateurs seront déconnectés. L\'application sera indisponible pendant environ 1 à 2 minutes.'
-      : 'Le serveur va s\'arrêter.\n\nTous les utilisateurs seront déconnectés. L\'application sera inaccessible jusqu\'à un redémarrage manuel du serveur.',
-    confirmText: isReboot ? 'Redémarrer le serveur' : 'Arrêter le serveur',
+      ? 'Le serveur va redémarrer dans 1 minute.\n\nTous les utilisateurs connectés seront déconnectés. L\'application sera indisponible le temps du redémarrage.'
+      : 'Le serveur va s\'arrêter dans 1 minute.\n\nTous les utilisateurs connectés seront déconnectés. L\'application sera inaccessible jusqu\'à un redémarrage manuel du serveur.',
+    confirmText: isReboot ? 'Redémarrer dans 1 min' : 'Arrêter dans 1 min',
     danger:      true,
   });
   if (!confirmed) return;
 
   const btn = document.getElementById(isReboot ? 'btn-server-reboot' : 'btn-server-halt');
-  if (btn) { btn.disabled = true; btn.textContent = isReboot ? 'Redémarrage…' : 'Arrêt…'; }
+  if (btn) { btn.disabled = true; btn.textContent = isReboot ? 'Redémarrage dans 1 min…' : 'Arrêt dans 1 min…'; }
 
   try {
     await post(`/api/config/server/${action}`);
     showToast(
-      isReboot ? 'Redémarrage du serveur en cours…' : 'Arrêt du serveur en cours…',
+      isReboot ? 'Le serveur va redémarrer dans 1 minute' : 'Le serveur va s\'arrêter dans 1 minute',
       'success'
     );
   } catch (e) {
