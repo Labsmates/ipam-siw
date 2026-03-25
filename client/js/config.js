@@ -279,11 +279,21 @@ function renderServiceCards(services) {
       ${info.pid    ? `<div style="font-size:12px;color:var(--tx-3);margin-bottom:4px">PID : <span style="color:var(--tx-2);font-family:monospace">${esc(info.pid)}</span></div>` : ''}
       ${info.memory ? `<div style="font-size:12px;color:var(--tx-3);margin-bottom:4px">Mémoire : <span style="color:var(--tx-2)">${esc(info.memory)}</span></div>` : ''}
       <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+        ${info.active !== 'active' ? `
+        <button class="btn btn-sm" style="background:#0d2a1a;color:#3fb950;border:1px solid #1b4d2e" data-action="start" data-svc="${name}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Démarrer
+        </button>` : ''}
         <button class="btn btn-warn btn-sm" data-action="restart" data-svc="${name}">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
           Redémarrer
         </button>
-        ${name === 'httpd' ? `<button class="btn btn-g btn-sm" data-action="reload" data-svc="${name}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg> Recharger</button>` : ''}
+        ${info.active === 'active' ? `
+        <button class="btn btn-d btn-sm" data-action="stop" data-svc="${name}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          Arrêter
+        </button>` : ''}
+        ${name === 'httpd' && info.active === 'active' ? `<button class="btn btn-g btn-sm" data-action="reload" data-svc="${name}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg> Recharger</button>` : ''}
         <button class="btn btn-g btn-sm" data-action="logs" data-svc="${name}">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
           Logs
@@ -318,25 +328,24 @@ async function handleServiceAction(action, svc) {
     return;
   }
 
-  const isRestart = action === 'restart';
-  const confirmed = await showConfirm({
-    title:       isRestart ? `Redémarrer ${svc}` : `Recharger ${svc}`,
-    message:     isRestart
-      ? `Confirmer le redémarrage du service « ${svc} » ? Le service sera brièvement indisponible.`
-      : `Confirmer le rechargement de la configuration d'Apache ?`,
-    confirmText: isRestart ? 'Redémarrer' : 'Recharger',
-    danger:      isRestart,
-  });
-  if (!confirmed) return;
+  const labels = {
+    start:   { title: `Démarrer ${svc}`,    msg: `Démarrer le service « ${svc} » ?`,                                              confirm: 'Démarrer',   danger: false },
+    restart: { title: `Redémarrer ${svc}`,  msg: `Redémarrer le service « ${svc} » ? Il sera brièvement indisponible.`,           confirm: 'Redémarrer', danger: true  },
+    stop:    { title: `Arrêter ${svc}`,     msg: `Arrêter le service « ${svc} » ?\n\nAttention : ${svc === 'ipam' ? 'l\'application IPAM sera inaccessible jusqu\'au prochain démarrage.' : svc === 'httpd' ? 'le site web sera inaccessible.' : 'Redis sera arrêté, les données en mémoire non sauvegardées seront perdues.'}`, confirm: 'Arrêter', danger: true },
+    reload:  { title: `Recharger ${svc}`,   msg: `Recharger la configuration d'Apache ?`,                                         confirm: 'Recharger',  danger: false },
+  };
+
+  const l = labels[action];
+  if (!l) return;
+
+  if (!await showConfirm({ title: l.title, message: l.msg, confirmText: l.confirm, danger: l.danger })) return;
 
   try {
     await post(`/api/config/services/${svc}/${action}`);
-    showToast(
-      isRestart ? `Service « ${svc} » redémarré` : `Apache rechargé`,
-      'success'
-    );
-    // Re-vérifier le statut après 2s
-    setTimeout(loadServices, 2000);
+    const msgs = { start: `Service « ${svc} » démarré`, restart: `Service « ${svc} » redémarré`, stop: `Service « ${svc} » arrêté`, reload: 'Apache rechargé' };
+    showToast(msgs[action] || 'OK', 'success');
+    // Re-vérifier le statut après 2s (3s pour stop/restart car le service met du temps)
+    setTimeout(loadServices, action === 'start' ? 1500 : 3000);
   } catch (e) {
     showToast(`Erreur : ${e.message}`, 'error');
   }

@@ -94,13 +94,14 @@ router.get('/system/info', async (req, res) => {
     info.cpuCount = cpus.length;
     info.cpuLoad  = os.loadavg();              // [1m, 5m, 15m]
 
-    // IPs non-internes
+    // Interfaces réseau (on exclut uniquement le loopback par nom)
     info.ips = [];
     try {
       const nets = os.networkInterfaces();
       for (const [iface, addrs] of Object.entries(nets)) {
+        if (iface === 'lo' || iface === 'lo0') continue;
         for (const a of addrs) {
-          if (!a.internal) info.ips.push({ iface, address: a.address, family: a.family });
+          info.ips.push({ iface, address: a.address, family: a.family });
         }
       }
     } catch (_) {}
@@ -234,6 +235,39 @@ router.post('/services/:name/reload', async (req, res) => {
     res.json({ ok: true });
     setImmediate(() => {
       execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', name], { timeout: 30000 })
+        .catch(() => {});
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
+// POST /api/config/services/:name/start
+router.post('/services/:name/start', async (req, res) => {
+  const { name } = req.params;
+  if (!assertService(name, res)) return;
+  try {
+    await addLog(req.user.username, 'SVC_START', `Service « ${name} » démarré`, 'ok');
+    res.json({ ok: true });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'start', name], { timeout: 30000 })
+        .catch(() => {});
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
+// POST /api/config/services/:name/stop
+router.post('/services/:name/stop', async (req, res) => {
+  const { name } = req.params;
+  if (!assertService(name, res)) return;
+  try {
+    await addLog(req.user.username, 'SVC_STOP', `Service « ${name} » arrêté`, 'danger');
+    // Répondre AVANT l'arrêt : stopper ipam tue le processus Node.js courant
+    res.json({ ok: true });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'stop', name], { timeout: 30000 })
         .catch(() => {});
     });
   } catch (e) {

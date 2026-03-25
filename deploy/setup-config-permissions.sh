@@ -44,6 +44,16 @@ ipam ALL=(root) NOPASSWD: /usr/bin/systemctl status ipam
 ipam ALL=(root) NOPASSWD: /usr/bin/systemctl status httpd
 ipam ALL=(root) NOPASSWD: /usr/bin/systemctl status redis
 
+# Démarrage
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl start ipam
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl start httpd
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl start redis
+
+# Arrêt
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl stop ipam
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl stop httpd
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl stop redis
+
 # Redémarrage / rechargement
 ipam ALL=(root) NOPASSWD: /usr/bin/systemctl restart ipam
 ipam ALL=(root) NOPASSWD: /usr/bin/systemctl restart redis
