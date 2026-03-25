@@ -207,18 +207,15 @@ router.post('/services/:name/restart', async (req, res) => {
   if (!assertService(name, res)) return;
   try {
     await addLog(req.user.username, 'SVC_RESTART', `Service « ${name} » redémarré`, 'warn');
-    if (name === 'ipam') {
-      // Répondre AVANT de redémarrer : systemctl restart ipam tue le processus courant,
-      // la réponse ne serait jamais envoyée → 502 côté client.
-      res.json({ ok: true });
-      setImmediate(() => {
-        execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', 'ipam'], { timeout: 30000 })
-          .catch(() => {});
-      });
-    } else {
-      await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 });
-      res.json({ ok: true });
-    }
+    // Répondre AVANT le restart pour tous les services :
+    // - ipam  : tue le processus Node.js courant → 502
+    // - httpd : Apache coupe la connexion TCP → 502
+    // - redis : déconnecte ioredis avant l'envoi → 502
+    res.json({ ok: true });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 })
+        .catch(() => {});
+    });
   } catch (e) {
     res.status(500).json({ error: e.stderr || e.message });
   }
@@ -231,9 +228,13 @@ router.post('/services/:name/reload', async (req, res) => {
   if (!RELOAD_ONLY.has(name))
     return res.status(400).json({ error: `Le service « ${name} » ne supporte pas reload` });
   try {
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', name], { timeout: 30000 });
     await addLog(req.user.username, 'SVC_RELOAD', `Service « ${name} » rechargé`, 'info');
+    // Répondre avant le reload : httpd coupe la connexion TCP en se rechargeant → 502
     res.json({ ok: true });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', name], { timeout: 30000 })
+        .catch(() => {});
+    });
   } catch (e) {
     res.status(500).json({ error: e.stderr || e.message });
   }
