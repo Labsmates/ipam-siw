@@ -351,9 +351,18 @@ La page `/config.html` est réservée au compte **ADMIN** (super administrateur)
 
 ### Services
 - Statut en temps réel (actif / inactif / échoué) pour `ipam`, `httpd`, `redis`
-- Boutons **Redémarrer** (`ipam`, `redis`) et **Recharger** (`httpd`)
+- Boutons contextuels selon l'état du service :
+  - **Démarrer** (vert) — visible si le service est inactif ou en erreur
+  - **Redémarrer** (orange) — toujours disponible
+  - **Arrêter** (rouge, confirmation) — visible si le service est actif
+  - **Recharger** (httpd uniquement, si actif) — rechargement à chaud de la configuration Apache
 - Consultation des **100 dernières lignes de logs** via `journalctl` (panneau dépliable)
 - Rafraîchissement automatique toutes les 10 secondes
+
+**Zone Actions serveur** (en bas de l'onglet, accessible à tous les admins) :
+- **Redémarrer le serveur** — `shutdown -r +0`, confirmation obligatoire, indisponibilité ~1-2 min
+- **Arrêter le serveur** — `shutdown -h +0`, confirmation obligatoire, redémarrage manuel requis
+- Les deux actions sont journalisées (`SERVER_REBOOT` / `SERVER_HALT`) dans le journal admin
 
 ### Configuration Redis
 - Lecture et modification en direct des paramètres Redis via `CONFIG_IPAM_ADMIN SET`
@@ -381,7 +390,7 @@ systemctl restart ipam
 ```
 
 Le script crée :
-- `/etc/sudoers.d/ipam` — 9 commandes `systemctl`/`journalctl` sans mot de passe
+- `/etc/sudoers.d/ipam` — commandes `systemctl` (start/stop/restart/reload/status), `journalctl` et `shutdown` sans mot de passe
 - `ipam` ∈ groupe `redis` — accès en lecture/écriture au fichier RDB
 - Permissions `664` sur `/var/lib/redis/ipam.rdb`
 
@@ -422,7 +431,7 @@ Le script crée :
 |---|---|
 | Triple guard | `requireAuth` + `requireAdmin` + `requireSuperAdmin` (username === `ADMIN`) |
 | Whitelist services | Seuls `ipam`, `httpd`, `redis` acceptés — injection shell impossible (`execFile`) |
-| Sudo restreint | 9 commandes exactes autorisées via `/etc/sudoers.d/ipam` |
+| Sudo restreint | Commandes exactes autorisées via `/etc/sudoers.d/ipam` (start/stop/restart/reload/status + journalctl + shutdown) |
 | Params Redis | Whitelist des clés modifiables — `bind` modifiable mais affiché avec avertissement |
 | Restauration RDB | Validation des magic bytes `REDIS` avant écriture |
 | Mots de passe DB | Jamais renvoyés au client dans les listings |
