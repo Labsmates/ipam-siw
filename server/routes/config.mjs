@@ -604,6 +604,7 @@ const CERT_FILE     = '/etc/pki/tls/certs/ipam.crt';
 const KEY_FILE      = '/etc/pki/tls/private/ipam.key';
 const TMP_CERT_PATH = '/var/www/ipam/data/ipam_cert.pem';
 const TMP_KEY_PATH  = '/var/www/ipam/data/ipam_key.pem';
+const TMP_CSR_PATH  = '/var/www/ipam/data/ipam_csr.pem';
 const CERT_PEND_KEY = 'config:cert:pending';
 
 function sanitizeDN(s) {
@@ -675,11 +676,13 @@ router.post('/cert/generate-csr', async (req, res) => {
       .map(s => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) ? `IP:${s}` : `DNS:${s}`);
 
     const args = ['req', '-newkey', `rsa:${ks}`, '-nodes',
-      '-keyout', TMP_KEY_PATH, '-out', '/dev/stdout', '-subj', subj];
+      '-keyout', TMP_KEY_PATH, '-out', TMP_CSR_PATH, '-subj', subj];
     if (sanList.length) args.push('-addext', `subjectAltName=${sanList.join(',')}`);
 
-    const { stdout: csrPem } = await execFileAsync('/usr/bin/openssl', args, { timeout: 60000 });
+    await execFileAsync('/usr/bin/openssl', args, { timeout: 60000 });
+    const csrPem = fs.readFileSync(TMP_CSR_PATH, 'utf8');
     const keyPem = fs.readFileSync(TMP_KEY_PATH, 'utf8');
+    try { fs.unlinkSync(TMP_CSR_PATH); } catch (_) {}
     try { fs.unlinkSync(TMP_KEY_PATH); } catch (_) {}
 
     // Stocker clé + CSR dans Redis 24h (le CSR est envoyé à la CA, la clé attendue pour l'install)
