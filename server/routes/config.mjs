@@ -275,6 +275,34 @@ router.post('/services/:name/stop', async (req, res) => {
   }
 });
 
+// POST /api/config/server/reboot
+router.post('/server/reboot', async (req, res) => {
+  try {
+    await addLog(req.user.username, 'SERVER_REBOOT', 'Redémarrage du serveur déclenché', 'danger');
+    res.json({ ok: true });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-r', '+0'], { timeout: 10000 })
+        .catch(() => {});
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
+// POST /api/config/server/halt
+router.post('/server/halt', async (req, res) => {
+  try {
+    await addLog(req.user.username, 'SERVER_HALT', 'Arrêt du serveur déclenché', 'danger');
+    res.json({ ok: true });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-h', '+0'], { timeout: 10000 })
+        .catch(() => {});
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
 // GET /api/config/services/:name/logs
 router.get('/services/:name/logs', async (req, res) => {
   const { name } = req.params;

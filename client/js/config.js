@@ -73,6 +73,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Boutons rafraîchir
   document.getElementById('btn-refresh-services')?.addEventListener('click', loadServices);
   document.getElementById('btn-refresh-sysinfo')?.addEventListener('click', loadSysInfo);
+
+  // Boutons actions serveur (reboot / halt)
+  document.getElementById('btn-server-reboot')?.addEventListener('click', () => serverAction('reboot'));
+  document.getElementById('btn-server-halt')?.addEventListener('click',   () => serverAction('halt'));
 });
 
 function setTabActive(tab, active) {
@@ -348,6 +352,33 @@ async function handleServiceAction(action, svc) {
     setTimeout(loadServices, action === 'start' ? 1500 : 3000);
   } catch (e) {
     showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+async function serverAction(action) {
+  const isReboot = action === 'reboot';
+  const confirmed = await showConfirm({
+    title:       isReboot ? 'Redémarrer le serveur' : 'Arrêter le serveur',
+    message:     isReboot
+      ? 'Le serveur va redémarrer.\n\nTous les utilisateurs seront déconnectés. L\'application sera indisponible pendant environ 1 à 2 minutes.'
+      : 'Le serveur va s\'arrêter.\n\nTous les utilisateurs seront déconnectés. L\'application sera inaccessible jusqu\'à un redémarrage manuel du serveur.',
+    confirmText: isReboot ? 'Redémarrer le serveur' : 'Arrêter le serveur',
+    danger:      true,
+  });
+  if (!confirmed) return;
+
+  const btn = document.getElementById(isReboot ? 'btn-server-reboot' : 'btn-server-halt');
+  if (btn) { btn.disabled = true; btn.textContent = isReboot ? 'Redémarrage…' : 'Arrêt…'; }
+
+  try {
+    await post(`/api/config/server/${action}`);
+    showToast(
+      isReboot ? 'Redémarrage du serveur en cours…' : 'Arrêt du serveur en cours…',
+      'success'
+    );
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = isReboot ? 'Redémarrer le serveur' : 'Arrêter le serveur'; }
   }
 }
 
