@@ -206,9 +206,19 @@ router.post('/services/:name/restart', async (req, res) => {
   const { name } = req.params;
   if (!assertService(name, res)) return;
   try {
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 });
     await addLog(req.user.username, 'SVC_RESTART', `Service « ${name} » redémarré`, 'warn');
-    res.json({ ok: true });
+    if (name === 'ipam') {
+      // Répondre AVANT de redémarrer : systemctl restart ipam tue le processus courant,
+      // la réponse ne serait jamais envoyée → 502 côté client.
+      res.json({ ok: true });
+      setImmediate(() => {
+        execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', 'ipam'], { timeout: 30000 })
+          .catch(() => {});
+      });
+    } else {
+      await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 });
+      res.json({ ok: true });
+    }
   } catch (e) {
     res.status(500).json({ error: e.stderr || e.message });
   }
