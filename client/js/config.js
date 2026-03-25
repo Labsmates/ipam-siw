@@ -19,8 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const user = getUser();
 
-  // Guard : super admin uniquement (username === 'ADMIN')
-  if (user?.role !== 'admin' || user?.username !== 'ADMIN') {
+  // Guard : admins uniquement
+  if (user?.role !== 'admin') {
     window.location.replace('/admin.html');
     return;
   }

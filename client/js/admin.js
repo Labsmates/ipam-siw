@@ -16,9 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const user = getUser();
   if (user?.role !== 'admin') { window.location.replace('/site.html'); return; }
 
-  if (user?.username === 'ADMIN') {
-    document.getElementById('nav-config-link')?.classList.remove('hidden');
-  }
+  document.getElementById('nav-config-link')?.classList.remove('hidden');
 
   document.getElementById('nav-username').textContent = user.username;
   document.getElementById('nav-role').textContent = 'Administrateur';

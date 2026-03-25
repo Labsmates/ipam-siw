@@ -26,8 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Admin link visibility
   if (user?.role === 'admin') {
     document.getElementById('nav-admin-link').classList.remove('hidden');
-    if (user?.username === 'ADMIN')
-      document.getElementById('nav-config-link')?.classList.remove('hidden');
+    document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
 
   // Password change modal

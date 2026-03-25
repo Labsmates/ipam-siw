@@ -16,8 +16,8 @@ import { uid } from '../utils.mjs';
 const execFileAsync = promisify(execFile);
 const router        = express.Router();
 
-// Triple guard : toutes les routes nécessitent auth + admin + super admin
-router.use(requireAuth, requireAdmin, requireSuperAdmin);
+// Guard : toutes les routes nécessitent auth + admin
+router.use(requireAuth, requireAdmin);
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -145,6 +145,7 @@ router.get('/system/info', async (req, res) => {
       return m?.[1] || s.split('\n')[0];
     });
 
+    await addLog(req.user.username, 'SYSINFO_VIEW', 'Consultation des informations système', 'info');
     res.json({ info });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -332,10 +333,11 @@ router.get('/redis/backup/info', async (req, res) => {
 });
 
 // GET /api/config/redis/backup/download
-router.get('/redis/backup/download', (req, res) => {
+router.get('/redis/backup/download', async (req, res) => {
   try {
     if (!fs.existsSync(RDB_PATH))
       return res.status(404).json({ error: 'Fichier RDB introuvable' });
+    await addLog(req.user.username, 'REDIS_RDB_DOWNLOAD', 'Téléchargement du fichier RDB', 'warn');
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', 'attachment; filename="ipam.rdb"');
     fs.createReadStream(RDB_PATH).pipe(res);
@@ -451,13 +453,18 @@ router.post('/databases/:id/test', async (req, res) => {
     });
     try {
       await client.connect();
-      const t0 = Date.now();
+      const t0      = Date.now();
       await client.ping();
-      res.json({ ok: true, latency: Date.now() - t0 });
+      const latency = Date.now() - t0;
+      await addLog(req.user.username, 'DB_TEST',
+        `Test connexion « ${cfg.name} » (${cfg.host}:${cfg.port}) — PING OK (${latency} ms)`, 'info');
+      res.json({ ok: true, latency });
     } finally {
       client.disconnect();
     }
   } catch (e) {
+    await addLog(req.user.username, 'DB_TEST',
+      `Test connexion « ${cfg?.name} » — Échec : ${e.message}`, 'error').catch(() => {});
     res.status(502).json({ error: `Connexion échouée : ${e.message}` });
   }
 });
