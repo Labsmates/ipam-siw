@@ -94,12 +94,21 @@ router.get('/system/info', async (req, res) => {
     info.cpuCount = cpus.length;
     info.cpuLoad  = os.loadavg();              // [1m, 5m, 15m]
 
-    // IPs non-internes
-    const nets = os.networkInterfaces();
+    // IPs non-internes (peut échouer sur certains environnements réseau restreints)
     info.ips = [];
-    for (const [iface, addrs] of Object.entries(nets)) {
-      for (const a of addrs) {
-        if (!a.internal) info.ips.push({ iface, address: a.address, family: a.family });
+    try {
+      const nets = os.networkInterfaces();
+      for (const [iface, addrs] of Object.entries(nets)) {
+        for (const a of addrs) {
+          if (!a.internal) info.ips.push({ iface, address: a.address, family: a.family });
+        }
+      }
+    } catch (_) {
+      // Fallback : lire les IPs via ip addr
+      const ipOut = await tryExec('/usr/sbin/ip', ['-o', 'addr', 'show'], s => s) || '';
+      for (const line of ipOut.split('\n')) {
+        const m = line.match(/^\d+:\s+(\S+)\s+(inet6?)\s+([^\s/]+)/);
+        if (m && m[1] !== 'lo') info.ips.push({ iface: m[1], address: m[3], family: m[2] === 'inet' ? 'IPv4' : 'IPv6' });
       }
     }
 
