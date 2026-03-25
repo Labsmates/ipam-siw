@@ -1,5 +1,5 @@
 /* =============================================================================
-   IPAM SIW — Thème sombre / clair
+   IPAM SIW v2.2.0 — Thème sombre / clair (gris platine)
    Les variables --bg-X, --tx-X, --brd sont utilisées dans tous les inline styles
    et les blocs <style>. Basculer la classe "light" sur <html> change tout.
    ============================================================================= */
@@ -20,36 +20,37 @@
   --overlay: rgba(0,0,0,.7);
 }
 
+/* ── Gris Platine — Mode Clair ─────────────────────────────────────────────── */
 html.light {
-  --bg-1:    #ffffff;
-  --bg-2:    #f6f8fa;
-  --bg-3:    #eaeef2;
-  --bg-4:    #d8dee4;
-  --bg-hover:#c6ccd2;
-  --brd:     #d0d7de;
-  --tx-1:    #1f2328;
-  --tx-2:    #24292f;
-  --tx-3:    #57606a;
-  --tx-4:    #6e7781;
-  --tx-5:    #848d97;
-  --shadow:  rgba(0,0,0,.12);
-  --overlay: rgba(0,0,0,.4);
+  --bg-1:    #e8eaed;   /* fond platine principal           */
+  --bg-2:    #f3f5f7;   /* panneaux, sidebar                */
+  --bg-3:    #dde1e6;   /* surface élevée                   */
+  --bg-4:    #cfd4da;   /* fond subtil, boutons, badges     */
+  --bg-hover:#c2c8cf;   /* survol                           */
+  --brd:     #b3bac4;   /* bordure                          */
+  --tx-1:    #1a2028;   /* texte principal                  */
+  --tx-2:    #2d3640;   /* texte secondaire                 */
+  --tx-3:    #4e5c6e;   /* texte atténué                    */
+  --tx-4:    #728394;   /* texte discret                    */
+  --tx-5:    #96a3b0;   /* texte très discret               */
+  --shadow:  rgba(0,0,0,.10);
+  --overlay: rgba(0,0,0,.35);
 }
 
 /* ── Overrides globaux mode clair ─────────────────────────────────────────── */
 
-html.light body { background: var(--bg-2); color: var(--tx-1); }
+html.light body { background: var(--bg-1); color: var(--tx-1); }
 
 /* Overlay modal */
 html.light .modal-overlay { background: var(--overlay) !important; }
 
 /* Scrollbar */
-html.light ::-webkit-scrollbar-track { background: var(--bg-2); }
+html.light ::-webkit-scrollbar-track { background: var(--bg-1); }
 html.light ::-webkit-scrollbar-thumb { background: var(--bg-4); }
 
 /* Inputs */
 html.light .inp {
-  background: var(--bg-1) !important;
+  background: var(--bg-2) !important;
   border-color: var(--brd) !important;
   color: var(--tx-1) !important;
 }
@@ -61,6 +62,10 @@ html.light .btn-g {
   color: var(--tx-2) !important;
 }
 
+/* Boutons primaires : fond #58a6ff, texte = var(--bg-1) devient gris platine clair
+   → on force le texte blanc pour maintenir le contraste */
+html.light .btn-p { color: #fff !important; }
+
 /* Badges role viewer (fond neutre) */
 html.light span[style*="background:#1c2128"] {
   background: var(--bg-3) !important;
@@ -68,10 +73,15 @@ html.light span[style*="background:#1c2128"] {
   border-color: var(--brd) !important;
 }
 
-/* Badges role admin (bleu teinté → restent bleus, on ajuste juste le fond) */
-html.light span[style*="background:#0d2240"] {
+/* Badges role admin (bleu teinté) */
+html.light span[style*="background:#0d2240"],
+html.light div[style*="background:#0d2240"] {
   background: #ddf4ff !important;
-  border-color: #218bff !important;
+  border-color: #79b8ff !important;
+}
+html.light span[style*="background:#0d2240"] *,
+html.light div[style*="background:#0d2240"] * {
+  color: #0969da !important;
 }
 
 /* Badges role user (vert teinté) */
@@ -80,12 +90,55 @@ html.light span[style*="background:#0d2a1a"] {
   border-color: #2da44e !important;
 }
 
-/* Status badge Utilisé (rouge) — garder */
+/* Status badge Utilisé (rouge) */
 html.light span[style*="background:#f8514918"] { background: #fff1f0 !important; }
 
-/* Onglet VLAN actif (fond bleu) — garder identifiable */
+/* Onglet VLAN actif */
 html.light .vlan-tab.on {
   background: #ddf4ff !important;
   color: #0969da !important;
   border-bottom-color: #0969da !important;
 }
+
+/* ── Bandeau gradient sombre (ipcalc) ─────────────────────────────────────── */
+html.light #ipcalc-banner {
+  background: -webkit-linear-gradient(135deg, #c8e6ff, #d8eeff) !important;
+  background:          linear-gradient(135deg, #c8e6ff, #d8eeff) !important;
+  border-color: #79b8ff !important;
+}
+html.light #ipcalc-cidr-label  { color: #0969da !important; }
+html.light #ipcalc-mask-label  { color: #0550ae !important; }
+html.light #ipcalc-hosts-label { color: #1a7f37 !important; }
+
+/* ── Bandeau gradient cert info (config.html) ─────────────────────────────── */
+html.light #cert-info-banner {
+  background: -webkit-linear-gradient(135deg, #c8e6ff, #d8eeff) !important;
+  background:          linear-gradient(135deg, #c8e6ff, #d8eeff) !important;
+  border-color: #79b8ff !important;
+  color: #0969da !important;
+}
+html.light #cert-info-banner * { color: #0550ae !important; }
+
+/* ── Nav hardcodée (archive.html / export.html) ───────────────────────────── */
+html.light nav { background: var(--bg-2) !important; border-bottom-color: var(--brd) !important; }
+
+/* ── Cartes et tableaux hardcodés ─────────────────────────────────────────── */
+html.light [style*="background:#161b22"] {
+  background: var(--bg-2) !important;
+  border-color: var(--brd) !important;
+}
+html.light [style*="background:#1c2128"] { background: var(--bg-3) !important; }
+html.light [style*="border:1px solid #30363d"],
+html.light [style*="border-bottom:1px solid #30363d"],
+html.light [style*="border-top:1px solid #30363d"] {
+  border-color: var(--brd) !important;
+}
+
+/* Textes hardcodés dans archive/export */
+html.light [style*="color:#e6edf3"] { color: var(--tx-1) !important; }
+html.light [style*="color:#8b949e"]  { color: var(--tx-3) !important; }
+html.light [style*="color:#484f58"]  { color: var(--tx-4) !important; }
+
+/* Ligne de tableau alternée (archive.js) */
+html.light tr[style*="background:#1c2128"] { background: var(--bg-3) !important; }
+html.light tr[style*="border-bottom:1px solid #21262d"] { border-bottom-color: var(--brd) !important; }

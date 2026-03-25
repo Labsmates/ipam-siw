@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, showToast, showConfirm,
+  get, showToast, showConfirm, initTheme,
 } from './api.js';
 
 function fmtDate(ts) {
@@ -18,7 +18,7 @@ function fmtDate(ts) {
 let allReleases = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
-  checkHttps();
+  checkHttps(); initTheme();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -83,12 +83,12 @@ function renderFiltered() {
 
   empty.classList.add('hidden');
   tbody.innerHTML = filtered.map((r, i) => {
-    const bg = i % 2 === 1 ? 'background:#1c2128;' : '';
+    const bg = i % 2 === 1 ? 'background:var(--bg-3);' : '';
     return `
-      <tr style="${bg}border-bottom:1px solid #21262d;">
-        <td style="padding:11px 16px;font-size:13px;font-family:'Consolas','Courier New',monospace;color:#e6edf3;">${esc(r.hostname)}</td>
-        <td style="padding:11px 16px;font-size:13px;font-family:'Consolas','Courier New',monospace;color:#8b949e;">${esc(r.ip)}</td>
-        <td style="padding:11px 16px;font-size:13px;color:#8b949e;white-space:nowrap;">${fmtDate(r.created_at)}</td>
+      <tr style="${bg}border-bottom:1px solid var(--brd);">
+        <td style="padding:11px 16px;font-size:13px;font-family:'Consolas','Courier New',monospace;color:var(--tx-1);">${esc(r.hostname)}</td>
+        <td style="padding:11px 16px;font-size:13px;font-family:'Consolas','Courier New',monospace;color:var(--tx-3);">${esc(r.ip)}</td>
+        <td style="padding:11px 16px;font-size:13px;color:var(--tx-3);white-space:nowrap;">${fmtDate(r.created_at)}</td>
         <td style="padding:11px 16px;">
           <span style="display:inline-block;background:#58a6ff18;border:1px solid #58a6ff44;color:#58a6ff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:600;">${esc(r.username)}</span>
         </td>

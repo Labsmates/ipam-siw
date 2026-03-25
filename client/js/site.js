@@ -20,6 +20,41 @@ let searchIP   = '';
 let page       = 1;
 const PER_PAGE = 50;
 
+// Active suffix for the currently open hostname modal
+let _reserveSuffix = null;
+let _renameSuffix  = null;
+
+// ---------------------------------------------------------------------------
+// Hostname suffix logic
+// ---------------------------------------------------------------------------
+const SUFFIX_METIER = '.dct.adt.local';
+const SUFFIX_ADMIN  = '.hdcadmin.sf.intra.laposte.fr';
+
+function getVlanSuffix(vlanDesc) {
+  const d = (vlanDesc || '').trim().toUpperCase();
+  if (d === 'ADMIN') return SUFFIX_ADMIN;
+  if (d === 'METIER' || d === 'FLUX' || d === 'PROCEF' || d.includes('PROCEF')) return SUFFIX_METIER;
+  return null; // IPMI ou inconnu → hostname saisi tel quel
+}
+
+function buildFqdn(hostname, suffix) {
+  if (!hostname) return '';
+  if (hostname.includes('.')) return hostname; // déjà un FQDN
+  return suffix ? hostname + suffix : hostname;
+}
+
+function updateHostnameHint(inputId, hintId, suffix) {
+  const hint = document.getElementById(hintId);
+  if (!hint) return;
+  const raw = (document.getElementById(inputId)?.value || '').trim();
+  if (!raw || !suffix || raw.includes('.')) {
+    hint.style.display = 'none';
+    return;
+  }
+  hint.style.display = 'block';
+  hint.innerHTML = `→ <span style="color:var(--tx-1);font-weight:600">${esc(raw + suffix)}</span>`;
+}
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
@@ -326,9 +361,12 @@ function renderTable() {
 // Reserve modal
 // ---------------------------------------------------------------------------
 function openReserveModal(ipObj) {
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
+  _reserveSuffix = getVlanSuffix(vlan?.description);
   document.getElementById('reserve-ip-display').textContent = ipObj.ip_address;
   document.getElementById('reserve-ip-id').value = ipObj.id;
   document.getElementById('reserve-hostname').value = ipObj.hostname || '';
+  updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
   openModal('modal-reserve');
 }
 
@@ -345,9 +383,12 @@ function openReleaseModal(ipObj) {
 // Rename modal
 // ---------------------------------------------------------------------------
 function openRenameModal(ipObj) {
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
+  _renameSuffix = getVlanSuffix(vlan?.description);
   document.getElementById('rename-ip-display').textContent = ipObj.ip_address;
   document.getElementById('rename-ip-id').value = ipObj.id;
   document.getElementById('rename-hostname').value = ipObj.hostname || '';
+  updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
   openModal('modal-rename');
 }
 
@@ -372,9 +413,14 @@ async function toggleStatus(ipObj, targetStatus) {
 function setupModals(user) {
 
   // --- Reserve / Use ---
+  document.getElementById('reserve-hostname').addEventListener('input', () => {
+    updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
+  });
+
   async function _assignIp(status, triggerBtn, loadingText) {
     const id       = document.getElementById('reserve-ip-id').value;
-    const hostname = document.getElementById('reserve-hostname').value.trim();
+    const raw      = document.getElementById('reserve-hostname').value.trim();
+    const hostname = buildFqdn(raw, _reserveSuffix);
     triggerBtn.disabled = true; triggerBtn.textContent = loadingText;
     try {
       await put(`/api/ips/${encodeURIComponent(id)}`, { status, hostname });
@@ -395,10 +441,15 @@ function setupModals(user) {
   document.getElementById('btn-cancel-reserve').addEventListener('click', () => closeModal('modal-reserve'));
 
   // --- Rename hostname ---
+  document.getElementById('rename-hostname').addEventListener('input', () => {
+    updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
+  });
+
   document.getElementById('form-rename').addEventListener('submit', async e => {
     e.preventDefault();
     const id       = document.getElementById('rename-ip-id').value;
-    const hostname = document.getElementById('rename-hostname').value.trim();
+    const raw      = document.getElementById('rename-hostname').value.trim();
+    const hostname = buildFqdn(raw, _renameSuffix);
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true; btn.textContent = 'Enregistrement…';
     try {

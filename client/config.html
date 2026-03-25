@@ -58,7 +58,6 @@ th{text-align:left}
 .cfg-row{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;margin-bottom:12px}
 .cfg-label{width:190px;-ms-flex-negative:0;flex-shrink:0;font-size:13px;color:var(--tx-2);font-family:'JetBrains Mono','Courier New',monospace}
 .db-row{background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;margin-bottom:10px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px}
-.ipcalc-card{background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px}
 </style>
 </head>
 <body>
@@ -95,6 +94,10 @@ th{text-align:left}
     <a href="/archive.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
       Archive
+    </a>
+    <a href="/ipcalc.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Calculateur IP
     </a>
     <a href="/admin.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -150,7 +153,6 @@ th{text-align:left}
       <button class="admin-tab" data-tab="backup">Sauvegarde / Restauration</button>
       <button class="admin-tab" data-tab="cert">Certificat SSL</button>
       <button class="admin-tab" data-tab="databases">Bases de données</button>
-      <button class="admin-tab" data-tab="ipcalc">Calculateur IP</button>
     </div>
   </div>
 
@@ -394,60 +396,6 @@ th{text-align:left}
         </button>
       </div>
       <div id="db-list"></div>
-    </div>
-
-    <!-- ══ ONGLET : Calculateur IP ══ -->
-    <div id="pane-ipcalc" class="admin-pane hidden">
-      <div style="margin-bottom:20px">
-        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Calculateur IP / Sous-réseau</h3>
-        <p style="font-size:13px;color:var(--tx-3);margin:0">Entrez une adresse réseau et sélectionnez le masque CIDR.</p>
-      </div>
-
-      <!-- Formulaire -->
-      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px;max-width:560px;margin-bottom:24px">
-        <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:flex-end">
-          <div>
-            <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Adresse réseau</div>
-            <input id="ipcalc-ip" class="inp" placeholder="ex : 192.168.1.0" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Masque CIDR</div>
-            <select id="ipcalc-prefix" class="inp" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px;width:90px"></select>
-          </div>
-          <button id="btn-ipcalc" class="btn btn-p">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            Calculer
-          </button>
-        </div>
-      </div>
-
-      <!-- Résultats -->
-      <div id="ipcalc-result" class="hidden">
-
-        <!-- Bandeau réseau/masque -->
-        <div id="ipcalc-banner" style="background:-webkit-linear-gradient(135deg,#0d2240,#1f3a60);background:linear-gradient(135deg,#0d2240,#1f3a60);border:1px solid #1f4080;border-radius:12px;padding:18px 24px;margin-bottom:20px;display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-          <div>
-            <div style="font-size:22px;font-weight:700;color:#58a6ff;font-family:'JetBrains Mono','Courier New',monospace" id="ipcalc-cidr-label"></div>
-            <div style="font-size:12px;color:#79b8ff;margin-top:2px" id="ipcalc-mask-label"></div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:12px;color:#79b8ff">Hôtes utilisables</div>
-            <div style="font-size:24px;font-weight:700;color:#3fb950;font-family:'JetBrains Mono','Courier New',monospace" id="ipcalc-hosts-label"></div>
-          </div>
-        </div>
-
-        <!-- Grille de résultats -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
-          <div id="ipcalc-card-network"  class="ipcalc-card"></div>
-          <div id="ipcalc-card-gateway"  class="ipcalc-card"></div>
-          <div id="ipcalc-card-ipmin"    class="ipcalc-card"></div>
-          <div id="ipcalc-card-ipmax"    class="ipcalc-card"></div>
-          <div id="ipcalc-card-broadcast" class="ipcalc-card"></div>
-          <div id="ipcalc-card-total"    class="ipcalc-card"></div>
-          <div id="ipcalc-card-mask"     class="ipcalc-card"></div>
-          <div id="ipcalc-card-wildcard" class="ipcalc-card"></div>
-        </div>
-      </div>
     </div>
 
   </div>

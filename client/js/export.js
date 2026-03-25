@@ -4,14 +4,14 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, showToast, sortSites, showConfirm,
+  get, showToast, sortSites, showConfirm, initTheme,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  checkHttps();
+  checkHttps(); initTheme();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -51,12 +51,11 @@ function setupExport(allSites) {
   function renderExportList(q = '') {
     const filtered = q ? allSites.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : allSites;
     listEl.innerHTML = filtered.map(s => `
-      <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;-webkit-transition:background .1s;transition:background .1s"
-             onmouseenter="this.style.background='#1c2128'" onmouseleave="this.style.background=''">
+      <label class="export-site-item">
         <input type="checkbox" class="export-cb" data-id="${s.id}" data-name="${esc(s.name)}"
                style="accent-color:#58a6ff;width:14px;height:14px;-ms-flex-negative:0;flex-shrink:0">
-        <span style="font-size:13px;color:#e6edf3;-webkit-box-flex:1;-ms-flex:1;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
-        <span style="font-size:11px;color:#484f58;-ms-flex-negative:0;flex-shrink:0">${s.total || 0} IPs</span>
+        <span style="font-size:13px;color:var(--tx-1);-webkit-box-flex:1;-ms-flex:1;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+        <span style="font-size:11px;color:var(--tx-4);-ms-flex-negative:0;flex-shrink:0">${s.total || 0} IPs</span>
       </label>
     `).join('');
     listEl.querySelectorAll('.export-cb').forEach(cb => cb.addEventListener('change', updateCount));

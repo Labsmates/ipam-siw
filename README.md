@@ -1,6 +1,6 @@
-# IPAM SIW v2 — Guide de déploiement Rocky Linux 10
+# IPAM SIW v2.2.0 — Guide de déploiement Rocky Linux 10
 
-Application web multi-utilisateurs de gestion des adresses IP.
+Application web multi-utilisateurs de gestion des adresses IP — **SIW Pole Serveurs**.
 Backend **Node.js + Redis** — déploiement 100 % hors-ligne, accessible depuis n'importe quel réseau.
 
 ---
@@ -40,14 +40,21 @@ IPAMBBD/
 │   ├── index.html          ← Connexion
 │   ├── dashboard.html      ← Liste des sites (grille avec stats)
 │   ├── site.html           ← Détail site (sidebar + VLANs + IPs)
+│   ├── stats.html          ← Statistiques globales
+│   ├── archive.html        ← Archive des libérations
+│   ├── export.html         ← Export Excel
+│   ├── ipcalc.html         ← Calculateur IP (accessible à tous les utilisateurs)
 │   ├── admin.html          ← Administration
 │   ├── config.html         ← Configuration système (super admin uniquement)
+│   ├── css/
+│   │   └── theme.css       ← Thème sombre / clair gris platine (variables CSS)
 │   └── js/
-│       ├── api.js          ← Fetch wrapper, JWT, toast, timer inactivité
+│       ├── api.js          ← Fetch wrapper, JWT, toast, timer inactivité, initTheme
 │       ├── auth.js         ← Login (redirige vers site.html)
 │       ├── dashboard.js    ← Grille des sites
-│       ├── site.js         ← Sidebar, table IPs, modals
+│       ├── site.js         ← Sidebar, table IPs, modals, suffixes hostname FQDN
 │       ├── admin.js        ← Utilisateurs, sites, journaux, MDP
+│       ├── ipcalc.js       ← Calculateur de sous-réseaux IP
 │       └── config.js       ← Services, config Redis, sauvegarde, bases de données
 ├── server/
 │   ├── index.mjs           ← Serveur Express
@@ -296,8 +303,12 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 |---|---|---|---|
 | Connexion | `/` | Public | Login JWT, redirection automatique si déjà connecté |
 | Sites | `/site.html` | Auth | Sidebar avec tous les sites, état d'accueil si aucun site sélectionné |
-| Détail site | `/site.html?id=N` | Auth | VLANs, table IPs paginée, réservation/libération |
+| Détail site | `/site.html?id=N` | Auth | VLANs, table IPs paginée, réservation/libération, suffixe FQDN auto |
 | Dashboard | `/dashboard.html` | Auth | Grille des sites avec stats (libres / occupées / total) |
+| Statistiques | `/stats.html` | Auth | Statistiques globales par site et VLAN |
+| Archive | `/archive.html` | Auth | Historique des libérations (hostname, IP, date, utilisateur) |
+| Export Excel | `/export.html` | Auth | Export .xlsx multi-sites avec filtres colonnes et statut |
+| Calculateur IP | `/ipcalc.html` | Auth | Calcul de sous-réseaux CIDR (plage, masque, broadcast, hosts) |
 | Administration | `/admin.html` | Admin | Gestion utilisateurs, sites, journaux, changement MDP |
 | Configuration système | `/config.html` | **Super admin** | Services, config Redis, sauvegarde/restauration, bases de données |
 
@@ -305,10 +316,24 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 
 | Action | Qui | Description |
 |---|---|---|
-| Réserver | Tous | Passe une IP `Libre` → `Réservée` |
-| Libérer | Tous | Passe une IP `Utilisé` ou `Réservée` → `Libre` |
+| Réserver | Tous (sauf viewer) | Passe une IP `Libre` → `Réservée` |
+| Libérer | Tous (sauf viewer) | Passe une IP `Utilisé` ou `Réservée` → `Libre` |
+| Renommer hostname | Tous (sauf viewer) | Modifier le hostname d'une IP existante |
 | Ajouter un VLAN | Admin | Formulaire CIDR → génère automatiquement toutes les IPs hôtes |
 | Import Excel | Admin | Fichier .xlsx colonne A = IP → marque les IPs correspondantes `Réservée` |
+
+### Suffixe FQDN automatique
+
+Lors de la réservation ou du renommage d'un hostname, le suffixe est appliqué automatiquement selon le tag VLAN (`description`) si l'utilisateur saisit un nom simple (sans point) :
+
+| Tag VLAN | Suffixe appliqué |
+|---|---|
+| `METIER`, `FLUX`, `PROCEF`, `IPMI PROCEF` | `.dct.adt.local` |
+| `ADMIN` | `.hdcadmin.sf.intra.laposte.fr` |
+| `IPMI`, inconnu | Aucun — hostname saisi tel quel |
+
+> Si l'utilisateur saisit un FQDN complet (contenant un point), il est utilisé sans modification.
+> Un aperçu en temps réel est affiché sous le champ hostname pendant la saisie.
 
 ### Statuts IP
 
