@@ -7,6 +7,7 @@ import express       from 'express';
 import { execFile }  from 'child_process';
 import { promisify } from 'util';
 import fs            from 'fs';
+import os            from 'os';
 import Redis         from 'ioredis';
 import { redis, addLog } from '../redis.mjs';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
@@ -58,6 +59,97 @@ async function loadDatabases() {
 async function saveDatabases(dbs) {
   await redis.set(DB_CONFIG_KEY, JSON.stringify(dbs));
 }
+
+// =============================================================================
+// ONGLET 0 — Informations système
+// =============================================================================
+
+// Helper : exécute une commande, retourne null en cas d'erreur plutôt que de jeter
+async function tryExec(cmd, args, parse) {
+  try {
+    const { stdout } = await execFileAsync(cmd, args, { timeout: 5000 });
+    return parse(stdout.trim());
+  } catch (e) {
+    const out = (e.stdout || '').trim();
+    return out ? parse(out) : null;
+  }
+}
+
+// GET /api/config/system/info
+router.get('/system/info', async (req, res) => {
+  try {
+    const info = {};
+
+    // ── Module os (synchrone) ────────────────────────────────────────────────
+    info.hostname    = os.hostname();
+    info.platform    = os.platform();
+    info.arch        = os.arch();
+    info.uptimeSec   = os.uptime();           // secondes
+    info.totalMem    = os.totalmem();          // octets
+    info.freeMem     = os.freemem();           // octets
+    info.nodeVersion = process.version;
+
+    const cpus = os.cpus();
+    info.cpuModel = cpus[0]?.model?.replace(/\s+/g, ' ').trim() || 'N/A';
+    info.cpuCount = cpus.length;
+    info.cpuLoad  = os.loadavg();              // [1m, 5m, 15m]
+
+    // IPs non-internes
+    const nets = os.networkInterfaces();
+    info.ips = [];
+    for (const [iface, addrs] of Object.entries(nets)) {
+      for (const a of addrs) {
+        if (!a.internal) info.ips.push({ iface, address: a.address, family: a.family });
+      }
+    }
+
+    // ── Sous-processus ───────────────────────────────────────────────────────
+    // Noyau Linux
+    info.kernel = await tryExec('/usr/bin/uname', ['-r'], s => s);
+
+    // Distribution OS
+    try {
+      const raw = fs.readFileSync('/etc/os-release', 'utf8');
+      const m   = raw.match(/^PRETTY_NAME="?(.+?)"?\s*$/m);
+      info.osRelease = m?.[1] || raw.split('\n')[0];
+    } catch (_) { info.osRelease = null; }
+
+    // Disque /
+    info.disk = await tryExec('/usr/bin/df', ['-h', '/'], s => {
+      const parts = s.split('\n')[1]?.split(/\s+/);
+      return parts ? { total: parts[1], used: parts[2], avail: parts[3], pct: parts[4] } : null;
+    });
+
+    // Dernier reboot
+    info.lastReboot = await tryExec('/usr/bin/uptime', ['-s'], s => s)
+      ?? await tryExec('/usr/bin/who', ['-b'], s => {
+           const m = s.match(/system boot\s+(.+)/);
+           return m?.[1]?.trim() || null;
+         });
+
+    // Uptime lisible
+    info.uptimeHuman = await tryExec('/usr/bin/uptime', ['-p'], s => s.replace(/^up\s+/i, ''));
+
+    // Version Redis
+    info.redisVersion = await tryExec('/usr/bin/redis-server', ['--version'], s => {
+      const m = s.match(/v=(\S+)/);
+      return m?.[1] || s;
+    }) ?? await tryExec('/usr/bin/redis-cli', ['--version'], s => {
+      const m = s.match(/redis-cli (\S+)/);
+      return m?.[1] || s;
+    });
+
+    // Version Apache
+    info.apacheVersion = await tryExec('/usr/sbin/httpd', ['-v'], s => {
+      const m = s.match(/Apache\/(\S+)/i);
+      return m?.[1] || s.split('\n')[0];
+    });
+
+    res.json({ info });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // =============================================================================
 // ONGLET 1 — Services système

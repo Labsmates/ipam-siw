@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (tabs.length) setTabActive(tabs[0], true);
 
   // Chargements initiaux
+  await loadSysInfo();
   await loadServices();
   setupRedisConfigTab();
   setupBackupTab();
@@ -64,8 +65,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Rafraîchissement auto des services toutes les 10 secondes
   setInterval(loadServices, 10_000);
 
-  // Bouton rafraîchir manuel
+  // Boutons rafraîchir
   document.getElementById('btn-refresh-services')?.addEventListener('click', loadServices);
+  document.getElementById('btn-refresh-sysinfo')?.addEventListener('click', loadSysInfo);
 });
 
 function setTabActive(tab, active) {
@@ -102,6 +104,105 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// =============================================================================
+// ONGLET 0 — Informations système
+// =============================================================================
+
+async function loadSysInfo() {
+  try {
+    const { info } = await get('/api/config/system/info');
+    renderSysInfo(info);
+  } catch (e) {
+    document.getElementById('sysinfo-grid').innerHTML =
+      `<div style="color:#f85149;font-size:13px">${esc(e.message)}</div>`;
+  }
+}
+
+function renderSysInfo(info) {
+  const grid = document.getElementById('sysinfo-grid');
+
+  function fmtBytes(b) {
+    if (b == null) return '—';
+    if (b >= 1073741824) return (b / 1073741824).toFixed(1) + ' Go';
+    return (b / 1048576).toFixed(0) + ' Mo';
+  }
+
+  function fmtUptime(sec) {
+    if (!sec) return '—';
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const parts = [];
+    if (d) parts.push(`${d}j`);
+    if (h) parts.push(`${h}h`);
+    parts.push(`${m}min`);
+    return parts.join(' ');
+  }
+
+  function card(title, icon, rows) {
+    const rowsHtml = rows.map(([label, value, color]) => `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--brd)">
+        <span style="font-size:12px;color:var(--tx-3);flex-shrink:0;padding-right:12px">${label}</span>
+        <span style="font-size:12px;color:${color || 'var(--tx-1)'};font-weight:500;text-align:right;font-family:${/^\d/.test(String(value)) ? "'JetBrains Mono','Courier New',monospace" : 'inherit'};word-break:break-all">${esc(String(value ?? '—'))}</span>
+      </div>
+    `).join('');
+    return `
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <span style="color:#58a6ff">${icon}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--tx-1)">${title}</span>
+        </div>
+        ${rowsHtml}
+      </div>
+    `;
+  }
+
+  const iconServer  = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>';
+  const iconCpu     = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="4"/><line x1="15" y1="2" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="22"/><line x1="15" y1="20" x2="15" y2="22"/><line x1="2" y1="9" x2="4" y2="9"/><line x1="2" y1="15" x2="4" y2="15"/><line x1="20" y1="9" x2="22" y2="9"/><line x1="20" y1="15" x2="22" y2="15"/></svg>';
+  const iconNet     = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  const iconStack   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>';
+
+  const usedMem    = info.totalMem - info.freeMem;
+  const pctMem     = info.totalMem ? Math.round(usedMem / info.totalMem * 100) : 0;
+  const load       = info.cpuLoad || [0, 0, 0];
+
+  const cards = [
+    card('Système', iconServer, [
+      ['Hostname',       info.hostname],
+      ['OS',             info.osRelease],
+      ['Noyau',          info.kernel],
+      ['Plateforme',     info.platform ? `${info.platform} / ${info.arch}` : null],
+      ['Dernier reboot', info.lastReboot],
+      ['Uptime',         info.uptimeHuman || fmtUptime(info.uptimeSec)],
+    ]),
+    card('Ressources', iconCpu, [
+      ['CPU',            `${info.cpuCount}× ${info.cpuModel}`],
+      ['Charge (1/5/15m)', load.map(l => l.toFixed(2)).join(' / ')],
+      ['RAM totale',     fmtBytes(info.totalMem)],
+      ['RAM utilisée',   `${fmtBytes(usedMem)} (${pctMem}%)`, pctMem > 85 ? '#f85149' : pctMem > 65 ? '#d29922' : '#3fb950'],
+      ['RAM libre',      fmtBytes(info.freeMem)],
+      ['Disque /total',  info.disk?.total ?? '—'],
+      ['Disque /utilisé', info.disk ? `${info.disk.used} (${info.disk.pct})` : '—',
+        info.disk?.pct && parseInt(info.disk.pct) > 85 ? '#f85149' : parseInt(info.disk?.pct) > 65 ? '#d29922' : '#3fb950'],
+      ['Disque /libre',  info.disk?.avail ?? '—'],
+    ]),
+    card('Réseau', iconNet,
+      info.ips?.length
+        ? info.ips.map(ip => [
+            `${ip.iface} (${ip.family})`, ip.address, ip.family === 'IPv4' ? '#58a6ff' : 'var(--tx-2)',
+          ])
+        : [['Interfaces', '—']]
+    ),
+    card('Logiciels', iconStack, [
+      ['Node.js',  info.nodeVersion],
+      ['Redis',    info.redisVersion],
+      ['Apache',   info.apacheVersion],
+    ]),
+  ];
+
+  grid.innerHTML = cards.join('');
 }
 
 // =============================================================================
