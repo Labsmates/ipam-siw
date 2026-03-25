@@ -70,13 +70,12 @@ router.get('/services/status', async (req, res) => {
     for (const svc of ALLOWED_SERVICES) {
       try {
         const { stdout } = await execFileAsync(
-          'sudo', ['/usr/bin/systemctl', 'status', svc],
+          '/usr/bin/sudo', ['/usr/bin/systemctl', 'status', svc],
           { timeout: 5000 }
         );
         const activeMatch = stdout.match(/Active:\s+(\S+)/);
         const memMatch    = stdout.match(/Memory:\s+(\S+)/);
         const pidMatch    = stdout.match(/Main PID:\s+(\d+)/);
-        const descMatch   = stdout.match(/^\s+Loaded:.*\n.*\n\s+(.+)\n/m);
         results[svc] = {
           active: activeMatch?.[1] || 'unknown',
           memory: memMatch?.[1]    || null,
@@ -90,6 +89,7 @@ router.get('/services/status', async (req, res) => {
           active: activeMatch?.[1] || 'failed',
           memory: null,
           pid:    null,
+          error:  activeMatch ? undefined : (e.stderr || e.message || 'sudo failed').slice(0, 200),
         };
       }
     }
@@ -104,7 +104,7 @@ router.post('/services/:name/restart', async (req, res) => {
   const { name } = req.params;
   if (!assertService(name, res)) return;
   try {
-    await execFileAsync('sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 });
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 });
     await addLog(req.user.username, 'SVC_RESTART', `Service « ${name} » redémarré`, 'warn');
     res.json({ ok: true });
   } catch (e) {
@@ -119,7 +119,7 @@ router.post('/services/:name/reload', async (req, res) => {
   if (!RELOAD_ONLY.has(name))
     return res.status(400).json({ error: `Le service « ${name} » ne supporte pas reload` });
   try {
-    await execFileAsync('sudo', ['/usr/bin/systemctl', 'reload', name], { timeout: 30000 });
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', name], { timeout: 30000 });
     await addLog(req.user.username, 'SVC_RELOAD', `Service « ${name} » rechargé`, 'info');
     res.json({ ok: true });
   } catch (e) {
@@ -133,7 +133,7 @@ router.get('/services/:name/logs', async (req, res) => {
   if (!assertService(name, res)) return;
   try {
     const { stdout } = await execFileAsync(
-      'sudo', ['/usr/bin/journalctl', '-u', name, '-n', '100', '--no-pager'],
+      '/usr/bin/sudo', ['/usr/bin/journalctl', '-u', name, '-n', '100', '--no-pager'],
       { timeout: 10000 }
     );
     res.json({ logs: stdout });
@@ -271,7 +271,7 @@ router.post('/redis/restore', async (req, res) => {
       `Restauration RDB (${buf.length} octets) — Redis redémarré`, 'danger');
 
     // Redémarrer Redis pour qu'il charge le nouveau fichier RDB
-    await execFileAsync('sudo', ['/usr/bin/systemctl', 'restart', 'redis'], { timeout: 30000 });
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', 'redis'], { timeout: 30000 });
 
     res.json({ ok: true, message: 'Restauration effectuée. Redis redémarré.' });
   } catch (e) {
