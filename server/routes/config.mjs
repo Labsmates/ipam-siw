@@ -94,7 +94,7 @@ router.get('/system/info', async (req, res) => {
     info.cpuCount = cpus.length;
     info.cpuLoad  = os.loadavg();              // [1m, 5m, 15m]
 
-    // IPs non-internes (peut échouer sur certains environnements réseau restreints)
+    // IPs non-internes
     info.ips = [];
     try {
       const nets = os.networkInterfaces();
@@ -103,8 +103,9 @@ router.get('/system/info', async (req, res) => {
           if (!a.internal) info.ips.push({ iface, address: a.address, family: a.family });
         }
       }
-    } catch (_) {
-      // Fallback : lire les IPs via ip addr
+    } catch (_) {}
+    // Fallback via `ip addr` si os.networkInterfaces() a échoué ou retourné vide
+    if (!info.ips.length) {
       const ipOut = await tryExec('/usr/sbin/ip', ['-o', 'addr', 'show'], s => s) || '';
       for (const line of ipOut.split('\n')) {
         const m = line.match(/^\d+:\s+(\S+)\s+(inet6?)\s+([^\s/]+)/);
