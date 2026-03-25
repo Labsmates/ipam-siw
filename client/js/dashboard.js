@@ -4,11 +4,12 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, showToast, sortSites, showConfirm,
+  get, post, showToast, sortSites, showConfirm, initTheme,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   checkHttps();
+  initTheme();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -28,6 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('nav-admin-link').classList.remove('hidden');
     document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
+
+  loadSidebar();
 
   // Password change modal
   document.getElementById('btn-change-pw')?.addEventListener('click', () => {
@@ -99,22 +102,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `
         <a href="/site.html?id=${encodeURIComponent(s.id)}" class="site-card" style="
           display:block;text-decoration:none;
-          background:#161b22;border:1px solid #30363d;border-radius:12px;
+          background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;
           padding:24px;cursor:pointer;
           -webkit-transition:border-color .15s,-webkit-transform .15s,box-shadow .15s;
           transition:border-color .15s,transform .15s,box-shadow .15s;
         "
         onmouseenter="this.style.borderColor='#58a6ff';this.style.webkitTransform='translateY(-2px)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(88,166,255,.12)'"
-        onmouseleave="this.style.borderColor='#30363d';this.style.webkitTransform='';this.style.transform='';this.style.boxShadow=''">
+        onmouseleave="this.style.borderColor='var(--brd)';this.style.webkitTransform='';this.style.transform='';this.style.boxShadow=''">
           <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:start;-ms-flex-align:start;align-items:flex-start;margin-bottom:16px;">
-            <h3 style="color:#e6edf3;font-size:15px;font-weight:700;margin:0;letter-spacing:-.01em;">${esc(s.name)}</h3>
+            <h3 style="color:var(--tx-1);font-size:15px;font-weight:700;margin:0;letter-spacing:-.01em;">${esc(s.name)}</h3>
             <span style="color:#58a6ff;font-size:12px;background:#0d2240;border:1px solid #1f4080;padding:2px 8px;border-radius:999px;">${s.vlan_count || 0} VLAN${(s.vlan_count || 0) !== 1 ? 's' : ''}</span>
           </div>
 
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
-            <div style="text-align:center;background:#0d1117;border-radius:8px;padding:10px 6px;">
-              <div style="color:#e6edf3;font-size:18px;font-weight:700;">${total.toLocaleString('fr')}</div>
-              <div style="color:#8b949e;font-size:11px;margin-top:2px;">Total</div>
+            <div style="text-align:center;background:var(--bg-1);border-radius:8px;padding:10px 6px;">
+              <div style="color:var(--tx-1);font-size:18px;font-weight:700;">${total.toLocaleString('fr')}</div>
+              <div style="color:var(--tx-3);font-size:11px;margin-top:2px;">Total</div>
             </div>
             <div style="text-align:center;background:#0d2e1a;border-radius:8px;padding:10px 6px;">
               <div style="color:#3fb950;font-size:18px;font-weight:700;">${libre.toLocaleString('fr')}</div>
@@ -126,12 +129,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
           </div>
 
-          <div style="height:6px;background:#21262d;border-radius:999px;overflow:hidden;">
+          <div style="height:6px;background:var(--brd);border-radius:999px;overflow:hidden;">
             <div style="height:100%;width:${pctUtilise}%;background:-webkit-linear-gradient(left,#f85149,#d29922);background:linear-gradient(90deg,#f85149,#d29922);border-radius:999px;-webkit-transition:width .4s ease;transition:width .4s ease;"></div>
           </div>
           <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-top:6px;">
-            <span style="color:#8b949e;font-size:11px;">${pctLibre}% libres</span>
-            <span style="color:#8b949e;font-size:11px;">${pctUtilise}% occupées</span>
+            <span style="color:var(--tx-3);font-size:11px;">${pctLibre}% libres</span>
+            <span style="color:var(--tx-3);font-size:11px;">${pctUtilise}% occupées</span>
           </div>
         </a>
       `;
@@ -144,3 +147,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await loadSites();
 });
+
+async function loadSidebar() {
+  try {
+    const data   = await get('/api/sites');
+    const sites  = sortSites(data.sites || []);
+    const list   = document.getElementById('site-list');
+    const search = document.getElementById('sidebar-search');
+
+    function render(q) {
+      const filtered = q ? sites.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sites;
+      list.innerHTML = filtered.map(s => `
+        <a href="/site.html?id=${s.id}" style="padding:9px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--tx-2);text-decoration:none;border-left:2px solid transparent;transition:all .1s" onmouseenter="this.style.background='var(--bg-3)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='';this.style.color='var(--tx-2)'">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</span>
+        </a>`).join('');
+    }
+    render('');
+    search?.addEventListener('input', e => render(e.target.value.trim()));
+  } catch { /* sidebar non critique */ }
+}

@@ -27,15 +27,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
 
-  // Load site list then setup export UI
+  // Load site list then setup export UI + sidebar
   try {
     const data = await get('/api/sites');
     const allSites = sortSites(data.sites || []);
     setupExport(allSites);
+    loadSidebar(allSites);
   } catch (err) {
     showToast(err.message, 'error');
   }
 });
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
+function loadSidebar(sites) {
+  const list   = document.getElementById('site-list');
+  const search = document.getElementById('sidebar-search');
+  if (!list) return;
+
+  function render(q) {
+    const filtered = q ? sites.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sites;
+    list.innerHTML = filtered.map(s => `
+      <a href="/site.html?id=${s.id}" style="padding:9px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--tx-2);text-decoration:none;border-left:2px solid transparent;transition:all .1s" onmouseenter="this.style.background='var(--bg-3)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='';this.style.color='var(--tx-2)'">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</span>
+      </a>`).join('');
+  }
+  render('');
+  search?.addEventListener('input', e => render(e.target.value.trim()));
+}
 
 // ---------------------------------------------------------------------------
 // Export UI
