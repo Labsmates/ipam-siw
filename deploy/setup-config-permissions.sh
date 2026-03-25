@@ -53,6 +53,12 @@ ipam ALL=(root) NOPASSWD: /usr/bin/systemctl reload httpd
 ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u ipam -n 100 --no-pager
 ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u httpd -n 100 --no-pager
 ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u redis -n 100 --no-pager
+
+# Certificat SSL
+ipam ALL=(root) NOPASSWD: /usr/bin/cp /var/www/ipam/data/ipam_cert.pem /etc/pki/tls/certs/ipam.crt
+ipam ALL=(root) NOPASSWD: /usr/bin/cp /var/www/ipam/data/ipam_key.pem /etc/pki/tls/private/ipam.key
+ipam ALL=(root) NOPASSWD: /usr/bin/chmod 644 /etc/pki/tls/certs/ipam.crt
+ipam ALL=(root) NOPASSWD: /usr/bin/chmod 600 /etc/pki/tls/private/ipam.key
 EOF
 
 chmod 440 "${SUDOERS_FILE}"

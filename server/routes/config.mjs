@@ -537,4 +537,208 @@ router.post('/databases/:id/sync', async (req, res) => {
   }
 });
 
+// =============================================================================
+// ONGLET 5 — Certificat SSL
+// =============================================================================
+
+const CERT_FILE     = '/etc/pki/tls/certs/ipam.crt';
+const KEY_FILE      = '/etc/pki/tls/private/ipam.key';
+const TMP_CERT_PATH = '/var/www/ipam/data/ipam_cert.pem';
+const TMP_KEY_PATH  = '/var/www/ipam/data/ipam_key.pem';
+const CERT_PEND_KEY = 'config:cert:pending';
+
+function sanitizeDN(s) {
+  return String(s || '').replace(/[^A-Za-z0-9\s.,@_\-*]/g, '').slice(0, 64).trim();
+}
+
+// GET /api/config/cert/info
+router.get('/cert/info', async (req, res) => {
+  try {
+    if (!fs.existsSync(CERT_FILE)) return res.json({ info: null });
+
+    const { stdout } = await execFileAsync('/usr/bin/openssl', [
+      'x509', '-noout', '-subject', '-issuer', '-dates',
+      '-serial', '-fingerprint', '-sha256', '-in', CERT_FILE,
+    ], { timeout: 5000 });
+
+    const info = {};
+    for (const line of stdout.split('\n')) {
+      const idx = line.indexOf('=');
+      if (idx < 0) continue;
+      const key = line.slice(0, idx).trim();
+      const val = line.slice(idx + 1).trim();
+      if      (key === 'subject')              info.subject     = val;
+      else if (key === 'issuer')               info.issuer      = val;
+      else if (key === 'notBefore')            info.notBefore   = val;
+      else if (key === 'notAfter')             info.notAfter    = val;
+      else if (key === 'serial')               info.serial      = val;
+      else if (key === 'SHA256 Fingerprint')   info.fingerprint = val;
+    }
+
+    let san = null;
+    try {
+      const { stdout: s } = await execFileAsync('/usr/bin/openssl', [
+        'x509', '-noout', '-ext', 'subjectAltName', '-in', CERT_FILE,
+      ], { timeout: 5000 });
+      const m = s.match(/Subject Alternative Name:[^\n]*\n\s*(.+)/);
+      san = m?.[1]?.trim() || null;
+    } catch (_) {}
+
+    const notAfterDate = info.notAfter ? new Date(info.notAfter) : null;
+    info.daysLeft   = notAfterDate ? Math.floor((notAfterDate - Date.now()) / 86400000) : null;
+    info.san        = san;
+    info.hasPending = (await redis.exists(CERT_PEND_KEY)) > 0;
+
+    res.json({ info });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/config/cert/generate-csr
+router.post('/cert/generate-csr', async (req, res) => {
+  try {
+    const { cn, o = '', ou = '', c = '', st = '', l = '', san = [], keySize = 2048 } = req.body || {};
+    if (!cn?.trim()) return res.status(400).json({ error: 'Le CN (Common Name) est obligatoire' });
+
+    const ks   = [2048, 4096].includes(Number(keySize)) ? Number(keySize) : 2048;
+    const subj = '/' + [
+      c  && `C=${sanitizeDN(c)}`,
+      st && `ST=${sanitizeDN(st)}`,
+      l  && `L=${sanitizeDN(l)}`,
+      o  && `O=${sanitizeDN(o)}`,
+      ou && `OU=${sanitizeDN(ou)}`,
+      `CN=${sanitizeDN(cn)}`,
+    ].filter(Boolean).join('/');
+
+    const sanList = (Array.isArray(san) ? san : String(san).split('\n'))
+      .map(s => s.trim()).filter(Boolean)
+      .map(s => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) ? `IP:${s}` : `DNS:${s}`);
+
+    const args = ['req', '-newkey', `rsa:${ks}`, '-nodes',
+      '-keyout', TMP_KEY_PATH, '-out', '/dev/stdout', '-subj', subj];
+    if (sanList.length) args.push('-addext', `subjectAltName=${sanList.join(',')}`);
+
+    const { stdout: csrPem } = await execFileAsync('/usr/bin/openssl', args, { timeout: 60000 });
+    const keyPem = fs.readFileSync(TMP_KEY_PATH, 'utf8');
+    try { fs.unlinkSync(TMP_KEY_PATH); } catch (_) {}
+
+    // Stocker clé + CSR dans Redis 24h (le CSR est envoyé à la CA, la clé attendue pour l'install)
+    await redis.set(CERT_PEND_KEY, JSON.stringify({ key: keyPem, csr: csrPem }), 'EX', 86400);
+    await addLog(req.user.username, 'CERT_CSR_GEN', `CSR généré — CN=${sanitizeDN(cn)}, ${ks} bits`, 'info');
+
+    res.json({ ok: true, csr: csrPem });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
+// POST /api/config/cert/install  — body: { cert: "PEM" }
+router.post('/cert/install', async (req, res) => {
+  try {
+    const { cert } = req.body || {};
+    if (!cert?.trim()) return res.status(400).json({ error: 'Certificat PEM manquant' });
+
+    fs.writeFileSync(TMP_CERT_PATH, String(cert).trim() + '\n', { mode: 0o600 });
+
+    // Valider le PEM
+    try {
+      await execFileAsync('/usr/bin/openssl', ['x509', '-noout', '-in', TMP_CERT_PATH], { timeout: 5000 });
+    } catch (_) {
+      try { fs.unlinkSync(TMP_CERT_PATH); } catch (_) {}
+      return res.status(400).json({ error: 'Certificat PEM invalide' });
+    }
+
+    // Vérifier la correspondance avec la clé en attente
+    let keyInstalled = false;
+    const pendingRaw = await redis.get(CERT_PEND_KEY);
+    if (pendingRaw) {
+      try {
+        const { key: keyPem } = JSON.parse(pendingRaw);
+        fs.writeFileSync(TMP_KEY_PATH, keyPem, { mode: 0o600 });
+        const { stdout: cm } = await execFileAsync('/usr/bin/openssl',
+          ['x509', '-noout', '-modulus', '-in', TMP_CERT_PATH], { timeout: 5000 });
+        const { stdout: km } = await execFileAsync('/usr/bin/openssl',
+          ['rsa',  '-noout', '-modulus', '-in', TMP_KEY_PATH],  { timeout: 5000 });
+        if (cm.trim() !== km.trim()) {
+          try { fs.unlinkSync(TMP_CERT_PATH); fs.unlinkSync(TMP_KEY_PATH); } catch (_) {}
+          return res.status(400).json({ error: 'Le certificat ne correspond pas à la clé privée générée par ce serveur' });
+        }
+        keyInstalled = true;
+      } catch (e) {
+        try { fs.unlinkSync(TMP_KEY_PATH); } catch (_) {}
+        if (e.message?.includes('correspond')) return res.status(400).json({ error: e.message });
+      }
+    }
+
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_CERT_PATH, CERT_FILE], { timeout: 10000 });
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '644', CERT_FILE], { timeout: 5000 });
+
+    if (keyInstalled) {
+      await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_KEY_PATH, KEY_FILE], { timeout: 10000 });
+      await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '600', KEY_FILE], { timeout: 5000 });
+      await redis.del(CERT_PEND_KEY);
+    }
+
+    try { fs.unlinkSync(TMP_CERT_PATH); } catch (_) {}
+    try { if (keyInstalled) fs.unlinkSync(TMP_KEY_PATH); } catch (_) {}
+
+    await addLog(req.user.username, 'CERT_INSTALL',
+      `Certificat SSL installé${keyInstalled ? ' (+ clé privée)' : ''}`, 'warn');
+
+    res.json({ ok: true, keyInstalled });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
+// POST /api/config/cert/self-signed
+router.post('/cert/self-signed', async (req, res) => {
+  try {
+    const { cn, o = '', ou = '', c = 'FR', st = '', l = '', san = [], days = 365 } = req.body || {};
+    if (!cn?.trim()) return res.status(400).json({ error: 'Le CN (Common Name) est obligatoire' });
+
+    const d    = Math.min(Math.max(parseInt(days) || 365, 1), 3650);
+    const subj = '/' + [
+      c  && `C=${sanitizeDN(c)}`,
+      st && `ST=${sanitizeDN(st)}`,
+      l  && `L=${sanitizeDN(l)}`,
+      o  && `O=${sanitizeDN(o)}`,
+      ou && `OU=${sanitizeDN(ou)}`,
+      `CN=${sanitizeDN(cn)}`,
+    ].filter(Boolean).join('/');
+
+    const sanList = (Array.isArray(san) ? san : String(san).split('\n'))
+      .map(s => s.trim()).filter(Boolean)
+      .map(s => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) ? `IP:${s}` : `DNS:${s}`);
+
+    const args = ['req', '-x509', '-nodes', '-days', String(d), '-newkey', 'rsa:2048',
+      '-keyout', TMP_KEY_PATH, '-out', TMP_CERT_PATH, '-subj', subj];
+    if (sanList.length) args.push('-addext', `subjectAltName=${sanList.join(',')}`);
+
+    await execFileAsync('/usr/bin/openssl', args, { timeout: 60000 });
+
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_CERT_PATH, CERT_FILE], { timeout: 10000 });
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_KEY_PATH,  KEY_FILE],  { timeout: 10000 });
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '644', CERT_FILE], { timeout: 5000 });
+    await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '600', KEY_FILE],  { timeout: 5000 });
+
+    try { fs.unlinkSync(TMP_CERT_PATH); } catch (_) {}
+    try { fs.unlinkSync(TMP_KEY_PATH);  } catch (_) {}
+
+    await addLog(req.user.username, 'CERT_SELF_SIGNED',
+      `Certificat auto-signé — CN=${sanitizeDN(cn)}, ${d} jours`, 'warn');
+
+    res.json({ ok: true });
+    setImmediate(() => {
+      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
 export default router;

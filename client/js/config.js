@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadServices();
   setupRedisConfigTab();
   setupBackupTab();
+  setupCertTab();
   setupDatabasesTab();
 
   // Rafraîchissement auto des services toutes les 10 secondes
@@ -500,6 +501,143 @@ function formatBytes(bytes) {
   if (bytes < 1024)             return `${bytes} o`;
   if (bytes < 1024 * 1024)      return `${(bytes / 1024).toFixed(1)} Ko`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
+}
+
+// =============================================================================
+// ONGLET 5 — Certificat SSL
+// =============================================================================
+
+async function loadCertInfo() {
+  const block = document.getElementById('cert-info-block');
+  try {
+    const { info } = await get('/api/config/cert/info');
+    if (!info) {
+      block.innerHTML = '<div style="color:var(--tx-3);font-size:13px">Aucun certificat trouvé.</div>';
+      return;
+    }
+
+    const dl = info.daysLeft;
+    const badgeColor = dl == null ? '#8b949e' : dl < 0 ? '#f85149' : dl < 30 ? '#d29922' : '#3fb950';
+    const badgeText  = dl == null ? 'Inconnu' : dl < 0 ? `Expiré depuis ${Math.abs(dl)}j` : dl < 30 ? `Expire dans ${dl}j` : `Valide — ${dl} jours restants`;
+
+    const row = (label, value) => value ? `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--brd)">
+        <span style="font-size:12px;color:var(--tx-3);flex-shrink:0;padding-right:16px">${label}</span>
+        <span style="font-size:12px;color:var(--tx-1);font-weight:500;text-align:right;word-break:break-all;font-family:'JetBrains Mono','Courier New',monospace">${esc(value)}</span>
+      </div>` : '';
+
+    block.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <span style="background:${badgeColor}20;color:${badgeColor};border:1px solid ${badgeColor}50;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600">${badgeText}</span>
+        ${info.hasPending ? '<span style="background:#58a6ff20;color:#58a6ff;border:1px solid #58a6ff50;border-radius:999px;padding:4px 12px;font-size:12px">CSR en attente d\'installation</span>' : ''}
+      </div>
+      ${row('Sujet',       info.subject)}
+      ${row('Émetteur',    info.issuer)}
+      ${row('Valide du',   info.notBefore)}
+      ${row('Expire le',   info.notAfter)}
+      ${row('SAN',         info.san)}
+      ${row('Numéro de série', info.serial)}
+      ${row('Empreinte SHA256', info.fingerprint)}
+    `;
+  } catch (e) {
+    block.innerHTML = `<div style="color:#f85149;font-size:13px">${esc(e.message)}</div>`;
+  }
+}
+
+function setupCertTab() {
+  loadCertInfo();
+  document.getElementById('btn-refresh-cert')?.addEventListener('click', loadCertInfo);
+
+  // ── Générer CSR ─────────────────────────────────────────────────────────────
+  document.getElementById('btn-gen-csr')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-gen-csr');
+    const san = (document.getElementById('csr-san').value || '')
+      .split('\n').map(s => s.trim()).filter(Boolean);
+    btn.disabled = true; btn.textContent = 'Génération…';
+    try {
+      const { csr } = await post('/api/config/cert/generate-csr', {
+        cn:      document.getElementById('csr-cn').value,
+        o:       document.getElementById('csr-o').value,
+        ou:      document.getElementById('csr-ou').value,
+        c:       document.getElementById('csr-c').value,
+        st:      document.getElementById('csr-st').value,
+        l:       document.getElementById('csr-l').value,
+        san,
+        keySize: document.getElementById('csr-keysize').value,
+      });
+      document.getElementById('csr-output').value = csr;
+      document.getElementById('csr-result').classList.remove('hidden');
+      showToast('CSR généré — clé privée conservée 24h sur le serveur', 'success');
+      loadCertInfo();
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Générer la clé et le CSR'; }
+  });
+
+  document.getElementById('btn-copy-csr')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('csr-output').value)
+      .then(() => showToast('CSR copié', 'success'))
+      .catch(() => showToast('Échec de la copie', 'error'));
+  });
+
+  document.getElementById('btn-download-csr')?.addEventListener('click', () => {
+    const csr = document.getElementById('csr-output').value;
+    if (!csr) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csr], { type: 'text/plain' }));
+    a.download = 'ipam.csr';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // ── Installer certificat signé ────────────────────────────────────────────
+  document.getElementById('btn-install-cert')?.addEventListener('click', async () => {
+    const cert = document.getElementById('cert-install-pem').value.trim();
+    if (!cert) { showToast('Collez le certificat PEM', 'warn'); return; }
+    if (!await showConfirm({
+      title: 'Installer le certificat',
+      message: 'Le certificat sera installé et Apache rechargé. Continuer ?',
+      confirmText: 'Installer',
+    })) return;
+    const btn = document.getElementById('btn-install-cert');
+    btn.disabled = true; btn.textContent = 'Installation…';
+    try {
+      const { keyInstalled } = await post('/api/config/cert/install', { cert });
+      showToast(`Certificat installé${keyInstalled ? ' (+ clé privée)' : ''}. Apache rechargé.`, 'success');
+      document.getElementById('cert-install-pem').value = '';
+      loadCertInfo();
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Installer et recharger Apache'; }
+  });
+
+  // ── Certificat auto-signé ─────────────────────────────────────────────────
+  document.getElementById('btn-self-signed')?.addEventListener('click', async () => {
+    const cn = document.getElementById('ss-cn').value.trim();
+    if (!cn) { showToast('Le CN est obligatoire', 'warn'); return; }
+    if (!await showConfirm({
+      title: 'Certificat auto-signé',
+      message: `Remplace le certificat et la clé privée actuels.\nCN : ${cn}\nDurée : ${document.getElementById('ss-days').value} jours\n\nContinuer ?`,
+      confirmText: 'Générer et installer',
+      danger: true,
+    })) return;
+    const btn = document.getElementById('btn-self-signed');
+    btn.disabled = true; btn.textContent = 'Génération…';
+    try {
+      const san = (document.getElementById('ss-san').value || '')
+        .split('\n').map(s => s.trim()).filter(Boolean);
+      await post('/api/config/cert/self-signed', {
+        cn,
+        o:    document.getElementById('ss-o').value,
+        days: document.getElementById('ss-days').value,
+        san,
+      });
+      showToast('Certificat auto-signé installé. Apache rechargé.', 'success');
+      loadCertInfo();
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Générer et installer le certificat auto-signé';
+    }
+  });
 }
 
 // =============================================================================
