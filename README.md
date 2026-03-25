@@ -41,24 +41,27 @@ IPAMBBD/
 │   ├── dashboard.html      ← Liste des sites (grille avec stats)
 │   ├── site.html           ← Détail site (sidebar + VLANs + IPs)
 │   ├── admin.html          ← Administration
+│   ├── config.html         ← Configuration système (super admin uniquement)
 │   └── js/
 │       ├── api.js          ← Fetch wrapper, JWT, toast, timer inactivité
 │       ├── auth.js         ← Login (redirige vers site.html)
 │       ├── dashboard.js    ← Grille des sites
 │       ├── site.js         ← Sidebar, table IPs, modals
-│       └── admin.js        ← Utilisateurs, sites, journaux, MDP
+│       ├── admin.js        ← Utilisateurs, sites, journaux, MDP
+│       └── config.js       ← Services, config Redis, sauvegarde, bases de données
 ├── server/
 │   ├── index.mjs           ← Serveur Express
 │   ├── redis.mjs           ← Couche d'accès Redis
 │   ├── utils.mjs           ← sha256, uid, now
 │   ├── middleware/
-│   │   └── auth.mjs        ← Vérification JWT
+│   │   └── auth.mjs        ← Vérification JWT (requireAuth, requireAdmin, requireSuperAdmin)
 │   └── routes/
 │       ├── auth.mjs        ← Login, utilisateurs, /me/password
 │       ├── sites.mjs       ← CRUD sites, ajout VLAN (IPs auto), import
 │       ├── vlans.mjs       ← CRUD VLANs
 │       ├── ips.mjs         ← Réservation / libération
-│       └── logs.mjs        ← Journal d'activité
+│       ├── logs.mjs        ← Journal d'activité
+│       └── config.mjs      ← Configuration système (super admin — services, Redis, backup, DB)
 ├── vendor/
 │   ├── tailwind.min.js     ← Tailwind CSS (offline)
 │   ├── xlsx.full.min.js    ← SheetJS (offline)
@@ -73,10 +76,11 @@ IPAMBBD/
 │   ├── redis-7.2.13-1.el10.remi.x86_64.rpm
 │   └── logrotate-3.22.0-4.el10.x86_64.rpm
 ├── deploy/
-│   ├── deploy.sh           ← Script de déploiement automatisé
-│   ├── ipam.conf           ← Apache Virtual Host
-│   ├── ipam.service        ← Service systemd Node.js
-│   └── redis.conf          ← Configuration Redis production
+│   ├── deploy.sh                    ← Script de déploiement automatisé
+│   ├── setup-config-permissions.sh  ← Prérequis page Configuration (sudo + RDB)
+│   ├── ipam.conf                    ← Apache Virtual Host
+│   ├── ipam.service                 ← Service systemd Node.js
+│   └── redis.conf                   ← Configuration Redis production
 ├── import_redis.py         ← Import Me.xlsx → Redis (voir section dédiée)
 ├── data/                   ← Créé automatiquement au premier démarrage
 └── package.json
@@ -288,13 +292,14 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 
 ### Pages
 
-| Page | URL | Description |
-|---|---|---|
-| Connexion | `/` | Login JWT, redirection automatique si déjà connecté |
-| Sites | `/site.html` | Sidebar avec tous les sites, état d'accueil si aucun site sélectionné |
-| Détail site | `/site.html?id=N` | VLANs, table IPs paginée, réservation/libération |
-| Dashboard | `/dashboard.html` | Grille des sites avec stats (libres / occupées / total) |
-| Administration | `/admin.html` | Gestion utilisateurs, sites, journaux, changement MDP |
+| Page | URL | Accès | Description |
+|---|---|---|---|
+| Connexion | `/` | Public | Login JWT, redirection automatique si déjà connecté |
+| Sites | `/site.html` | Auth | Sidebar avec tous les sites, état d'accueil si aucun site sélectionné |
+| Détail site | `/site.html?id=N` | Auth | VLANs, table IPs paginée, réservation/libération |
+| Dashboard | `/dashboard.html` | Auth | Grille des sites avec stats (libres / occupées / total) |
+| Administration | `/admin.html` | Admin | Gestion utilisateurs, sites, journaux, changement MDP |
+| Configuration système | `/config.html` | **Super admin** | Services, config Redis, sauvegarde/restauration, bases de données |
 
 ### Gestion des IPs
 
@@ -312,6 +317,48 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 | `Libre` | Vert | IP disponible |
 | `Utilisé` | Rouge | IP en service (hostname présent) |
 | `Réservée` | Orange | IP réservée mais non déployée |
+
+---
+
+## Configuration système (super admin)
+
+La page `/config.html` est réservée au compte **ADMIN** (super administrateur). Elle offre 4 onglets :
+
+### Services
+- Statut en temps réel (actif / inactif / échoué) pour `ipam`, `httpd`, `redis`
+- Boutons **Redémarrer** (`ipam`, `redis`) et **Recharger** (`httpd`)
+- Consultation des **100 dernières lignes de logs** via `journalctl` (panneau dépliable)
+- Rafraîchissement automatique toutes les 10 secondes
+
+### Configuration Redis
+- Lecture et modification en direct des paramètres Redis via `CONFIG_IPAM_ADMIN SET`
+- Paramètres accessibles : `maxmemory`, `maxmemory-policy`, `appendonly`, `save`, `requirepass`, `loglevel`, `bind`
+- ⚠ Les modifications sont appliquées **en mémoire uniquement** — éditer aussi `/etc/redis/redis.conf` pour les rendre permanentes
+
+### Sauvegarde / Restauration
+- Déclencher une sauvegarde BGSAVE non bloquante
+- Télécharger le fichier `ipam.rdb` (nécessite Bearer token — géré automatiquement)
+- Restaurer depuis un fichier `.rdb` (validation des magic bytes + redémarrage Redis automatique)
+
+### Bases de données supplémentaires
+- Ajouter des connexions Redis (nom, hôte, port, mot de passe, index DB)
+- Tester la connectivité (PING avec latence)
+- Synchroniser toutes les clés vers une instance cible (DUMP/RESTORE en cursor scan)
+
+### Prérequis serveur
+
+```bash
+# Configurer sudo et les permissions RDB (inclus dans deploy.sh depuis v2.2.0)
+bash deploy/setup-config-permissions.sh
+
+# Puis redémarrer le service pour que le changement de groupe prenne effet
+systemctl restart ipam
+```
+
+Le script crée :
+- `/etc/sudoers.d/ipam` — 9 commandes `systemctl`/`journalctl` sans mot de passe
+- `ipam` ∈ groupe `redis` — accès en lecture/écriture au fichier RDB
+- Permissions `664` sur `/var/lib/redis/ipam.rdb`
 
 ---
 
@@ -343,6 +390,17 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 | Bind localhost | `127.0.0.1:6379` uniquement |
 | FLUSHALL/FLUSHDB | Désactivés |
 | Persistance AOF | Sauvegarde disque toutes les secondes |
+
+### Page Configuration système
+
+| Protection | Détail |
+|---|---|
+| Triple guard | `requireAuth` + `requireAdmin` + `requireSuperAdmin` (username === `ADMIN`) |
+| Whitelist services | Seuls `ipam`, `httpd`, `redis` acceptés — injection shell impossible (`execFile`) |
+| Sudo restreint | 9 commandes exactes autorisées via `/etc/sudoers.d/ipam` |
+| Params Redis | Whitelist des clés modifiables — `bind` modifiable mais affiché avec avertissement |
+| Restauration RDB | Validation des magic bytes `REDIS` avant écriture |
+| Mots de passe DB | Jamais renvoyés au client dans les listings |
 
 ### Frontend
 
@@ -793,10 +851,64 @@ redis-cli SCARD sites
 | Avertissement certificat | Certificat auto-signé | Cliquer "Avancé → Accepter" |
 | Déconnexion automatique | Timeout 20 min | Normal — se reconnecter |
 | IPs non générées à l'ajout VLAN | CIDR manquant | Saisir le réseau au format `192.168.1.0/24` |
+| Config → "Service non autorisé" | URL modifiée manuellement | Normal — whitelist stricte côté serveur |
+| Config → Logs vides | sudo non configuré | Exécuter `bash deploy/setup-config-permissions.sh` |
+| Config → Téléchargement RDB échoue | Permissions insuffisantes | `usermod -aG redis ipam && chmod 664 /var/lib/redis/ipam.rdb` puis `systemctl restart ipam` |
+| Config → Restauration échoue | ipam ne peut pas écrire le RDB | Même solution que ci-dessus |
+| Config → Sync échoue | Instance Redis cible injoignable | Vérifier l'hôte/port et utiliser d'abord "Tester" |
 
 ---
 
 ## Changelog
+
+### v2.2.0 — 2026-03-25
+
+#### Page Configuration système (super admin)
+
+Nouvelle page `/config.html` accessible uniquement au compte `ADMIN`, protégée côté serveur par un triple middleware (`requireAuth + requireAdmin + requireSuperAdmin`).
+
+**Onglet Services**
+- Statut en direct (`systemctl status`) pour les services `ipam`, `httpd`, `redis`
+- Redémarrage et rechargement (httpd reload) avec confirmation
+- Logs des 100 dernières lignes via `journalctl` (panneau dépliable par service)
+- Rafraîchissement automatique toutes les 10 s
+
+**Onglet Configuration Redis**
+- Lecture des paramètres courants via `CONFIG_IPAM_ADMIN GET`
+- Modification en direct via `CONFIG_IPAM_ADMIN SET` (whitelist de 6 paramètres)
+- Paramètre `bind` affiché en lecture avec avertissement visuel
+
+**Onglet Sauvegarde / Restauration**
+- Déclenchement BGSAVE, affichage de la date et taille du dernier snapshot
+- Téléchargement du fichier RDB avec authentification Bearer (fetch + Blob)
+- Restauration depuis un fichier `.rdb` avec validation des magic bytes et redémarrage Redis automatique
+
+**Onglet Bases de données supplémentaires**
+- Ajout / suppression de connexions Redis (stockées dans Redis sous `config:databases`)
+- Test PING avec latence mesurée
+- Synchronisation complète (SCAN + DUMP/RESTORE) vers une instance cible
+
+**Infrastructure**
+- `server/routes/config.mjs` — 12 nouvelles routes API sous `/api/config/*`
+- `server/middleware/auth.mjs` — ajout de `requireSuperAdmin`
+- `deploy/setup-config-permissions.sh` — script dédié aux prérequis serveur
+- `deploy/deploy.sh` — intègre automatiquement les étapes sudo + groupe redis + permissions RDB
+
+#### Structure mise à jour
+```
+client/
+├── config.html              ← NOUVEAU — Page Configuration système
+└── js/
+    └── config.js            ← NOUVEAU — Logique de la page
+server/
+├── middleware/auth.mjs      ← Ajout requireSuperAdmin
+└── routes/
+    └── config.mjs           ← NOUVEAU — 12 routes /api/config/*
+deploy/
+└── setup-config-permissions.sh  ← NOUVEAU — Prérequis sudo + RDB
+```
+
+---
 
 ### v2.1.0 — 2026-03-16
 

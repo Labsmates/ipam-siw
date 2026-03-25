@@ -110,6 +110,35 @@ find "${APP_DIR}/vendor" -type f -exec chmod 644 {} \; 2>/dev/null || true
 usermod -aG ${SERVICE_USER} apache 2>/dev/null || true
 success "Permissions configurées"
 
+# ── 6b. Sudo + droits RDB (page Configuration système) ───────────────────────
+info "6b — Droits sudo et accès RDB pour la page Configuration…"
+
+SUDOERS_FILE="/etc/sudoers.d/ipam"
+cat > "${SUDOERS_FILE}" <<'SUDOERS_EOF'
+# IPAM SIW — Droits sudo pour la page Configuration système
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl status ipam
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl status httpd
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl status redis
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl restart ipam
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl restart redis
+ipam ALL=(root) NOPASSWD: /usr/bin/systemctl reload httpd
+ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u ipam -n 100 --no-pager
+ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u httpd -n 100 --no-pager
+ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u redis -n 100 --no-pager
+SUDOERS_EOF
+chmod 440 "${SUDOERS_FILE}"
+visudo -c -f "${SUDOERS_FILE}" &>/dev/null && success "Fichier sudoers créé" || \
+  { rm -f "${SUDOERS_FILE}"; warn "Syntaxe sudoers invalide — ignoré"; }
+
+getent group redis &>/dev/null && usermod -aG redis "${SERVICE_USER}" && \
+  success "Utilisateur '${SERVICE_USER}' ajouté au groupe 'redis'"
+
+RDB_PATH="/var/lib/redis/ipam.rdb"
+mkdir -p "$(dirname "${RDB_PATH}")"
+[[ ! -f "${RDB_PATH}" ]] && touch "${RDB_PATH}"
+chown redis:redis "${RDB_PATH}" && chmod 664 "${RDB_PATH}"
+success "Permissions RDB : redis:redis 664"
+
 # ── 7. Redis ──────────────────────────────────────────────────────────────────
 info "7/11 — Configuration Redis…"
 mkdir -p /etc/redis /var/log/redis /var/lib/redis
@@ -200,4 +229,5 @@ echo    "  2. Remplacez le certificat SSL auto-signé"
 echo    "  3. Logs Node.js : journalctl -u ipam -f"
 echo    "  4. Logs Redis   : journalctl -u redis -f"
 echo    "  5. Sauvegarde Redis : redis-cli BGSAVE"
+echo    "  6. Page Configuration système accessible via Administration → Configuration"
 echo ""

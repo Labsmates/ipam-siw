@@ -1,0 +1,529 @@
+// =============================================================================
+// IPAM SIW — config.js  (Configuration système — super admin uniquement)
+// =============================================================================
+
+import {
+  requireAuth, startInactivityTimer, checkHttps, getUser, getToken, logout,
+  get, post, put, del,
+  showToast, fmtDate, openModal, closeModal, showConfirm, initTheme, sortSites,
+} from './api.js';
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', async () => {
+  checkHttps();
+  initTheme();
+  if (!requireAuth()) return;
+  startInactivityTimer();
+
+  const user = getUser();
+
+  // Guard : super admin uniquement (username === 'ADMIN')
+  if (user?.role !== 'admin' || user?.username !== 'ADMIN') {
+    window.location.replace('/admin.html');
+    return;
+  }
+
+  document.getElementById('nav-username').textContent = user.username;
+
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (await showConfirm({
+      title: 'Déconnexion',
+      message: 'Voulez-vous vous déconnecter ?',
+      confirmText: 'Se déconnecter',
+      danger: true,
+    })) logout();
+  });
+
+  // Sidebar sites
+  loadConfigSidebar();
+
+  // Système de tabs
+  const tabs  = document.querySelectorAll('.admin-tab');
+  const panes = document.querySelectorAll('.admin-pane');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t  => setTabActive(t, false));
+      panes.forEach(p => p.classList.add('hidden'));
+      setTabActive(tab, true);
+      const pane = document.getElementById(`pane-${tab.dataset.tab}`);
+      if (pane) pane.classList.remove('hidden');
+    });
+  });
+
+  // Activer le premier onglet
+  if (tabs.length) setTabActive(tabs[0], true);
+
+  // Chargements initiaux
+  await loadServices();
+  setupRedisConfigTab();
+  setupBackupTab();
+  setupDatabasesTab();
+
+  // Rafraîchissement auto des services toutes les 10 secondes
+  setInterval(loadServices, 10_000);
+
+  // Bouton rafraîchir manuel
+  document.getElementById('btn-refresh-services')?.addEventListener('click', loadServices);
+});
+
+function setTabActive(tab, active) {
+  tab.style.color            = active ? '#58a6ff' : 'var(--tx-3)';
+  tab.style.borderBottomColor = active ? '#58a6ff' : 'transparent';
+  tab.style.background        = active ? '#0d2240' : 'transparent';
+}
+
+async function loadConfigSidebar() {
+  try {
+    const data  = await get('/api/sites');
+    const sites = sortSites(data.sites || []);
+    const list  = document.getElementById('site-list');
+    const search = document.getElementById('sidebar-search');
+
+    function render(q) {
+      const filtered = q ? sites.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sites;
+      list.innerHTML = filtered.map(s => `
+        <a href="/site.html?id=${s.id}" class="site-item" style="padding:9px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--tx-2);text-decoration:none;border-left:2px solid transparent;transition:all .1s" onmouseenter="this.style.background='var(--bg-3)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='';this.style.color='var(--tx-2)'">
+          <span>${esc(s.name)}</span>
+          <span style="font-size:11px;color:var(--tx-3)">${s.vlan_count ?? 0} VLAN</span>
+        </a>
+      `).join('');
+    }
+
+    render('');
+    search?.addEventListener('input', e => render(e.target.value));
+  } catch (_) {}
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// =============================================================================
+// ONGLET 1 — Services
+// =============================================================================
+const SVC_META = {
+  ipam:  {
+    label: 'Service IPAM',
+    icon:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
+  },
+  httpd: {
+    label: 'Apache HTTPD',
+    icon:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  },
+  redis: {
+    label: 'Redis',
+    icon:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  },
+};
+
+async function loadServices() {
+  try {
+    const { services } = await get('/api/config/services/status');
+    renderServiceCards(services);
+    document.getElementById('svc-last-refresh').textContent =
+      `Mis à jour : ${new Date().toLocaleTimeString('fr-FR')}`;
+  } catch (e) {
+    showToast(`Erreur services : ${e.message}`, 'error');
+  }
+}
+
+function dotClass(active) {
+  if (active === 'active')   return 'dot-active';
+  if (active === 'failed')   return 'dot-failed';
+  if (active === 'inactive') return 'dot-inactive';
+  return 'dot-unknown';
+}
+
+function statusLabel(active) {
+  if (active === 'active')   return { text: 'Actif',    color: '#3fb950' };
+  if (active === 'failed')   return { text: 'Échoué',   color: '#f85149' };
+  if (active === 'inactive') return { text: 'Inactif',  color: '#8b949e' };
+  return { text: active || 'Inconnu', color: '#d29922' };
+}
+
+function renderServiceCards(services) {
+  const grid = document.getElementById('services-grid');
+  if (!services || !Object.keys(services).length) {
+    grid.innerHTML = '<div style="color:var(--tx-3);font-size:13px">Aucun service disponible.</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  for (const [name, info] of Object.entries(services)) {
+    const meta   = SVC_META[name] || { label: name, icon: '' };
+    const sl     = statusLabel(info.active);
+    const card   = document.createElement('div');
+    card.className = 'svc-card';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="color:var(--tx-3)">${meta.icon}</div>
+          <span style="font-weight:600;font-size:14px">${esc(meta.label)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="dot ${dotClass(info.active)}"></span>
+          <span style="font-size:12px;font-weight:500;color:${sl.color}">${sl.text}</span>
+        </div>
+      </div>
+      ${info.pid    ? `<div style="font-size:12px;color:var(--tx-3);margin-bottom:4px">PID : <span style="color:var(--tx-2);font-family:monospace">${esc(info.pid)}</span></div>` : ''}
+      ${info.memory ? `<div style="font-size:12px;color:var(--tx-3);margin-bottom:4px">Mémoire : <span style="color:var(--tx-2)">${esc(info.memory)}</span></div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-warn btn-sm" data-action="restart" data-svc="${name}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+          Redémarrer
+        </button>
+        ${name === 'httpd' ? `<button class="btn btn-g btn-sm" data-action="reload" data-svc="${name}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg> Recharger</button>` : ''}
+        <button class="btn btn-g btn-sm" data-action="logs" data-svc="${name}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          Logs
+        </button>
+      </div>
+      <div id="logs-${name}" class="log-panel hidden"></div>
+    `;
+    grid.appendChild(card);
+  }
+
+  grid.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => handleServiceAction(btn.dataset.action, btn.dataset.svc));
+  });
+}
+
+async function handleServiceAction(action, svc) {
+  if (action === 'logs') {
+    const logEl = document.getElementById(`logs-${svc}`);
+    if (!logEl.classList.contains('hidden')) {
+      logEl.classList.add('hidden');
+      return;
+    }
+    logEl.classList.remove('hidden');
+    logEl.textContent = 'Chargement des logs…';
+    try {
+      const { logs } = await get(`/api/config/services/${svc}/logs`);
+      logEl.textContent = logs || '(aucun log)';
+      logEl.scrollTop   = logEl.scrollHeight;
+    } catch (e) {
+      logEl.textContent = `Erreur : ${e.message}`;
+    }
+    return;
+  }
+
+  const isRestart = action === 'restart';
+  const confirmed = await showConfirm({
+    title:       isRestart ? `Redémarrer ${svc}` : `Recharger ${svc}`,
+    message:     isRestart
+      ? `Confirmer le redémarrage du service « ${svc} » ? Le service sera brièvement indisponible.`
+      : `Confirmer le rechargement de la configuration d'Apache ?`,
+    confirmText: isRestart ? 'Redémarrer' : 'Recharger',
+    danger:      isRestart,
+  });
+  if (!confirmed) return;
+
+  try {
+    await post(`/api/config/services/${svc}/${action}`);
+    showToast(
+      isRestart ? `Service « ${svc} » redémarré` : `Apache rechargé`,
+      'success'
+    );
+    // Re-vérifier le statut après 2s
+    setTimeout(loadServices, 2000);
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// =============================================================================
+// ONGLET 2 — Configuration Redis
+// =============================================================================
+const REDIS_CFG_META = [
+  { key: 'maxmemory',        label: 'maxmemory',        hint: 'Ex : 256mb, 0 = illimité',            warn: false },
+  { key: 'maxmemory-policy', label: 'maxmemory-policy', hint: 'allkeys-lru, noeviction, volatile-lru…', warn: false },
+  { key: 'appendonly',       label: 'appendonly',        hint: 'yes / no',                             warn: false },
+  { key: 'save',             label: 'save',              hint: 'Ex : 900 1 300 10',                   warn: false },
+  { key: 'requirepass',      label: 'requirepass',       hint: 'Laisser vide pour désactiver',        warn: false },
+  { key: 'loglevel',         label: 'loglevel',          hint: 'debug, verbose, notice, warning',      warn: false },
+  { key: 'bind',             label: 'bind',              hint: 'Modifier avec précaution !',           warn: true  },
+];
+
+function setupRedisConfigTab() {
+  document.querySelector('[data-tab="redis-config"]')?.addEventListener('click', loadRedisConfig);
+  document.getElementById('btn-save-redis-cfg')?.addEventListener('click', saveRedisConfig);
+}
+
+async function loadRedisConfig() {
+  const form = document.getElementById('redis-cfg-form');
+  form.innerHTML = '<div style="color:var(--tx-3);font-size:13px">Chargement…</div>';
+  try {
+    const { config } = await get('/api/config/redis/config');
+    form.innerHTML = '';
+    for (const meta of REDIS_CFG_META) {
+      const row = document.createElement('div');
+      row.className = 'cfg-row';
+      const inputId = `cfg-${meta.key.replace(/-/g, '_')}`;
+      row.innerHTML = `
+        <label class="cfg-label" for="${inputId}" title="${esc(meta.hint)}" style="${meta.warn ? 'color:#d29922' : ''}">${esc(meta.label)}</label>
+        <input class="inp" id="${inputId}" value="${esc(config[meta.key] ?? '')}" placeholder="${esc(meta.hint)}" style="flex:1${meta.warn ? ';color:#d29922;border-color:#d2992240' : ''}">
+      `;
+      form.appendChild(row);
+    }
+  } catch (e) {
+    form.innerHTML = `<div style="color:#f85149;font-size:13px">Erreur : ${esc(e.message)}</div>`;
+    showToast(`Erreur config Redis : ${e.message}`, 'error');
+  }
+}
+
+async function saveRedisConfig() {
+  const params = {};
+  for (const meta of REDIS_CFG_META) {
+    const inputId = `cfg-${meta.key.replace(/-/g, '_')}`;
+    const el      = document.getElementById(inputId);
+    if (el) params[meta.key] = el.value.trim();
+  }
+  try {
+    const result = await put('/api/config/redis/config', { params });
+    if (result.errors?.length) {
+      showToast(`Partiellement sauvegardé. Erreurs : ${result.errors.join(' | ')}`, 'warn');
+    } else {
+      showToast('Configuration Redis sauvegardée', 'success');
+    }
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// =============================================================================
+// ONGLET 3 — Sauvegarde / Restauration
+// =============================================================================
+function setupBackupTab() {
+  document.querySelector('[data-tab="backup"]')?.addEventListener('click', loadBackupInfo);
+  document.getElementById('btn-bgsave')?.addEventListener('click', triggerBgsave);
+  document.getElementById('btn-download-rdb')?.addEventListener('click', downloadRdb);
+  document.getElementById('btn-restore-rdb')?.addEventListener('click', handleRestoreClick);
+}
+
+async function loadBackupInfo() {
+  try {
+    const { lastSave, size, exists } = await get('/api/config/redis/backup/info');
+    document.getElementById('backup-last-save').textContent =
+      lastSave ? fmtDate(new Date(lastSave).toISOString()) : 'Jamais';
+    document.getElementById('backup-size').textContent =
+      size != null ? formatBytes(size) : 'Inconnu';
+    const existsEl = document.getElementById('backup-exists');
+    existsEl.textContent = exists ? 'Oui' : 'Non';
+    existsEl.style.color = exists ? '#3fb950' : '#f85149';
+  } catch (e) {
+    showToast(`Erreur info sauvegarde : ${e.message}`, 'error');
+  }
+}
+
+async function triggerBgsave() {
+  try {
+    await post('/api/config/redis/backup');
+    showToast('Sauvegarde BGSAVE lancée en arrière-plan', 'success');
+    setTimeout(loadBackupInfo, 2500);
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function downloadRdb() {
+  try {
+    const token = getToken();
+    const res   = await fetch('/api/config/redis/backup/download', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error);
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'ipam.rdb';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast(`Téléchargement impossible : ${e.message}`, 'error');
+  }
+}
+
+async function handleRestoreClick() {
+  const confirmed = await showConfirm({
+    title:       'Restaurer depuis un fichier RDB',
+    message:     'ATTENTION : cette opération remplace toutes les données Redis et redémarre le service. Action irréversible.',
+    confirmText: 'Restaurer',
+    danger:      true,
+  });
+  if (!confirmed) return;
+
+  const input    = document.createElement('input');
+  input.type     = 'file';
+  input.accept   = '.rdb,application/octet-stream';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const bytes  = new Uint8Array(reader.result);
+      // Convertir en base64 par blocs pour éviter stack overflow sur gros fichiers
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      const b64 = btoa(binary);
+      try {
+        const result = await post('/api/config/redis/restore', { data: b64 });
+        showToast(result.message || 'Restauration effectuée. Redis redémarré.', 'success');
+        await loadBackupInfo();
+      } catch (e) {
+        showToast(`Erreur : ${e.message}`, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  input.click();
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024)             return `${bytes} o`;
+  if (bytes < 1024 * 1024)      return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
+}
+
+// =============================================================================
+// ONGLET 4 — Bases de données
+// =============================================================================
+function setupDatabasesTab() {
+  document.querySelector('[data-tab="databases"]')?.addEventListener('click', loadDatabases);
+  document.getElementById('btn-add-db')?.addEventListener('click', () =>
+    document.getElementById('modal-add-db').classList.remove('hidden')
+  );
+  document.getElementById('btn-confirm-add-db')?.addEventListener('click', addDatabase);
+}
+
+async function loadDatabases() {
+  try {
+    const { databases } = await get('/api/config/databases');
+    renderDatabases(databases);
+  } catch (e) {
+    showToast(`Erreur bases de données : ${e.message}`, 'error');
+  }
+}
+
+function renderDatabases(dbs) {
+  const list = document.getElementById('db-list');
+  if (!dbs?.length) {
+    list.innerHTML = `
+      <div style="text-align:center;color:var(--tx-3);padding:48px 0;border:1px dashed var(--brd);border-radius:10px">
+        <svg style="margin-bottom:10px;opacity:.4" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        <div style="font-size:13px">Aucune connexion configurée</div>
+        <div style="font-size:12px;margin-top:4px">Cliquez sur « Ajouter » pour configurer une instance Redis supplémentaire.</div>
+      </div>
+    `;
+    return;
+  }
+  list.innerHTML = dbs.map(db => `
+    <div class="db-row">
+      <div style="min-width:0;flex:1">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(db.name)}</div>
+        <div style="font-size:12px;color:var(--tx-3);font-family:monospace">${esc(db.host)}:${db.port} / DB ${db.db}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn btn-g btn-sm" data-dbaction="test" data-id="${esc(db.id)}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Tester
+        </button>
+        <button class="btn btn-g btn-sm" data-dbaction="sync" data-id="${esc(db.id)}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Synchroniser
+        </button>
+        <button class="btn btn-d btn-sm" data-dbaction="del" data-id="${esc(db.id)}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          Supprimer
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('[data-dbaction]').forEach(btn => {
+    btn.addEventListener('click', () => handleDbAction(btn.dataset.dbaction, btn.dataset.id));
+  });
+}
+
+async function handleDbAction(action, id) {
+  if (action === 'del') {
+    if (!await showConfirm({
+      title:       'Supprimer la connexion',
+      message:     'Confirmer la suppression de cette connexion Redis ?',
+      confirmText: 'Supprimer',
+      danger:      true,
+    })) return;
+    try {
+      await del(`/api/config/databases/${id}`);
+      showToast('Connexion supprimée', 'success');
+      await loadDatabases();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+    return;
+  }
+
+  if (action === 'test') {
+    try {
+      const { latency } = await post(`/api/config/databases/${id}/test`);
+      showToast(`Connexion réussie — PING OK${latency != null ? ` (${latency} ms)` : ''}`, 'success');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+    return;
+  }
+
+  if (action === 'sync') {
+    if (!await showConfirm({
+      title:       'Synchroniser vers cette base',
+      message:     'Toutes les clés Redis seront copiées vers cette instance. Les données existantes seront écrasées.',
+      confirmText: 'Synchroniser',
+      danger:      false,
+    })) return;
+    try {
+      const { count } = await post(`/api/config/databases/${id}/sync`);
+      showToast(`${count} clé(s) synchronisée(s)`, 'success');
+    } catch (e) {
+      showToast(`Erreur de synchronisation : ${e.message}`, 'error');
+    }
+  }
+}
+
+async function addDatabase() {
+  const name     = document.getElementById('db-name')?.value.trim();
+  const host     = document.getElementById('db-host')?.value.trim();
+  const port     = document.getElementById('db-port')?.value;
+  const password = document.getElementById('db-password')?.value;
+  const db       = document.getElementById('db-index')?.value;
+
+  if (!name) { showToast('Le nom est obligatoire', 'warn'); return; }
+  if (!host) { showToast("L'hôte est obligatoire", 'warn'); return; }
+
+  try {
+    await post('/api/config/databases', { name, host, port, password, db });
+    showToast(`Connexion « ${name} » ajoutée`, 'success');
+    document.getElementById('modal-add-db').classList.add('hidden');
+    // Réinitialiser le formulaire
+    ['db-name', 'db-host', 'db-password'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('db-port').value  = '6379';
+    document.getElementById('db-index').value = '0';
+    await loadDatabases();
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}

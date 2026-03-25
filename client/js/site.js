@@ -41,6 +41,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (user?.role === 'admin') {
     document.getElementById('nav-admin-link').classList.remove('hidden');
+    if (user?.username === 'ADMIN')
+      document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
 
   // Viewers cannot access archive page — hide that sidebar link

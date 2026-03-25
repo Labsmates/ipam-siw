@@ -1,0 +1,420 @@
+// =============================================================================
+// IPAM SIW — config.mjs  (Configuration système — super admin uniquement)
+// Routes : /api/config/*
+// =============================================================================
+
+import express       from 'express';
+import { execFile }  from 'child_process';
+import { promisify } from 'util';
+import fs            from 'fs';
+import Redis         from 'ioredis';
+import { redis, addLog } from '../redis.mjs';
+import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
+import { uid } from '../utils.mjs';
+
+const execFileAsync = promisify(execFile);
+const router        = express.Router();
+
+// Triple guard : toutes les routes nécessitent auth + admin + super admin
+router.use(requireAuth, requireAdmin, requireSuperAdmin);
+
+// ---------------------------------------------------------------------------
+// Constantes
+// ---------------------------------------------------------------------------
+const ALLOWED_SERVICES = new Set(['ipam', 'httpd', 'redis']);
+const RELOAD_ONLY      = new Set(['httpd']); // seul httpd supporte reload
+const RDB_PATH         = '/var/lib/redis/ipam.rdb';
+const DB_CONFIG_KEY    = 'config:databases';
+
+const ALLOWED_SET_PARAMS = new Set([
+  'maxmemory', 'maxmemory-policy', 'appendonly', 'requirepass', 'loglevel', 'save',
+]);
+
+const CONFIG_READ_PARAMS = [
+  'maxmemory', 'maxmemory-policy', 'appendonly', 'save', 'requirepass', 'loglevel', 'bind',
+];
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function assertService(name, res) {
+  if (!ALLOWED_SERVICES.has(name)) {
+    res.status(400).json({ error: `Service non autorisé : ${name}` });
+    return false;
+  }
+  return true;
+}
+
+// Appel de la commande Redis renommée CONFIG_IPAM_ADMIN
+function redisConfig(...args) {
+  return redis.call('CONFIG_IPAM_ADMIN', ...args);
+}
+
+async function loadDatabases() {
+  const raw = await redis.get(DB_CONFIG_KEY);
+  return raw ? JSON.parse(raw) : {};
+}
+
+async function saveDatabases(dbs) {
+  await redis.set(DB_CONFIG_KEY, JSON.stringify(dbs));
+}
+
+// =============================================================================
+// ONGLET 1 — Services système
+// =============================================================================
+
+// GET /api/config/services/status
+router.get('/services/status', async (req, res) => {
+  try {
+    const results = {};
+    for (const svc of ALLOWED_SERVICES) {
+      try {
+        const { stdout } = await execFileAsync(
+          'sudo', ['/usr/bin/systemctl', 'status', svc],
+          { timeout: 5000 }
+        );
+        const activeMatch = stdout.match(/Active:\s+(\S+)/);
+        const memMatch    = stdout.match(/Memory:\s+(\S+)/);
+        const pidMatch    = stdout.match(/Main PID:\s+(\d+)/);
+        const descMatch   = stdout.match(/^\s+Loaded:.*\n.*\n\s+(.+)\n/m);
+        results[svc] = {
+          active: activeMatch?.[1] || 'unknown',
+          memory: memMatch?.[1]    || null,
+          pid:    pidMatch?.[1]    || null,
+        };
+      } catch (e) {
+        // systemctl exit non-zero quand service inactif/failed — stdout contient quand même l'état
+        const stdout = e.stdout || '';
+        const activeMatch = stdout.match(/Active:\s+(\S+)/);
+        results[svc] = {
+          active: activeMatch?.[1] || 'failed',
+          memory: null,
+          pid:    null,
+        };
+      }
+    }
+    res.json({ services: results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/config/services/:name/restart
+router.post('/services/:name/restart', async (req, res) => {
+  const { name } = req.params;
+  if (!assertService(name, res)) return;
+  try {
+    await execFileAsync('sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 });
+    await addLog(req.user.username, 'SVC_RESTART', `Service « ${name} » redémarré`, 'warn');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
+// POST /api/config/services/:name/reload
+router.post('/services/:name/reload', async (req, res) => {
+  const { name } = req.params;
+  if (!assertService(name, res)) return;
+  if (!RELOAD_ONLY.has(name))
+    return res.status(400).json({ error: `Le service « ${name} » ne supporte pas reload` });
+  try {
+    await execFileAsync('sudo', ['/usr/bin/systemctl', 'reload', name], { timeout: 30000 });
+    await addLog(req.user.username, 'SVC_RELOAD', `Service « ${name} » rechargé`, 'info');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.stderr || e.message });
+  }
+});
+
+// GET /api/config/services/:name/logs
+router.get('/services/:name/logs', async (req, res) => {
+  const { name } = req.params;
+  if (!assertService(name, res)) return;
+  try {
+    const { stdout } = await execFileAsync(
+      'sudo', ['/usr/bin/journalctl', '-u', name, '-n', '100', '--no-pager'],
+      { timeout: 10000 }
+    );
+    res.json({ logs: stdout });
+  } catch (e) {
+    // journalctl peut retourner exit 1 mais avoir du contenu
+    res.json({ logs: e.stdout || e.message });
+  }
+});
+
+// =============================================================================
+// ONGLET 2 — Configuration Redis
+// =============================================================================
+
+// GET /api/config/redis/config
+router.get('/redis/config', async (req, res) => {
+  try {
+    const result = {};
+    for (const param of CONFIG_READ_PARAMS) {
+      try {
+        const raw = await redisConfig('GET', param);
+        // CONFIG GET retourne [nomParam, valeur]
+        result[param] = Array.isArray(raw) ? raw[1] ?? '' : (raw ?? '');
+      } catch (_) {
+        result[param] = '';
+      }
+    }
+    res.json({ config: result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/config/redis/config
+router.put('/redis/config', async (req, res) => {
+  try {
+    const { params } = req.body || {};
+    if (!params || typeof params !== 'object')
+      return res.status(400).json({ error: 'Corps invalide' });
+
+    const errors  = [];
+    const changed = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (!ALLOWED_SET_PARAMS.has(key)) {
+        errors.push(`Paramètre non modifiable : ${key}`);
+        continue;
+      }
+      // Sanitisation : pas de retours chariot ni octets nuls
+      const safeVal = String(value).replace(/[\r\n\0]/g, '').trim();
+      try {
+        await redisConfig('SET', key, safeVal);
+        changed.push(key);
+      } catch (e) {
+        errors.push(`${key}: ${e.message}`);
+      }
+    }
+    if (errors.length && !changed.length)
+      return res.status(400).json({ error: errors.join('; ') });
+
+    if (changed.length)
+      await addLog(req.user.username, 'REDIS_CONFIG_SET',
+        `Paramètres modifiés : ${changed.join(', ')}`, 'info');
+
+    res.json({ ok: true, changed, errors });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// =============================================================================
+// ONGLET 3 — Sauvegarde / Restauration
+// =============================================================================
+
+// POST /api/config/redis/backup
+router.post('/redis/backup', async (req, res) => {
+  try {
+    await redis.bgsave();
+    await addLog(req.user.username, 'REDIS_BGSAVE', 'Sauvegarde BGSAVE déclenchée', 'info');
+    res.json({ ok: true });
+  } catch (e) {
+    // Redis peut répondre "Background saving started" ou une erreur si déjà en cours
+    if (e.message?.includes('already')) {
+      res.json({ ok: true, message: 'Sauvegarde déjà en cours' });
+    } else {
+      res.status(500).json({ error: e.message });
+    }
+  }
+});
+
+// GET /api/config/redis/backup/info
+router.get('/redis/backup/info', async (req, res) => {
+  try {
+    const lastSaveTs = await redis.lastsave(); // timestamp Unix (secondes)
+    let size  = null;
+    let exists = false;
+    try {
+      const stat = fs.statSync(RDB_PATH);
+      size   = stat.size;
+      exists = true;
+    } catch (_) {}
+    res.json({ lastSave: lastSaveTs * 1000, size, exists });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/config/redis/backup/download
+router.get('/redis/backup/download', (req, res) => {
+  try {
+    if (!fs.existsSync(RDB_PATH))
+      return res.status(404).json({ error: 'Fichier RDB introuvable' });
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'attachment; filename="ipam.rdb"');
+    fs.createReadStream(RDB_PATH).pipe(res);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/config/redis/restore  — body: { data: "<base64>" }
+router.post('/redis/restore', async (req, res) => {
+  try {
+    const { data } = req.body || {};
+    if (!data) return res.status(400).json({ error: 'Données manquantes (champ "data" base64)' });
+
+    const buf = Buffer.from(data, 'base64');
+
+    // Valider les magic bytes : un fichier RDB commence toujours par "REDIS"
+    if (buf.length < 5 || buf.slice(0, 5).toString('ascii') !== 'REDIS')
+      return res.status(400).json({ error: 'Fichier RDB invalide (magic bytes incorrects)' });
+
+    // Écrire le fichier RDB
+    fs.writeFileSync(RDB_PATH, buf);
+
+    await addLog(req.user.username, 'REDIS_RESTORE',
+      `Restauration RDB (${buf.length} octets) — Redis redémarré`, 'danger');
+
+    // Redémarrer Redis pour qu'il charge le nouveau fichier RDB
+    await execFileAsync('sudo', ['/usr/bin/systemctl', 'restart', 'redis'], { timeout: 30000 });
+
+    res.json({ ok: true, message: 'Restauration effectuée. Redis redémarré.' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// =============================================================================
+// ONGLET 4 — Bases de données supplémentaires
+// =============================================================================
+
+// GET /api/config/databases
+router.get('/databases', async (req, res) => {
+  try {
+    const dbs = await loadDatabases();
+    // Ne jamais renvoyer les mots de passe au client
+    const safe = Object.entries(dbs).map(([id, d]) => ({
+      id,
+      name: d.name,
+      host: d.host,
+      port: d.port,
+      db:   d.db,
+    }));
+    res.json({ databases: safe });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/config/databases
+router.post('/databases', async (req, res) => {
+  try {
+    const { name, host, port, password, db } = req.body || {};
+    if (!name || !host)
+      return res.status(400).json({ error: 'Le nom et l\'hôte sont obligatoires' });
+
+    const dbs = await loadDatabases();
+    const id  = uid();
+    dbs[id] = {
+      name:     String(name).slice(0, 64),
+      host:     String(host).slice(0, 128),
+      port:     parseInt(port) || 6379,
+      password: password ? String(password) : null,
+      db:       parseInt(db) || 0,
+    };
+    await saveDatabases(dbs);
+    await addLog(req.user.username, 'DB_ADD', `Connexion Redis « ${name} » ajoutée`, 'info');
+    res.json({ ok: true, id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/config/databases/:id
+router.delete('/databases/:id', async (req, res) => {
+  try {
+    const dbs = await loadDatabases();
+    if (!dbs[req.params.id])
+      return res.status(404).json({ error: 'Connexion introuvable' });
+    const name = dbs[req.params.id].name;
+    delete dbs[req.params.id];
+    await saveDatabases(dbs);
+    await addLog(req.user.username, 'DB_DEL', `Connexion Redis « ${name} » supprimée`, 'warn');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/config/databases/:id/test
+router.post('/databases/:id/test', async (req, res) => {
+  try {
+    const dbs = await loadDatabases();
+    const cfg = dbs[req.params.id];
+    if (!cfg) return res.status(404).json({ error: 'Connexion introuvable' });
+
+    const client = new Redis({
+      host:                 cfg.host,
+      port:                 cfg.port,
+      password:             cfg.password || undefined,
+      db:                   cfg.db,
+      connectTimeout:       3000,
+      maxRetriesPerRequest: 0,
+      lazyConnect:          true,
+    });
+    try {
+      await client.connect();
+      const t0 = Date.now();
+      await client.ping();
+      res.json({ ok: true, latency: Date.now() - t0 });
+    } finally {
+      client.disconnect();
+    }
+  } catch (e) {
+    res.status(502).json({ error: `Connexion échouée : ${e.message}` });
+  }
+});
+
+// POST /api/config/databases/:id/sync
+router.post('/databases/:id/sync', async (req, res) => {
+  try {
+    const dbs = await loadDatabases();
+    const cfg = dbs[req.params.id];
+    if (!cfg) return res.status(404).json({ error: 'Connexion introuvable' });
+
+    const target = new Redis({
+      host:                 cfg.host,
+      port:                 cfg.port,
+      password:             cfg.password || undefined,
+      db:                   cfg.db,
+      connectTimeout:       5000,
+      maxRetriesPerRequest: 0,
+      lazyConnect:          true,
+    });
+
+    try {
+      await target.connect();
+
+      let cursor = '0';
+      let count  = 0;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'COUNT', 100);
+        cursor = nextCursor;
+        for (const key of keys) {
+          // Exclure la clé de config des bases de données elle-même
+          if (key === DB_CONFIG_KEY) continue;
+          const ttl  = await redis.pttl(key); // ms (-1 = pas d'expiry, -2 = disparu)
+          const dump = await redis.dump(key);
+          if (dump === null) continue;
+          await target.call('RESTORE', key, ttl > 0 ? ttl : 0, dump, 'REPLACE');
+          count++;
+        }
+      } while (cursor !== '0');
+
+      await addLog(req.user.username, 'DB_SYNC',
+        `${count} clé(s) synchronisée(s) vers « ${cfg.name} »`, 'info');
+      res.json({ ok: true, count });
+    } finally {
+      target.disconnect();
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+export default router;

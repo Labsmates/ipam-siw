@@ -17,3 +17,9 @@ export function requireAdmin(req, res, next) {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Accès refusé — rôle administrateur requis' });
   next();
 }
+
+export function requireSuperAdmin(req, res, next) {
+  if (req.user?.username !== 'ADMIN')
+    return res.status(403).json({ error: 'Accès refusé — super administrateur uniquement' });
+  next();
+}

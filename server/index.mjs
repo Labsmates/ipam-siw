@@ -9,6 +9,7 @@ import ipsRouter          from './routes/ips.mjs';
 import logsRouter         from './routes/logs.mjs';
 import vlanRequestsRouter    from './routes/vlan_requests.mjs';
 import accountRequestsRouter from './routes/account_requests.mjs';
+import configRouter          from './routes/config.mjs';
 import { securityHeaders } from './middleware/security.mjs';
 import { ensureDefaultAdmin } from './routes/auth.mjs';
 import { autoTagAllVlans }   from './redis.mjs';
@@ -34,6 +35,7 @@ app.use('/api/ips',   ipsRouter);
 app.use('/api/logs',          logsRouter);
 app.use('/api/vlan_requests',    vlanRequestsRouter);
 app.use('/api/account_requests', accountRequestsRouter);
+app.use('/api/config',           configRouter);
 
 // SPA fallback: unknown routes → index.html
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '../client/index.html')));

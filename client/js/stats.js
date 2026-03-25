@@ -102,6 +102,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (user?.role === 'admin') {
     document.getElementById('nav-admin-link').classList.remove('hidden');
+    if (user?.username === 'ADMIN')
+      document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
 
   // Auto-refresh when an IP changes in another tab (site.js broadcasts via localStorage)
