@@ -278,28 +278,25 @@ router.post('/services/:name/stop', async (req, res) => {
 // POST /api/config/server/reboot
 router.post('/server/reboot', async (req, res) => {
   try {
+    // Exécuter d'abord — shutdown ne tue pas Node.js immédiatement,
+    // donc la réponse est envoyée avant l'extinction effective.
+    // Si sudo échoue (droit non configuré), l'erreur remonte au client.
+    await execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-r', '+0'], { timeout: 10000 });
     await addLog(req.user.username, 'SERVER_REBOOT', 'Redémarrage du serveur déclenché', 'danger');
     res.json({ ok: true });
-    setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-r', '+0'], { timeout: 10000 })
-        .catch(() => {});
-    });
   } catch (e) {
-    res.status(500).json({ error: e.stderr || e.message });
+    res.status(500).json({ error: e.stderr || e.message || 'Échec shutdown — vérifiez /etc/sudoers.d/ipam' });
   }
 });
 
 // POST /api/config/server/halt
 router.post('/server/halt', async (req, res) => {
   try {
+    await execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-h', '+0'], { timeout: 10000 });
     await addLog(req.user.username, 'SERVER_HALT', 'Arrêt du serveur déclenché', 'danger');
     res.json({ ok: true });
-    setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-h', '+0'], { timeout: 10000 })
-        .catch(() => {});
-    });
   } catch (e) {
-    res.status(500).json({ error: e.stderr || e.message });
+    res.status(500).json({ error: e.stderr || e.message || 'Échec shutdown — vérifiez /etc/sudoers.d/ipam' });
   }
 });
 
