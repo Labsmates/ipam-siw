@@ -52,8 +52,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Activer le premier onglet
-  if (tabs.length) setTabActive(tabs[0], true);
+  // Activer le premier onglet (cacher tous les panes, afficher le premier)
+  if (tabs.length) {
+    panes.forEach(p => p.classList.add('hidden'));
+    setTabActive(tabs[0], true);
+    document.getElementById(`pane-${tabs[0].dataset.tab}`)?.classList.remove('hidden');
+  }
 
   // Chargements initiaux
   await loadSysInfo();
