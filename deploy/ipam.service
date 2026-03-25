@@ -29,14 +29,14 @@ Environment=PORT=3000
 Environment=REDIS_URL=redis://127.0.0.1:6379
 
 # ── Sécurité ──────────────────────────────────────────────────────────────────
-NoNewPrivileges=yes
+# NoNewPrivileges=yes retiré : empêche les binaires setuid (sudo) de prendre
+# les droits root — incompatible avec l'appel sudo systemctl/journalctl
 ProtectSystem=full
-ReadWritePaths=/var/www/ipam/data
+ReadWritePaths=/var/www/ipam/data /var/lib/redis
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-CapabilityBoundingSet=
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
