@@ -176,6 +176,20 @@ cp "${SCRIPT_DIR}/ipam.conf" /etc/httpd/conf.d/ipam.conf
   mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.disabled 2>/dev/null || true
 grep -q "ServerTokens Prod" /etc/httpd/conf/httpd.conf || \
   echo -e "\nServerTokens Prod\nServerSignature Off" >> /etc/httpd/conf/httpd.conf
+
+# Désactiver mod_http2 — cause des erreurs 421 Misdirected Request (SNI mismatch)
+# lors d'une connexion TLS sur adresse IP (pas de nom de domaine).
+# `Protocols http/1.1` dans un VirtualHost ne suffit pas : ALPN se négocie
+# avant la sélection du VirtualHost. La désactivation du module est la seule
+# solution fiable.
+H2_CONF="/etc/httpd/conf.modules.d/10-h2.conf"
+if [[ -f "${H2_CONF}" ]]; then
+  sed -i 's/^LoadModule http2_module/#LoadModule http2_module/' "${H2_CONF}"
+  success "mod_http2 désactivé (10-h2.conf)"
+else
+  warn "10-h2.conf introuvable — si les erreurs 421 persistent, commentez LoadModule http2_module manuellement"
+fi
+
 httpd -t && success "Config Apache valide" || error "Erreur de syntaxe Apache"
 
 # ── 10. Service Node.js ───────────────────────────────────────────────────────
