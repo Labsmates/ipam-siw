@@ -1,4 +1,4 @@
-# IPAM SIW v2.3.0 — Guide de déploiement Rocky Linux 10
+# IPAM SIW v2.4.0 — Guide de déploiement Rocky Linux 10
 
 Application web multi-utilisateurs de gestion des adresses IP — **SIW Pole Serveurs**.
 Backend **Node.js + Redis** — déploiement 100 % hors-ligne, accessible depuis n'importe quel réseau.
@@ -132,6 +132,38 @@ npm install
 ```bash
 scp -r IPAMBBD/ root@218.16.185.50:/tmp/ipam_src/
 ```
+
+---
+
+## Mise à jour d'une installation existante
+
+```bash
+# 1. Transférer les nouveaux fichiers
+scp -r IPAMBBD/ root@218.16.185.50:/tmp/ipam_src/
+
+# 2. Se connecter au serveur
+ssh root@218.16.185.50
+
+# 3. Copier les fichiers mis à jour (client + server)
+cp -r /tmp/ipam_src/client/*         /var/www/ipam/client/
+cp -r /tmp/ipam_src/server/*         /var/www/ipam/server/
+cp -r /tmp/ipam_src/deploy/*         /var/www/ipam/deploy/
+
+# 4. (Si la config Apache a changé) Mettre à jour et recharger httpd
+cp /var/www/ipam/deploy/ipam.conf /etc/httpd/conf.d/ipam.conf
+httpd -t && systemctl reload httpd
+
+# 5. Redémarrer le service Node.js pour prendre en compte les changements backend
+systemctl restart ipam
+
+# 6. Vérifier que le service est bien démarré
+systemctl status ipam
+
+# 7. (Optionnel) Vérifier les logs en cas d'erreur
+journalctl -u ipam -n 50 --no-pager
+```
+
+> **Note** : les fichiers `client/` (HTML/JS/CSS) sont servis directement depuis le disque par Express — ils ne nécessitent **pas** de redémarrage du service. Seules les modifications dans `server/` exigent un `systemctl restart ipam`.
 
 ---
 
@@ -371,13 +403,33 @@ Valeurs par défaut : `dct.dat.local`, `hdcadmin.sf.intra.laposte.local`, `sf.in
 |---|---|
 | `route` | `10.19.1.1:28` |
 
-### Codes Site
-Association entre un site IPAM et un code court (8 caractères max, majuscules).
-- Tri alphabétique par nom de site
-- Un site ne peut avoir qu'un seul code (l'entrée est grisée/barrée dans le sélecteur si déjà assignée)
-- Bouton **Ajouter code site** → sélection du site + saisie du code
+### Notes
+Champ texte libre (textarea), modifiable par les admins. Affiché sous la route PSM.
+- Bouton **Ajouter** si vide, **Modifier** si une note existe
+- Persistant dans Redis (clé `config:infos`, champ `notes`)
 
-Toutes ces données sont **persistantes** dans Redis (clé `config:infos`).
+### Codes Site
+Association entre un site IPAM et un code court (8 caractères max, majuscules) + deux codes optionnels par site.
+
+| Colonne | Description |
+|---|---|
+| **Code** | Code court du site (8 car. max, majuscules) |
+| **Site** | Nom du site IPAM |
+| **Regate** | Code Regate (10 car. max, optionnel) |
+| **PST** | Code PST (10 car. max, optionnel) |
+
+- Tri alphabétique par nom de site
+- Recherche par nom de site (filtre en temps réel)
+- Un site ne peut avoir qu'un seul code (exclu du sélecteur une fois assigné)
+- Modal **Ajouter / Modifier** : Code site + Code Regate + Code PST saisis ensemble
+- Les codes Regate et PST sont aussi visibles dans l'en-tête de chaque page site (`site.html`)
+- Bouton **Modifier le code site** dans les actions admin de `site.html` pour édition rapide
+
+Toutes ces données sont **persistantes** dans Redis :
+- Infos DNS / route / notes / codes site → clé `config:infos` (JSON)
+- Code Regate / PST → hash Redis du site (`site:{id}`, champs `code_regate` et `code_pst`)
+- Le `GET /api/infos` enrichit automatiquement les codes depuis les hashs de sites
+
 Les modifications sont journalisées dans le journal d'activité admin.
 
 ---
@@ -931,6 +983,53 @@ redis-cli SCARD sites
 ---
 
 ## Changelog
+
+### v2.4.0 — 2026-03-26
+
+#### Code Regate / Code PST par site
+
+- Deux champs optionnels (10 car. max) ajoutés sur chaque site IPAM
+- Stockés dans le hash Redis du site (`site:{id}` → champs `code_regate`, `code_pst`)
+- Nouveaux endpoint : `PATCH /api/sites/:id/codes`
+- Visibles dans l'en-tête de `site.html` (badges) — bouton **Modifier le code site** pour les admins
+- Saisis et modifiables depuis la modal "Ajouter / Modifier un code site" de `info.html`
+
+#### Tableau Codes Site enrichi (`/info.html`)
+
+- Colonnes **Regate** et **PST** ajoutées dans la liste Codes Site (alignement fixe)
+- `GET /api/infos` enrichit automatiquement les entrées depuis les hashs Redis des sites
+- Recherche par nom de site (filtre temps réel)
+
+#### Section Notes (`/info.html`)
+
+- Champ texte libre persistant sous la carte Route PSM
+- Routes `PUT /api/infos` gère le champ `notes`
+
+#### Mise à jour du déploiement
+
+Section **Mise à jour d'une installation existante** ajoutée avec les commandes exactes.
+
+---
+
+### v2.3.0 — 2026-03-25
+
+#### Page Informations réseau (`/info.html`)
+
+Nouvelle page accessible à tous les utilisateurs authentifiés.
+
+- DNS DDI (dns1, dns2, dns-dc) avec édition inline admin
+- Domaines DNS — liste modifiable (ajout, modification, suppression)
+- Route vers PSM — édition inline admin
+- Codes Site — association site ↔ code court (8 car.) avec modal ajout/modification
+- Persistance Redis sous `config:infos`
+
+#### Migration des certificats SSL
+
+Certificats déplacés de `/etc/pki/tls/` (lecture seule) vers `/var/www/ipam/data/` :
+- Plus aucun `sudo cp` nécessaire — écriture directe via `fs.renameSync`
+- Apache lit les certs via appartenance au groupe `ipam`
+
+---
 
 ### v2.2.0 — 2026-03-25
 
