@@ -16,8 +16,8 @@ import { uid } from '../utils.mjs';
 const execFileAsync = promisify(execFile);
 const router        = express.Router();
 
-// Guard : toutes les routes nécessitent auth + admin + super admin
-router.use(requireAuth, requireAdmin, requireSuperAdmin);
+// Guard : toutes les routes nécessitent auth + admin
+router.use(requireAuth, requireAdmin);
 
 // ---------------------------------------------------------------------------
 // Constantes
