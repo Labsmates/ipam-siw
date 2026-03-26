@@ -22,19 +22,25 @@
 
 /* ── Gris Platine — Mode Clair ─────────────────────────────────────────────── */
 html.light {
-  --bg-1:    #e8eaed;   /* fond platine principal           */
-  --bg-2:    #f3f5f7;   /* panneaux, sidebar                */
-  --bg-3:    #dde1e6;   /* surface élevée                   */
-  --bg-4:    #cfd4da;   /* fond subtil, boutons, badges     */
-  --bg-hover:#c2c8cf;   /* survol                           */
-  --brd:     #b3bac4;   /* bordure                          */
-  --tx-1:    #1a2028;   /* texte principal                  */
-  --tx-2:    #2d3640;   /* texte secondaire                 */
-  --tx-3:    #4e5c6e;   /* texte atténué                    */
-  --tx-4:    #728394;   /* texte discret                    */
-  --tx-5:    #96a3b0;   /* texte très discret               */
-  --shadow:  rgba(0,0,0,.10);
-  --overlay: rgba(0,0,0,.35);
+  --bg-1:    #cdd5de;   /* fond principal      */
+  --bg-2:    #bcc6d1;   /* surface principale  */
+  --bg-3:    #aab5c3;   /* surface élevée      */
+  --bg-4:    #98a5b5;   /* fond subtil / bord  */
+  --bg-hover:#8896a8;   /* survol              */
+  --brd:     #6b7c8f;   /* bordure principale  */
+  --tx-1:    #000000;   /* texte principal     */
+  --tx-2:    #0a0e13;   /* texte secondaire    */
+  --tx-3:    #1a2530;   /* texte atténué       */
+  --tx-4:    #263240;   /* texte discret       */
+  --tx-5:    #374555;   /* texte très discret  */
+  --shadow:  rgba(0,0,0,.28);
+  --overlay: rgba(0,0,0,.45);
+}
+
+/* ── Sélection de texte dans les champs ───────────────────────────────────── */
+input, textarea, select {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* ── Overrides globaux mode clair ─────────────────────────────────────────── */

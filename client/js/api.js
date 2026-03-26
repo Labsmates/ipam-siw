@@ -5,6 +5,29 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
+// Navigation accident prevention
+// Backspace hors d'un champ éditable → navigateur recule dans l'historique
+// Enter sur un bouton non-submit dans un modal → ferme/déclenche par erreur
+// ---------------------------------------------------------------------------
+document.addEventListener('keydown', e => {
+  const el  = document.activeElement;
+  const tag = el?.tagName;
+  const isEditable = ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) && !el.readOnly && !el.disabled;
+  const isContentEditable = el?.isContentEditable;
+
+  // Bloquer Backspace si le focus n'est pas dans un champ éditable
+  if (e.key === 'Backspace' && !isEditable && !isContentEditable) {
+    e.preventDefault();
+    return;
+  }
+
+  // Bloquer Enter sur les boutons type="button" (évite activation accidentelle)
+  if (e.key === 'Enter' && tag === 'BUTTON' && el.type === 'button') {
+    e.preventDefault();
+  }
+}, { capture: true });
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 const INACTIVITY_MS   = 20 * 60 * 1000; // 20 minutes
