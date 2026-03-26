@@ -990,6 +990,19 @@ redis-cli SCARD sites
 
 ---
 
+## Gestion des droits
+# 1. Mettre à jour le fichier service (retire NoNewPrivileges=yes)
+cp /var/www/ipam/deploy/ipam.service /etc/systemd/system/ipam.service
+systemctl daemon-reload
+
+# 2. Configurer sudo + permissions RDB (si pas encore fait)
+bash /var/www/ipam/deploy/setup-config-permissions.sh
+
+# 3. Redémarrer
+systemctl restart ipam
+
+---
+
 ## Changelog
 
 ### v2.4.0 — 2026-03-26
