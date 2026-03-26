@@ -125,10 +125,6 @@ ipam ALL=(root) NOPASSWD: /usr/bin/systemctl reload httpd
 ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u ipam -n 100 --no-pager
 ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u httpd -n 100 --no-pager
 ipam ALL=(root) NOPASSWD: /usr/bin/journalctl -u redis -n 100 --no-pager
-ipam ALL=(root) NOPASSWD: /usr/bin/cp /var/www/ipam/data/ipam_cert.pem /etc/pki/tls/certs/ipam.crt
-ipam ALL=(root) NOPASSWD: /usr/bin/cp /var/www/ipam/data/ipam_key.pem /etc/pki/tls/private/ipam.key
-ipam ALL=(root) NOPASSWD: /usr/bin/chmod 644 /etc/pki/tls/certs/ipam.crt
-ipam ALL=(root) NOPASSWD: /usr/bin/chmod 600 /etc/pki/tls/private/ipam.key
 SUDOERS_EOF
 chmod 440 "${SUDOERS_FILE}"
 visudo -c -f "${SUDOERS_FILE}" &>/dev/null && success "Fichier sudoers créé" || \
@@ -159,15 +155,16 @@ fi
 
 # ── 8. Certificat SSL ─────────────────────────────────────────────────────────
 info "8/11 — Certificat SSL…"
-CERT_FILE="/etc/pki/tls/certs/ipam.crt"
-KEY_FILE="/etc/pki/tls/private/ipam.key"
+CERT_FILE="${DATA_DIR}/ipam.crt"
+KEY_FILE="${DATA_DIR}/ipam.key"
 if [[ ! -f "${CERT_FILE}" ]]; then
   openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout "${KEY_FILE}" -out "${CERT_FILE}" \
     -subj   "/C=FR/ST=France/L=Paris/O=SIW/OU=IT/CN=${SERVER_IP}" \
     -addext "subjectAltName=IP:${SERVER_IP}" 2>/dev/null
+  chown "${SERVICE_USER}:${SERVICE_USER}" "${KEY_FILE}" "${CERT_FILE}"
   chmod 600 "${KEY_FILE}"; chmod 644 "${CERT_FILE}"
-  success "Certificat SSL auto-signé créé (10 ans)"
+  success "Certificat SSL auto-signé créé dans ${DATA_DIR} (10 ans)"
   warn "Remplacez par un certificat signé par une CA en production !"
 else
   warn "Certificat SSL existant conservé"

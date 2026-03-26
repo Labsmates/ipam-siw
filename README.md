@@ -1,4 +1,4 @@
-# IPAM SIW v2.2.0 — Guide de déploiement Rocky Linux 10
+# IPAM SIW v2.3.0 — Guide de déploiement Rocky Linux 10
 
 Application web multi-utilisateurs de gestion des adresses IP — **SIW Pole Serveurs**.
 Backend **Node.js + Redis** — déploiement 100 % hors-ligne, accessible depuis n'importe quel réseau.
@@ -46,6 +46,7 @@ IPAMBBD/
 │   ├── ipcalc.html         ← Calculateur IP (accessible à tous les utilisateurs)
 │   ├── admin.html          ← Administration
 │   ├── config.html         ← Configuration système (super admin uniquement)
+│   ├── info.html           ← Informations réseau (visible tous les utilisateurs)
 │   ├── css/
 │   │   └── theme.css       ← Thème sombre / clair gris platine (variables CSS)
 │   └── js/
@@ -55,7 +56,8 @@ IPAMBBD/
 │       ├── site.js         ← Sidebar, table IPs, modals, suffixes hostname FQDN
 │       ├── admin.js        ← Utilisateurs, sites, journaux, MDP
 │       ├── ipcalc.js       ← Calculateur de sous-réseaux IP
-│       └── config.js       ← Services, config Redis, sauvegarde, bases de données
+│       ├── config.js       ← Services, config Redis, sauvegarde, bases de données
+│       └── info.js         ← Informations réseau (DNS, route, domaines, codes site)
 ├── server/
 │   ├── index.mjs           ← Serveur Express
 │   ├── redis.mjs           ← Couche d'accès Redis
@@ -68,7 +70,8 @@ IPAMBBD/
 │       ├── vlans.mjs       ← CRUD VLANs
 │       ├── ips.mjs         ← Réservation / libération
 │       ├── logs.mjs        ← Journal d'activité
-│       └── config.mjs      ← Configuration système (super admin — services, Redis, backup, DB)
+│       ├── config.mjs      ← Configuration système (super admin — services, Redis, backup, DB)
+│       └── infos.mjs       ← Informations réseau (DNS DDI, route PSM, domaines, codes site)
 ├── vendor/
 │   ├── tailwind.min.js     ← Tailwind CSS (offline)
 │   ├── xlsx.full.min.js    ← SheetJS (offline)
@@ -198,13 +201,16 @@ usermod -aG ipam apache
 
 #### 6. Certificat SSL
 
+Les certificats sont stockés dans `/var/www/ipam/data/` (propriétaire `ipam:ipam`) — aucun accès root requis pour les renouveler via la page Configuration.
+
 ```bash
 openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-  -keyout /etc/pki/tls/private/ipam.key \
-  -out    /etc/pki/tls/certs/ipam.crt \
+  -keyout /var/www/ipam/data/ipam.key \
+  -out    /var/www/ipam/data/ipam.crt \
   -subj   "/C=FR/ST=France/L=Paris/O=SIW/CN=218.16.185.50" \
   -addext "subjectAltName=IP:218.16.185.50"
-chmod 600 /etc/pki/tls/private/ipam.key
+chown ipam:ipam /var/www/ipam/data/ipam.key /var/www/ipam/data/ipam.crt
+chmod 600 /var/www/ipam/data/ipam.key
 ```
 
 #### 7. Apache
@@ -309,6 +315,7 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 | Archive | `/archive.html` | Auth | Historique des libérations (hostname, IP, date, utilisateur) |
 | Export Excel | `/export.html` | Auth | Export .xlsx multi-sites avec filtres colonnes et statut |
 | Calculateur IP | `/ipcalc.html` | Auth | Calcul de sous-réseaux CIDR (plage, masque, broadcast, hosts) |
+| Informations réseau | `/info.html` | Auth | DNS DDI, domaines, route PSM, codes site (lecture tous / édition admin) |
 | Administration | `/admin.html` | Admin | Gestion utilisateurs, sites, journaux, changement MDP |
 | Configuration système | `/config.html` | **Super admin** | Services, config Redis, sauvegarde/restauration, bases de données |
 
@@ -342,6 +349,36 @@ Lors de la réservation ou du renommage d'un hostname, le suffixe est appliqué 
 | `Libre` | Vert | IP disponible |
 | `Utilisé` | Rouge | IP en service (hostname présent) |
 | `Réservée` | Orange | IP réservée mais non déployée |
+
+---
+
+## Informations réseau (`/info.html`)
+
+Page visible par **tous les utilisateurs authentifiés**. Les admins peuvent modifier toutes les valeurs directement depuis cette page (boutons ✎ inline).
+
+### DNS DDI
+| Champ | Valeur par défaut | Description |
+|---|---|---|
+| `dns1` | `194.5.88.5` | DNS primaire |
+| `dns2` | `194.5.88.133` | DNS secondaire |
+| `dns-dc` | `200.16.1.11` | DNS contrôleur de domaine |
+
+**Domaines** — liste modifiable des domaines DNS (ajout, modification, suppression).
+Valeurs par défaut : `dct.dat.local`, `hdcadmin.sf.intra.laposte.local`, `sf.intra.laposte.local`.
+
+### Route vers PSM
+| Champ | Valeur par défaut |
+|---|---|
+| `route` | `10.19.1.1:28` |
+
+### Codes Site
+Association entre un site IPAM et un code court (8 caractères max, majuscules).
+- Tri alphabétique par nom de site
+- Un site ne peut avoir qu'un seul code (l'entrée est grisée/barrée dans le sélecteur si déjà assignée)
+- Bouton **Ajouter code site** → sélection du site + saisie du code
+
+Toutes ces données sont **persistantes** dans Redis (clé `config:infos`).
+Les modifications sont journalisées dans le journal d'activité admin.
 
 ---
 

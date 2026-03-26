@@ -600,10 +600,12 @@ router.post('/databases/:id/sync', async (req, res) => {
 // ONGLET 5 — Certificat SSL
 // =============================================================================
 
-const CERT_FILE     = '/etc/pki/tls/certs/ipam.crt';
-const KEY_FILE      = '/etc/pki/tls/private/ipam.key';
-const TMP_CERT_PATH = '/var/www/ipam/data/ipam_cert.pem';
-const TMP_KEY_PATH  = '/var/www/ipam/data/ipam_key.pem';
+// Certs stockés directement dans DATA_DIR (ipam:ipam 770, apache dans le groupe)
+// → aucun sudo nécessaire pour écrire/lire les certificats
+const CERT_FILE     = '/var/www/ipam/data/ipam.crt';
+const KEY_FILE      = '/var/www/ipam/data/ipam.key';
+const TMP_CERT_PATH = '/var/www/ipam/data/ipam_cert_tmp.pem';
+const TMP_KEY_PATH  = '/var/www/ipam/data/ipam_key_tmp.pem';
 const TMP_CSR_PATH  = '/var/www/ipam/data/ipam_csr.pem';
 const CERT_PEND_KEY = 'config:cert:pending';
 
@@ -611,22 +613,6 @@ function sanitizeDN(s) {
   return String(s || '').replace(/[^A-Za-z0-9\s.,@_\-*]/g, '').slice(0, 64).trim();
 }
 
-/** Crée les répertoires SSL si absents (nécessite sudo mkdir -p dans sudoers) */
-async function ensureCertDirs() {
-  await execFileAsync('/usr/bin/sudo', ['/usr/bin/mkdir', '-p', '/etc/pki/tls/certs'],   { timeout: 5000 });
-  await execFileAsync('/usr/bin/sudo', ['/usr/bin/mkdir', '-p', '/etc/pki/tls/private'], { timeout: 5000 });
-}
-
-function certCopyError(e) {
-  const msg = (e.stderr || e.message || '').toLowerCase();
-  if (msg.includes('read-only') || msg.includes('lecture seulement')) {
-    return 'Système de fichiers en lecture seule — exécutez setup-config-permissions.sh et vérifiez que /etc/pki/tls/ est accessible en écriture';
-  }
-  if (msg.includes('no such file') || msg.includes('introuvable') || msg.includes('no existe')) {
-    return 'Répertoire /etc/pki/tls/certs/ introuvable — exécutez setup-config-permissions.sh (sudo mkdir -p)';
-  }
-  return e.stderr || e.message;
-}
 
 // GET /api/config/cert/info
 router.get('/cert/info', async (req, res) => {
@@ -750,18 +736,14 @@ router.post('/cert/install', async (req, res) => {
       }
     }
 
-    await ensureCertDirs();
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_CERT_PATH, CERT_FILE], { timeout: 10000 });
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '644', CERT_FILE], { timeout: 5000 });
+    fs.renameSync(TMP_CERT_PATH, CERT_FILE);
+    fs.chmodSync(CERT_FILE, 0o644);
 
     if (keyInstalled) {
-      await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_KEY_PATH, KEY_FILE], { timeout: 10000 });
-      await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '600', KEY_FILE], { timeout: 5000 });
+      fs.renameSync(TMP_KEY_PATH, KEY_FILE);
+      fs.chmodSync(KEY_FILE, 0o600);
       await redis.del(CERT_PEND_KEY);
     }
-
-    try { fs.unlinkSync(TMP_CERT_PATH); } catch (_) {}
-    try { if (keyInstalled) fs.unlinkSync(TMP_KEY_PATH); } catch (_) {}
 
     await addLog(req.user.username, 'CERT_INSTALL',
       `Certificat SSL installé${keyInstalled ? ' (+ clé privée)' : ''}`, 'warn');
@@ -771,7 +753,7 @@ router.post('/cert/install', async (req, res) => {
       execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
     });
   } catch (e) {
-    res.status(500).json({ error: certCopyError(e) });
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -801,14 +783,10 @@ router.post('/cert/self-signed', async (req, res) => {
 
     await execFileAsync('/usr/bin/openssl', args, { timeout: 60000 });
 
-    await ensureCertDirs();
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_CERT_PATH, CERT_FILE], { timeout: 10000 });
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/cp', TMP_KEY_PATH,  KEY_FILE],  { timeout: 10000 });
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '644', CERT_FILE], { timeout: 5000 });
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/chmod', '600', KEY_FILE],  { timeout: 5000 });
-
-    try { fs.unlinkSync(TMP_CERT_PATH); } catch (_) {}
-    try { fs.unlinkSync(TMP_KEY_PATH);  } catch (_) {}
+    fs.renameSync(TMP_CERT_PATH, CERT_FILE);
+    fs.renameSync(TMP_KEY_PATH,  KEY_FILE);
+    fs.chmodSync(CERT_FILE, 0o644);
+    fs.chmodSync(KEY_FILE,  0o600);
 
     await addLog(req.user.username, 'CERT_SELF_SIGNED',
       `Certificat auto-signé — CN=${sanitizeDN(cn)}, ${d} jours`, 'warn');
@@ -818,7 +796,7 @@ router.post('/cert/self-signed', async (req, res) => {
       execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
     });
   } catch (e) {
-    res.status(500).json({ error: certCopyError(e) });
+    res.status(500).json({ error: e.message });
   }
 });
 
