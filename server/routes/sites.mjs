@@ -1,6 +1,6 @@
 import express from 'express';
 import { createSite, getSite, listSitesWithStats, getSiteData,
-         renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog, updateSiteFields } from '../redis.mjs';
+         renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog, updateSiteFields, redis } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -16,7 +16,19 @@ router.get('/:id([0-9]+)', requireAuth, async (req, res) => {
   try {
     const data = await getSiteData(req.params.id);
     if (!data) return res.status(404).json({ error: 'Site introuvable' });
-    res.json({ ...data.site, vlans: data.vlans, ips: data.ips });
+    const site = { ...data.site };
+    // Enrichir code / code_regate / code_pst depuis config:infos si absents du hash site
+    try {
+      const raw = await redis.get('config:infos');
+      const infos = raw ? JSON.parse(raw) : {};
+      const entry = (infos.site_codes || []).find(sc => String(sc.site_id) === String(req.params.id));
+      if (entry) {
+        if (entry.code       && !site.site_code)    site.site_code    = entry.code;
+        if (entry.code_regate && !site.code_regate) site.code_regate  = entry.code_regate;
+        if (entry.code_pst    && !site.code_pst)    site.code_pst     = entry.code_pst;
+      }
+    } catch (_) {}
+    res.json({ ...site, vlans: data.vlans, ips: data.ips });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

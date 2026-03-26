@@ -4,7 +4,7 @@
 // =============================================================================
 
 import express from 'express';
-import { redis, addLog } from '../redis.mjs';
+import { redis, addLog, updateSiteFields } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -160,6 +160,13 @@ router.post('/site-codes', requireAdmin, async (req, res) => {
       a.site_name.localeCompare(b.site_name, 'fr', { sensitivity: 'base' }));
 
     await save(data);
+    // Synchroniser code_regate / code_pst dans le hash site:{id} pour site.html
+    const siteFields = {};
+    if (cr !== undefined) siteFields.code_regate = cr || '';
+    if (cp !== undefined) siteFields.code_pst    = cp || '';
+    if (Object.keys(siteFields).length) {
+      await updateSiteFields(site_id, siteFields).catch(() => {});
+    }
     await addLog(req.user.username, 'SITE_CODE_ADD', { site_id, code: c });
     res.json({ ok: true });
   } catch (e) {
@@ -191,6 +198,13 @@ router.put('/site-codes/:siteId', requireAdmin, async (req, res) => {
       if (cp) entry.code_pst = cp; else delete entry.code_pst;
     }
     await save(data);
+    // Synchroniser code_regate / code_pst dans le hash site:{id} pour site.html
+    const siteFields = {};
+    if (code_regate !== undefined) siteFields.code_regate = entry.code_regate || '';
+    if (code_pst    !== undefined) siteFields.code_pst    = entry.code_pst    || '';
+    if (Object.keys(siteFields).length) {
+      await updateSiteFields(siteId, siteFields).catch(() => {});
+    }
     await addLog(req.user.username, 'SITE_CODE_UPDATE', { site_id: siteId, code: c });
     res.json({ ok: true });
   } catch (e) {

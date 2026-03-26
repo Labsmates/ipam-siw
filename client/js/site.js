@@ -185,15 +185,21 @@ function renderSiteCodes(data) {
   const el = document.getElementById('site-codes');
   if (!el) return;
 
-  const regate = data.code_regate || '—';
-  const pst    = data.code_pst    || '—';
-  const dim    = '#7d8590';
-  const val    = '#58a6ff';
+  const dim = '#7d8590';
+  const val = '#58a6ff';
+  let html = '';
 
-  el.innerHTML =
-    `<span style="font-size:11px;color:${dim};font-weight:600;letter-spacing:.04em">Code Site</span>`
-    + mkBadge('Regate', regate, !!data.code_regate, dim, val)
-    + mkBadge('PST',    pst,    !!data.code_pst,    dim, val);
+  if (data.site_code) {
+    html += `<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid #58a6ff40;background:#58a6ff12;border-radius:6px;padding:2px 10px;font-size:12px;line-height:1.6">
+      <span style="color:${dim};font-size:11px;font-weight:600;letter-spacing:.04em">Code</span>
+      <span style="font-weight:700;font-family:monospace;color:${val}">${esc(data.site_code)}</span>
+    </span>`;
+  }
+
+  html += mkBadge('Regate', data.code_regate || '—', !!data.code_regate, dim, val)
+        + mkBadge('PST',    data.code_pst    || '—', !!data.code_pst,    dim, val);
+
+  el.innerHTML = html;
 }
 
 function mkBadge(label, value, hasValue, dim, val) {
