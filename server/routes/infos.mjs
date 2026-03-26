@@ -17,7 +17,7 @@ const DEFAULTS = {
   dns2:      '194.5.88.133',
   dns_dc:    '200.16.1.11',
   route_psm: '10.19.1.1:28',
-  domains:   ['dct.dat.local', 'hdcadmin.sf.intra.laposte.local', 'sf.intra.laposte.local'],
+  domains:   ['dct.adt.local', 'hdcadmin.sf.intra.laposte.fr', 'sf.intra.laposte.fr'],
   site_codes: [],
   notes:     '',
 };
