@@ -153,6 +153,14 @@ cp -r /tmp/ipam_src/deploy/*         /var/www/ipam/deploy/
 cp /var/www/ipam/deploy/ipam.conf /etc/httpd/conf.d/ipam.conf
 httpd -t && systemctl reload httpd
 
+# 4b. Mettre à jour le fichier service systemd (nécessaire si ipam.service a changé)
+#     Important : supprime NoNewPrivileges=yes (incompatible avec sudo systemctl/journalctl)
+cp /var/www/ipam/deploy/ipam.service /etc/systemd/system/ipam.service
+systemctl daemon-reload
+
+# 4c. (Première installation de la page Config) Configurer sudo + permissions RDB
+bash /var/www/ipam/deploy/setup-config-permissions.sh
+
 # 5. Redémarrer le service Node.js pour prendre en compte les changements backend
 systemctl restart ipam
 

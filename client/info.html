@@ -319,14 +319,8 @@ option:disabled{color:var(--tx-3);text-decoration:line-through}
         <input id="inp-search-code" class="inp" style="padding:7px 12px;font-size:13px" placeholder="Rechercher par nom de site…">
       </div>
 
-      <!-- Table header -->
-      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;padding:6px 16px;background:var(--bg-1);border-radius:6px;margin-bottom:4px">
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3);width:90px;-ms-flex-negative:0;flex-shrink:0">Code</span>
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3);-webkit-box-flex:1;-ms-flex:1;flex:1">Site</span>
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3);width:110px;-ms-flex-negative:0;flex-shrink:0">Regate</span>
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3);width:110px;-ms-flex-negative:0;flex-shrink:0">PST</span>
-        <span style="width:78px;-ms-flex-negative:0;flex-shrink:0"></span>
-      </div>
+      <!-- Table header (rendu par renderCodes selon isAdmin) -->
+      <div id="codes-header" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;padding:6px 16px;background:var(--bg-1);border-radius:6px;margin-bottom:4px"></div>
 
       <!-- Codes list -->
       <div id="codes-list"></div>

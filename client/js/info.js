@@ -376,6 +376,14 @@ function renderCodes(filter = '') {
   const all   = infosData?.site_codes || [];
   const codes = q ? all.filter(c => c.site_name.toLowerCase().includes(q)) : all;
 
+  // Render dynamic header (spacer only when admin, to align with rows)
+  const hdr = document.getElementById('codes-header');
+  if (hdr) {
+    const th = (txt, w) => `<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3);${w ? `width:${w}px;-ms-flex-negative:0;flex-shrink:0` : '-webkit-box-flex:1;-ms-flex:1;flex:1'}">${txt}</span>`;
+    hdr.innerHTML = th('Code', 90) + th('Site', 0) + th('Regate', 110) + th('PST', 110)
+      + (isAdmin ? '<span style="width:78px;-ms-flex-negative:0;flex-shrink:0"></span>' : '');
+  }
+
   if (!all.length) {
     list.innerHTML = '<div style="color:var(--tx-3);font-size:13px;padding:16px 16px 8px">Aucun code site défini</div>';
     return;
