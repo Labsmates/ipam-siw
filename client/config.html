@@ -103,6 +103,10 @@ th{text-align:left}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
       Infos
     </a>
+    <a href="/export.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Export Excel
+    </a>
     <a href="/admin.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Administration
@@ -157,6 +161,8 @@ th{text-align:left}
       <button class="admin-tab" data-tab="backup">Sauvegarde / Restauration</button>
       <button class="admin-tab" data-tab="cert">Certificat SSL</button>
       <button class="admin-tab" data-tab="databases">Bases de données</button>
+      <button class="admin-tab" data-tab="apis">APIs</button>
+      <button class="admin-tab" data-tab="sharepoint">SharePoint</button>
     </div>
   </div>
 
@@ -410,8 +416,8 @@ th{text-align:left}
     <div id="pane-databases" class="admin-pane hidden">
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px">
         <div>
-          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Connexions Redis supplémentaires</h3>
-          <p style="font-size:13px;color:var(--tx-3);margin:0">Ajoutez des instances Redis pour tester la connectivité ou synchroniser les données.</p>
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Bases de données externes</h3>
+          <p style="font-size:13px;color:var(--tx-3);margin:0">Ajoutez des connexions Redis, PostgreSQL ou MariaDB pour tester la connectivité ou synchroniser les données.</p>
         </div>
         <button id="btn-add-db" class="btn btn-p btn-sm">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -421,15 +427,86 @@ th{text-align:left}
       <div id="db-list"></div>
     </div>
 
+    <!-- ══ ONGLET : APIs ══ -->
+    <div id="pane-apis" class="admin-pane hidden">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">APIs externes</h3>
+          <p style="font-size:13px;color:var(--tx-3);margin:0">Référencez vos APIs (URL, clé d'accès) et testez leur disponibilité.</p>
+        </div>
+        <button id="btn-add-api" class="btn btn-p btn-sm">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+      <div id="api-list"></div>
+    </div>
+
+    <!-- ══ ONGLET : SharePoint ══ -->
+    <div id="pane-sharepoint" class="admin-pane hidden">
+      <div style="margin-bottom:20px">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Connexion SharePoint</h3>
+        <p style="font-size:13px;color:var(--tx-3);margin:0">Configurez une connexion SharePoint pour exporter automatiquement les fichiers Excel.</p>
+      </div>
+      <div style="max-width:600px">
+        <div class="svc-card" style="margin-bottom:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:14px">Configuration</div>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:12px">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">URL du site SharePoint</label>
+              <input id="sp-url" class="inp" placeholder="https://contoso.sharepoint.com/sites/ipam">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Client ID</label>
+                <input id="sp-client-id" class="inp" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Tenant ID</label>
+                <input id="sp-tenant-id" class="inp" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Client Secret <span style="color:var(--tx-3)">(laissez vide pour conserver l'existant)</span></label>
+              <input id="sp-client-secret" class="inp" type="password" placeholder="••••••••••••••••">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Dossier cible (chemin relatif)</label>
+              <input id="sp-folder" class="inp" placeholder="Documents partagés/IPAM">
+            </div>
+          </div>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+          <button id="btn-test-sp" class="btn btn-g">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Tester la connexion
+          </button>
+          <button id="btn-save-sp" class="btn btn-p">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Enregistrer
+          </button>
+        </div>
+        <div id="sp-status" style="margin-top:12px;font-size:13px;color:var(--tx-3)"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <!-- ══════════════════ MODAL : Ajouter une base de données ══════════════════ -->
 <div id="modal-add-db" class="modal-overlay hidden">
   <div class="modal-box">
-    <h3 style="margin:0 0 4px;font-size:16px;font-weight:700">Nouvelle connexion Redis</h3>
-    <p style="margin:0 0 18px;font-size:13px;color:var(--tx-3)">Configurer une instance Redis supplémentaire.</p>
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:700">Nouvelle connexion</h3>
+    <p style="margin:0 0 18px;font-size:13px;color:var(--tx-3)">Redis, PostgreSQL ou MariaDB.</p>
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:10px;margin-bottom:20px">
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Type</label>
+        <select id="db-type" class="inp" style="cursor:pointer">
+          <option value="redis">Redis</option>
+          <option value="postgres">PostgreSQL</option>
+          <option value="mariadb">MariaDB</option>
+        </select>
+      </div>
       <div>
         <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Nom</label>
         <input id="db-name" class="inp" placeholder="Ex : Redis secondaire">
@@ -445,10 +522,18 @@ th{text-align:left}
         </div>
       </div>
       <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Utilisateur <span id="db-user-label" style="color:var(--tx-3)">(PostgreSQL / MariaDB)</span></label>
+        <input id="db-user" class="inp" placeholder="postgres / root">
+      </div>
+      <div>
         <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Mot de passe <span style="color:var(--tx-3)">(optionnel)</span></label>
         <input id="db-password" class="inp" type="password" placeholder="Laisser vide si aucun">
       </div>
-      <div>
+      <div id="db-field-dbname">
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Nom de la base</label>
+        <input id="db-dbname" class="inp" placeholder="Ex : ipam_db">
+      </div>
+      <div id="db-field-index">
         <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Index DB <span style="color:var(--tx-3)">(0–15)</span></label>
         <input id="db-index" class="inp" type="number" value="0" min="0" max="15">
       </div>
@@ -456,6 +541,36 @@ th{text-align:left}
     <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
       <button class="btn btn-g" onclick="document.getElementById('modal-add-db').classList.add('hidden')">Annuler</button>
       <button id="btn-confirm-add-db" class="btn btn-p">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ MODAL : Ajouter une API ══════════════════ -->
+<div id="modal-add-api" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:700">Nouvelle API</h3>
+    <p style="margin:0 0 18px;font-size:13px;color:var(--tx-3)">Référencer une API externe.</p>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:10px;margin-bottom:20px">
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Nom</label>
+        <input id="api-name" class="inp" placeholder="Ex : API Monitoring">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">URL</label>
+        <input id="api-url" class="inp" placeholder="https://api.exemple.com/v1">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Clé API <span style="color:var(--tx-3)">(optionnel)</span></label>
+        <input id="api-key" class="inp" type="password" placeholder="Bearer token ou clé d'accès">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Description <span style="color:var(--tx-3)">(optionnel)</span></label>
+        <input id="api-description" class="inp" placeholder="Ex : Supervision réseau">
+      </div>
+    </div>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+      <button class="btn btn-g" onclick="document.getElementById('modal-add-api').classList.add('hidden')">Annuler</button>
+      <button id="btn-confirm-add-api" class="btn btn-p">Ajouter</button>
     </div>
   </div>
 </div>

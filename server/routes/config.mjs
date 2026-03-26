@@ -8,6 +8,7 @@ import { execFile }  from 'child_process';
 import { promisify } from 'util';
 import fs            from 'fs';
 import os            from 'os';
+import net           from 'net';
 import Redis         from 'ioredis';
 import { redis, addLog } from '../redis.mjs';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
@@ -26,6 +27,8 @@ const ALLOWED_SERVICES = new Set(['ipam', 'httpd', 'redis']);
 const RELOAD_ONLY      = new Set(['httpd']); // seul httpd supporte reload
 const RDB_PATH         = '/var/lib/redis/ipam.rdb';
 const DB_CONFIG_KEY    = 'config:databases';
+const API_CONFIG_KEY   = 'config:apis';
+const SP_CONFIG_KEY    = 'config:sharepoint';
 
 const ALLOWED_SET_PARAMS = new Set([
   'maxmemory', 'maxmemory-policy', 'appendonly', 'requirepass', 'loglevel', 'save',
@@ -55,9 +58,34 @@ async function loadDatabases() {
   const raw = await redis.get(DB_CONFIG_KEY);
   return raw ? JSON.parse(raw) : {};
 }
-
 async function saveDatabases(dbs) {
   await redis.set(DB_CONFIG_KEY, JSON.stringify(dbs));
+}
+
+async function loadApis() {
+  const raw = await redis.get(API_CONFIG_KEY);
+  return raw ? JSON.parse(raw) : {};
+}
+async function saveApis(apis) {
+  await redis.set(API_CONFIG_KEY, JSON.stringify(apis));
+}
+
+async function loadSharepoint() {
+  const raw = await redis.get(SP_CONFIG_KEY);
+  return raw ? JSON.parse(raw) : {};
+}
+async function saveSharepoint(cfg) {
+  await redis.set(SP_CONFIG_KEY, JSON.stringify(cfg));
+}
+
+// Test TCP (universel pour Redis, PostgreSQL, MariaDB)
+function tcpPing(host, port, timeout = 4000) {
+  return new Promise((resolve, reject) => {
+    const sock  = new net.Socket();
+    const timer = setTimeout(() => { sock.destroy(); reject(new Error(`Timeout (${timeout} ms)`)); }, timeout);
+    sock.connect(parseInt(port), host, () => { clearTimeout(timer); sock.destroy(); resolve(); });
+    sock.on('error', e => { clearTimeout(timer); reject(e); });
+  });
 }
 
 // =============================================================================
@@ -464,10 +492,13 @@ router.get('/databases', async (req, res) => {
     // Ne jamais renvoyer les mots de passe au client
     const safe = Object.entries(dbs).map(([id, d]) => ({
       id,
-      name: d.name,
-      host: d.host,
-      port: d.port,
-      db:   d.db,
+      type:   d.type || 'redis',
+      name:   d.name,
+      host:   d.host,
+      port:   d.port,
+      db:     d.db,
+      dbname: d.dbname,
+      user:   d.user,
     }));
     res.json({ databases: safe });
   } catch (e) {
@@ -478,21 +509,27 @@ router.get('/databases', async (req, res) => {
 // POST /api/config/databases
 router.post('/databases', async (req, res) => {
   try {
-    const { name, host, port, password, db } = req.body || {};
+    const { type, name, host, port, password, db, dbname, user } = req.body || {};
     if (!name || !host)
       return res.status(400).json({ error: 'Le nom et l\'hôte sont obligatoires' });
+
+    const dbType    = ['redis', 'postgres', 'mariadb'].includes(type) ? type : 'redis';
+    const defaultPort = dbType === 'postgres' ? 5432 : dbType === 'mariadb' ? 3306 : 6379;
 
     const dbs = await loadDatabases();
     const id  = uid();
     dbs[id] = {
+      type:     dbType,
       name:     String(name).slice(0, 64),
       host:     String(host).slice(0, 128),
-      port:     parseInt(port) || 6379,
+      port:     parseInt(port) || defaultPort,
       password: password ? String(password) : null,
+      user:     user     ? String(user).slice(0, 64) : null,
+      dbname:   dbname   ? String(dbname).slice(0, 64) : null,
       db:       parseInt(db) || 0,
     };
     await saveDatabases(dbs);
-    await addLog(req.user.username, 'DB_ADD', `Connexion Redis « ${name} » ajoutée`, 'info');
+    await addLog(req.user.username, 'DB_ADD', `Connexion ${dbType} « ${name} » ajoutée`, 'info');
     res.json({ ok: true, id });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -508,7 +545,7 @@ router.delete('/databases/:id', async (req, res) => {
     const name = dbs[req.params.id].name;
     delete dbs[req.params.id];
     await saveDatabases(dbs);
-    await addLog(req.user.username, 'DB_DEL', `Connexion Redis « ${name} » supprimée`, 'warn');
+    await addLog(req.user.username, 'DB_DEL', `Connexion ${dbs[req.params.id]?.type || 'redis'} « ${name} » supprimée`, 'warn');
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -522,29 +559,37 @@ router.post('/databases/:id/test', async (req, res) => {
     const cfg = dbs[req.params.id];
     if (!cfg) return res.status(404).json({ error: 'Connexion introuvable' });
 
+    const t0 = Date.now();
+
+    if (cfg.type === 'postgres' || cfg.type === 'mariadb') {
+      // Test TCP uniquement (pas de driver SQL installé)
+      await tcpPing(cfg.host, cfg.port);
+      const latency = Date.now() - t0;
+      await addLog(req.user.username, 'DB_TEST',
+        `Test ${cfg.type} « ${cfg.name} » (${cfg.host}:${cfg.port}) — TCP OK (${latency} ms)`, 'info');
+      return res.json({ ok: true, latency, note: 'TCP connect OK' });
+    }
+
+    // Redis : PING applicatif
     const client = new Redis({
-      host:                 cfg.host,
-      port:                 cfg.port,
-      password:             cfg.password || undefined,
-      db:                   cfg.db,
-      connectTimeout:       3000,
-      maxRetriesPerRequest: 0,
-      lazyConnect:          true,
+      host: cfg.host, port: cfg.port,
+      password: cfg.password || undefined,
+      db: cfg.db,
+      connectTimeout: 3000, maxRetriesPerRequest: 0, lazyConnect: true,
     });
     try {
       await client.connect();
-      const t0      = Date.now();
       await client.ping();
       const latency = Date.now() - t0;
       await addLog(req.user.username, 'DB_TEST',
-        `Test connexion « ${cfg.name} » (${cfg.host}:${cfg.port}) — PING OK (${latency} ms)`, 'info');
+        `Test Redis « ${cfg.name} » (${cfg.host}:${cfg.port}) — PING OK (${latency} ms)`, 'info');
       res.json({ ok: true, latency });
     } finally {
       client.disconnect();
     }
   } catch (e) {
     await addLog(req.user.username, 'DB_TEST',
-      `Test connexion « ${cfg?.name} » — Échec : ${e.message}`, 'error').catch(() => {});
+      `Test connexion « ${dbs?.[req.params.id]?.name} » — Échec : ${e.message}`, 'error').catch(() => {});
     res.status(502).json({ error: `Connexion échouée : ${e.message}` });
   }
 });
@@ -798,6 +843,143 @@ router.post('/cert/self-signed', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// =============================================================================
+// ONGLET 5 — APIs externes
+// =============================================================================
+
+router.get('/apis', async (req, res) => {
+  try {
+    const apis = await loadApis();
+    const safe = Object.entries(apis).map(([id, a]) => ({
+      id, name: a.name, url: a.url, description: a.description || '',
+    }));
+    res.json({ apis: safe });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/apis', async (req, res) => {
+  try {
+    const { name, url, key, description } = req.body || {};
+    if (!name?.trim() || !url?.trim())
+      return res.status(400).json({ error: 'Nom et URL obligatoires' });
+    const apis = await loadApis();
+    const id   = uid();
+    apis[id] = {
+      name:        String(name).slice(0, 64),
+      url:         String(url).slice(0, 256),
+      key:         key ? String(key) : null,
+      description: description ? String(description).slice(0, 128) : '',
+    };
+    await saveApis(apis);
+    await addLog(req.user.username, 'API_ADD', `API « ${name} » ajoutée`, 'info');
+    res.json({ ok: true, id });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/apis/:id', async (req, res) => {
+  try {
+    const apis = await loadApis();
+    if (!apis[req.params.id]) return res.status(404).json({ error: 'API introuvable' });
+    const name = apis[req.params.id].name;
+    delete apis[req.params.id];
+    await saveApis(apis);
+    await addLog(req.user.username, 'API_DEL', `API « ${name} » supprimée`, 'warn');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/apis/:id/test', async (req, res) => {
+  try {
+    const apis = await loadApis();
+    const cfg  = apis[req.params.id];
+    if (!cfg) return res.status(404).json({ error: 'API introuvable' });
+    const headers = { 'User-Agent': 'IPAM-SIW/2' };
+    if (cfg.key) headers['Authorization'] = `Bearer ${cfg.key}`;
+    const ctrl    = new AbortController();
+    const timer   = setTimeout(() => ctrl.abort(), 5000);
+    const t0      = Date.now();
+    try {
+      const r = await fetch(cfg.url, { method: 'HEAD', headers, signal: ctrl.signal });
+      clearTimeout(timer);
+      const latency = Date.now() - t0;
+      await addLog(req.user.username, 'API_TEST',
+        `Test API « ${cfg.name} » — HTTP ${r.status} (${latency} ms)`, 'info');
+      res.json({ ok: true, status: r.status, latency });
+    } catch (fe) {
+      clearTimeout(timer);
+      throw fe;
+    }
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+// =============================================================================
+// ONGLET 6 — SharePoint
+// =============================================================================
+
+router.get('/sharepoint', async (req, res) => {
+  try {
+    const cfg = await loadSharepoint();
+    // Ne pas renvoyer le client secret
+    res.json({
+      url:       cfg.url       || '',
+      clientId:  cfg.clientId  || '',
+      tenantId:  cfg.tenantId  || '',
+      folder:    cfg.folder    || '',
+      hasSecret: !!cfg.clientSecret,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/sharepoint', async (req, res) => {
+  try {
+    const { url, clientId, tenantId, clientSecret, folder } = req.body || {};
+    const cfg = await loadSharepoint();
+    if (url       !== undefined) cfg.url       = String(url).trim().slice(0, 256);
+    if (clientId  !== undefined) cfg.clientId  = String(clientId).trim().slice(0, 64);
+    if (tenantId  !== undefined) cfg.tenantId  = String(tenantId).trim().slice(0, 64);
+    if (folder    !== undefined) cfg.folder    = String(folder).trim().slice(0, 256);
+    if (clientSecret?.trim())    cfg.clientSecret = String(clientSecret);
+    await saveSharepoint(cfg);
+    await addLog(req.user.username, 'SP_CONFIG', 'Configuration SharePoint mise à jour', 'info');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/sharepoint/test', async (req, res) => {
+  try {
+    const cfg = await loadSharepoint();
+    if (!cfg.url || !cfg.clientId || !cfg.tenantId || !cfg.clientSecret)
+      return res.status(400).json({ error: 'Configuration incomplète (URL, clientId, tenantId, clientSecret requis)' });
+
+    // Obtenir un token OAuth2 Microsoft
+    const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(cfg.tenantId)}/oauth2/v2.0/token`;
+    const body     = new URLSearchParams({
+      grant_type:    'client_credentials',
+      client_id:     cfg.clientId,
+      client_secret: cfg.clientSecret,
+      scope:         'https://graph.microsoft.com/.default',
+    });
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const r = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body, signal: ctrl.signal,
+      });
+      clearTimeout(timer);
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        return res.status(502).json({ error: err.error_description || `HTTP ${r.status}` });
+      }
+      await addLog(req.user.username, 'SP_TEST', 'Test SharePoint — token OAuth2 OK', 'info');
+      res.json({ ok: true, message: 'Authentification SharePoint réussie' });
+    } catch (fe) { clearTimeout(timer); throw fe; }
+  } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
 export default router;

@@ -66,6 +66,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupBackupTab();
   setupCertTab();
   setupDatabasesTab();
+  setupApisTab();
+  setupSharepointTab();
 
   // Rafraîchissement auto des services toutes les 10 secondes
   setInterval(loadServices, 10_000);
@@ -689,6 +691,19 @@ function setupDatabasesTab() {
     document.getElementById('modal-add-db').classList.remove('hidden')
   );
   document.getElementById('btn-confirm-add-db')?.addEventListener('click', addDatabase);
+
+  // Adapter le formulaire selon le type sélectionné
+  document.getElementById('db-type')?.addEventListener('change', () => {
+    const type = document.getElementById('db-type').value;
+    const portEl  = document.getElementById('db-port');
+    const idxWrap = document.getElementById('db-field-index');
+    const dbWrap  = document.getElementById('db-field-dbname');
+    if (type === 'postgres') { portEl.value = '5432'; idxWrap.style.display = 'none'; dbWrap.style.display = ''; }
+    else if (type === 'mariadb') { portEl.value = '3306'; idxWrap.style.display = 'none'; dbWrap.style.display = ''; }
+    else { portEl.value = '6379'; idxWrap.style.display = ''; dbWrap.style.display = 'none'; }
+  });
+  // État initial
+  document.getElementById('db-field-dbname').style.display = 'none';
 }
 
 async function loadDatabases() {
@@ -712,11 +727,22 @@ function renderDatabases(dbs) {
     `;
     return;
   }
-  list.innerHTML = dbs.map(db => `
+  const typeColor = { redis: '#e05d44', postgres: '#336791', mariadb: '#c0765a' };
+  const typeLabel = { redis: 'Redis', postgres: 'PostgreSQL', mariadb: 'MariaDB' };
+  list.innerHTML = dbs.map(db => {
+    const t   = db.type || 'redis';
+    const col = typeColor[t] || '#8b949e';
+    const sub = t === 'redis'
+      ? `${esc(db.host)}:${db.port} / DB ${db.db ?? 0}`
+      : `${esc(db.host)}:${db.port}${db.dbname ? ' / ' + esc(db.dbname) : ''}${db.user ? ' — ' + esc(db.user) : ''}`;
+    return `
     <div class="db-row">
       <div style="min-width:0;flex:1">
-        <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(db.name)}</div>
-        <div style="font-size:12px;color:var(--tx-3);font-family:monospace">${esc(db.host)}:${db.port} / DB ${db.db}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-weight:600;font-size:14px">${esc(db.name)}</span>
+          <span style="font-size:11px;font-weight:600;padding:1px 7px;border-radius:4px;background:${col}20;color:${col};border:1px solid ${col}40">${typeLabel[t] || t}</span>
+        </div>
+        <div style="font-size:12px;color:var(--tx-3);font-family:monospace">${sub}</div>
       </div>
       <div style="display:flex;gap:8px;flex-shrink:0">
         <button class="btn btn-g btn-sm" data-dbaction="test" data-id="${esc(db.id)}">
@@ -733,7 +759,8 @@ function renderDatabases(dbs) {
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   list.querySelectorAll('[data-dbaction]').forEach(btn => {
     btn.addEventListener('click', () => handleDbAction(btn.dataset.dbaction, btn.dataset.id));
@@ -789,24 +816,219 @@ async function addDatabase() {
   const host     = document.getElementById('db-host')?.value.trim();
   const port     = document.getElementById('db-port')?.value;
   const password = document.getElementById('db-password')?.value;
+  const type     = document.getElementById('db-type')?.value || 'redis';
   const db       = document.getElementById('db-index')?.value;
+  const user     = document.getElementById('db-user')?.value.trim();
+  const dbname   = document.getElementById('db-dbname')?.value.trim();
 
   if (!name) { showToast('Le nom est obligatoire', 'warn'); return; }
   if (!host) { showToast("L'hôte est obligatoire", 'warn'); return; }
 
+  const payload = { name, host, port, password, type };
+  if (type === 'redis') {
+    payload.db = db;
+  } else {
+    if (user)   payload.user   = user;
+    if (dbname) payload.dbname = dbname;
+  }
+
   try {
-    await post('/api/config/databases', { name, host, port, password, db });
+    await post('/api/config/databases', payload);
     showToast(`Connexion « ${name} » ajoutée`, 'success');
     document.getElementById('modal-add-db').classList.add('hidden');
     // Réinitialiser le formulaire
-    ['db-name', 'db-host', 'db-password'].forEach(id => {
+    ['db-name', 'db-host', 'db-password', 'db-user', 'db-dbname'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+    document.getElementById('db-type').value  = 'redis';
     document.getElementById('db-port').value  = '6379';
     document.getElementById('db-index').value = '0';
+    document.getElementById('db-field-dbname').style.display = 'none';
+    document.getElementById('db-field-index').style.display  = '';
     await loadDatabases();
   } catch (e) {
     showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// =============================================================================
+// ONGLET 6 — APIs externes
+// =============================================================================
+function setupApisTab() {
+  document.querySelector('[data-tab="apis"]')?.addEventListener('click', loadApis);
+  document.getElementById('btn-add-api')?.addEventListener('click', () =>
+    document.getElementById('modal-add-api').classList.remove('hidden')
+  );
+  document.getElementById('btn-confirm-add-api')?.addEventListener('click', addApi);
+}
+
+async function loadApis() {
+  try {
+    const { apis } = await get('/api/config/apis');
+    renderApis(apis);
+  } catch (e) {
+    showToast(`Erreur APIs : ${e.message}`, 'error');
+  }
+}
+
+function renderApis(apis) {
+  const list = document.getElementById('api-list');
+  if (!list) return;
+  if (!apis?.length) {
+    list.innerHTML = `
+      <div style="text-align:center;color:var(--tx-3);padding:48px 0;border:1px dashed var(--brd);border-radius:10px">
+        <svg style="margin-bottom:10px;opacity:.4" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <div style="font-size:13px">Aucune API configurée</div>
+        <div style="font-size:12px;margin-top:4px">Cliquez sur « Ajouter » pour configurer une API externe.</div>
+      </div>
+    `;
+    return;
+  }
+  list.innerHTML = apis.map(api => `
+    <div class="db-row">
+      <div style="min-width:0;flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-weight:600;font-size:14px">${esc(api.name)}</span>
+          ${api.hasKey ? '<span style="font-size:11px;padding:1px 7px;border-radius:4px;background:#58a6ff20;color:#58a6ff;border:1px solid #58a6ff40">Clé API</span>' : ''}
+        </div>
+        <div style="font-size:12px;color:var(--tx-3);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(api.url)}</div>
+        ${api.description ? `<div style="font-size:12px;color:var(--tx-3);margin-top:2px">${esc(api.description)}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn btn-g btn-sm" data-apiaction="test" data-id="${esc(api.id)}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Tester
+        </button>
+        <button class="btn btn-d btn-sm" data-apiaction="del" data-id="${esc(api.id)}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          Supprimer
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('[data-apiaction]').forEach(btn => {
+    btn.addEventListener('click', () => handleApiAction(btn.dataset.apiaction, btn.dataset.id));
+  });
+}
+
+async function handleApiAction(action, id) {
+  if (action === 'del') {
+    if (!await showConfirm({
+      title:       'Supprimer l\'API',
+      message:     'Confirmer la suppression de cette configuration API ?',
+      confirmText: 'Supprimer',
+      danger:      true,
+    })) return;
+    try {
+      await del(`/api/config/apis/${id}`);
+      showToast('API supprimée', 'success');
+      await loadApis();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+    return;
+  }
+
+  if (action === 'test') {
+    try {
+      const { status, latency } = await post(`/api/config/apis/${id}/test`);
+      showToast(`API accessible — HTTP ${status}${latency != null ? ` (${latency} ms)` : ''}`, 'success');
+    } catch (e) {
+      showToast(`Erreur : ${e.message}`, 'error');
+    }
+  }
+}
+
+async function addApi() {
+  const name        = document.getElementById('api-name')?.value.trim();
+  const url         = document.getElementById('api-url')?.value.trim();
+  const key         = document.getElementById('api-key')?.value;
+  const description = document.getElementById('api-description')?.value.trim();
+
+  if (!name) { showToast('Le nom est obligatoire', 'warn'); return; }
+  if (!url)  { showToast("L'URL est obligatoire", 'warn'); return; }
+
+  try {
+    await post('/api/config/apis', { name, url, key, description });
+    showToast(`API « ${name} » ajoutée`, 'success');
+    document.getElementById('modal-add-api').classList.add('hidden');
+    ['api-name', 'api-url', 'api-key', 'api-description'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    await loadApis();
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// =============================================================================
+// ONGLET 7 — SharePoint
+// =============================================================================
+function setupSharepointTab() {
+  document.querySelector('[data-tab="sharepoint"]')?.addEventListener('click', loadSharepoint);
+  document.getElementById('btn-save-sp')?.addEventListener('click', saveSharepoint);
+  document.getElementById('btn-test-sp')?.addEventListener('click', testSharepoint);
+}
+
+async function loadSharepoint() {
+  try {
+    const data = await get('/api/config/sharepoint');
+    const fields = ['sp-url', 'sp-client-id', 'sp-tenant-id', 'sp-folder'];
+    fields.forEach(id => {
+      const key = id.replace('sp-', '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      const el  = document.getElementById(id);
+      if (el) el.value = data[key] || '';
+    });
+    // Le secret n'est jamais renvoyé (placeholder uniquement)
+    const secretEl = document.getElementById('sp-secret');
+    if (secretEl) {
+      secretEl.placeholder = data.hasSecret ? '(défini — laisser vide pour conserver)' : 'Secret client';
+      secretEl.value = '';
+    }
+  } catch (e) {
+    showToast(`Erreur SharePoint : ${e.message}`, 'error');
+  }
+}
+
+async function saveSharepoint() {
+  const fields = {
+    url:      document.getElementById('sp-url')?.value.trim(),
+    clientId: document.getElementById('sp-client-id')?.value.trim(),
+    tenantId: document.getElementById('sp-tenant-id')?.value.trim(),
+    folder:   document.getElementById('sp-folder')?.value.trim(),
+  };
+  const secret = document.getElementById('sp-secret')?.value;
+  if (secret) fields.secret = secret;
+
+  if (!fields.url)      { showToast("L'URL SharePoint est obligatoire", 'warn'); return; }
+  if (!fields.clientId) { showToast('Le Client ID est obligatoire', 'warn'); return; }
+  if (!fields.tenantId) { showToast('Le Tenant ID est obligatoire', 'warn'); return; }
+
+  try {
+    await put('/api/config/sharepoint', fields);
+    showToast('Configuration SharePoint sauvegardée', 'success');
+    await loadSharepoint();
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+async function testSharepoint() {
+  const btn = document.getElementById('btn-test-sp');
+  if (btn) { btn.disabled = true; btn.textContent = 'Test en cours…'; }
+  try {
+    const { ok, message } = await post('/api/config/sharepoint/test');
+    if (ok) showToast(message || 'Authentification SharePoint réussie', 'success');
+    else    showToast(message || 'Échec de l\'authentification', 'error');
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Tester la connexion';
+    }
   }
 }
