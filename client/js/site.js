@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, showToast, sortIPs, sortSites, statusBadge, fmtDate,
+  get, post, put, patch, del, showToast, sortIPs, sortSites, statusBadge, fmtDate,
   openModal, closeModal, cidrToIPs, showConfirm, initTheme,
 } from './api.js';
 
@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Modals
   setupModals(user);
+  setupSiteCodesModal();
 
   await loadSite();
 });
@@ -165,6 +166,7 @@ async function loadSite() {
     siteData = data;
     document.title = `IPAM — ${data.name}`;
     document.getElementById('site-name').textContent = data.name;
+    renderSiteCodes(data);
     renderStats();
     renderVlanTabs();
     renderTable();
@@ -173,6 +175,75 @@ async function loadSite() {
     document.getElementById('site-name').textContent = 'Erreur de chargement';
   } finally {
     if (loadEl) loadEl.style.display = 'none';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Codes site (Code Regate / Code PST)
+// ---------------------------------------------------------------------------
+function renderSiteCodes(data) {
+  const el = document.getElementById('site-codes');
+  if (!el) return;
+
+  const regate = data.code_regate || '—';
+  const pst    = data.code_pst    || '—';
+  const dim    = '#7d8590';
+  const val    = '#58a6ff';
+
+  el.innerHTML =
+    `<span style="font-size:11px;color:${dim};font-weight:600;letter-spacing:.04em">Code Site</span>`
+    + mkBadge('Regate', regate, !!data.code_regate, dim, val)
+    + mkBadge('PST',    pst,    !!data.code_pst,    dim, val);
+}
+
+function mkBadge(label, value, hasValue, dim, val) {
+  return `<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid #30363d;border-radius:6px;padding:2px 9px;font-size:12px;line-height:1.6">
+    <span style="color:${dim}">${esc(label)} :</span>
+    <span style="font-weight:700;font-family:monospace;color:${hasValue ? val : dim}">${esc(value)}</span>
+  </span>`;
+}
+
+function setupSiteCodesModal() {
+  document.getElementById('btn-edit-site-codes')?.addEventListener('click', openSiteCodesModal);
+  document.getElementById('btn-cancel-site-codes')?.addEventListener('click', closeSiteCodesModal);
+  document.getElementById('btn-save-site-codes')?.addEventListener('click', saveSiteCodes);
+  document.getElementById('modal-site-codes')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-site-codes')) closeSiteCodesModal();
+  });
+  for (const id of ['modal-code-regate', 'modal-code-pst']) {
+    document.getElementById(id)?.addEventListener('input', e => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+  }
+}
+
+function openSiteCodesModal() {
+  document.getElementById('modal-code-regate').value = siteData?.code_regate || '';
+  document.getElementById('modal-code-pst').value    = siteData?.code_pst    || '';
+  document.getElementById('modal-site-codes').classList.remove('hidden');
+  document.getElementById('modal-code-regate').focus();
+}
+
+function closeSiteCodesModal() {
+  document.getElementById('modal-site-codes').classList.add('hidden');
+}
+
+async function saveSiteCodes() {
+  const code_regate = document.getElementById('modal-code-regate').value.trim().toUpperCase().slice(0, 10);
+  const code_pst    = document.getElementById('modal-code-pst').value.trim().toUpperCase().slice(0, 10);
+  const btn = document.getElementById('btn-save-site-codes');
+  btn.disabled = true;
+  try {
+    await patch(`/api/sites/${encodeURIComponent(siteId)}/codes`, { code_regate, code_pst });
+    siteData.code_regate = code_regate;
+    siteData.code_pst    = code_pst;
+    renderSiteCodes(siteData);
+    closeSiteCodesModal();
+    showToast('Codes mis à jour', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
   }
 }
 

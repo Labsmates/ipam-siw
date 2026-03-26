@@ -1,6 +1,6 @@
 import express from 'express';
 import { createSite, getSite, listSitesWithStats, getSiteData,
-         renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog } from '../redis.mjs';
+         renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog, updateSiteFields } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -57,6 +57,21 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (e.code === 'CONFLICT') return res.status(409).json({ error: e.message });
     res.status(500).json({ error: e.message });
   }
+});
+
+// PATCH /api/sites/:id/codes (admin) — code_regate, code_pst
+router.patch('/:id/codes', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { code_regate, code_pst } = req.body || {};
+    const site = await getSite(req.params.id);
+    if (!site) return res.status(404).json({ error: 'Site introuvable' });
+    const fields = {};
+    if (code_regate !== undefined) fields.code_regate = String(code_regate || '').trim().toUpperCase().slice(0, 10);
+    if (code_pst     !== undefined) fields.code_pst    = String(code_pst    || '').trim().toUpperCase().slice(0, 10);
+    await updateSiteFields(req.params.id, fields);
+    await addLog(req.user.username, 'UPDATE_SITE_CODES', `Codes site « ${site.name} » mis à jour`, 'info');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // DELETE /api/sites/:id (admin)

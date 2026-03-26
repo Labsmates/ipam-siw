@@ -19,6 +19,7 @@ const DEFAULTS = {
   route_psm: '10.19.1.1:28',
   domains:   ['dct.dat.local', 'hdcadmin.sf.intra.laposte.local', 'sf.intra.laposte.local'],
   site_codes: [],
+  notes:     '',
 };
 
 async function load() {
@@ -40,7 +41,19 @@ async function save(data) {
 // ---------------------------------------------------------------------------
 router.get('/', async (req, res) => {
   try {
-    res.json(await load());
+    const data = await load();
+    // Enrichir chaque site_code avec code_regate / code_pst depuis le hash Redis du site
+    if (data.site_codes?.length) {
+      const pipe = redis.pipeline();
+      data.site_codes.forEach(sc => pipe.hmget(`site:${sc.site_id}`, 'code_regate', 'code_pst'));
+      const results = await pipe.exec();
+      data.site_codes.forEach((sc, i) => {
+        const [cr, cp] = results[i][1] || [];
+        if (cr) sc.code_regate = cr;
+        if (cp) sc.code_pst    = cp;
+      });
+    }
+    res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -51,12 +64,13 @@ router.get('/', async (req, res) => {
 // ---------------------------------------------------------------------------
 router.put('/', requireAdmin, async (req, res) => {
   try {
-    const { dns1, dns2, dns_dc, route_psm } = req.body || {};
+    const { dns1, dns2, dns_dc, route_psm, notes } = req.body || {};
     const data = await load();
     if (dns1      !== undefined) data.dns1      = String(dns1).trim();
     if (dns2      !== undefined) data.dns2      = String(dns2).trim();
     if (dns_dc    !== undefined) data.dns_dc    = String(dns_dc).trim();
     if (route_psm !== undefined) data.route_psm = String(route_psm).trim();
+    if (notes     !== undefined) data.notes     = String(notes);
     await save(data);
     await addLog(req.user.username, 'INFOS_UPDATE',
       { dns1: data.dns1, dns2: data.dns2, dns_dc: data.dns_dc, route_psm: data.route_psm });
@@ -127,16 +141,21 @@ router.delete('/domains/:domain', requireAdmin, async (req, res) => {
 // ---------------------------------------------------------------------------
 router.post('/site-codes', requireAdmin, async (req, res) => {
   try {
-    const { site_id, site_name, code } = req.body || {};
+    const { site_id, site_name, code, code_regate, code_pst } = req.body || {};
     if (!site_id || !code?.trim())
       return res.status(400).json({ error: 'site_id et code requis' });
 
-    const c = String(code).trim().toUpperCase().slice(0, 8);
+    const c  = String(code).trim().toUpperCase().slice(0, 8);
+    const cr = code_regate ? String(code_regate).trim().toUpperCase().slice(0, 10) : undefined;
+    const cp = code_pst    ? String(code_pst).trim().toUpperCase().slice(0, 10)    : undefined;
     const data = await load();
 
     // Remplace si ce site a déjà un code
     data.site_codes = (data.site_codes || []).filter(s => s.site_id !== site_id);
-    data.site_codes.push({ site_id, site_name: String(site_name || ''), code: c });
+    const entry = { site_id, site_name: String(site_name || ''), code: c };
+    if (cr) entry.code_regate = cr;
+    if (cp) entry.code_pst    = cp;
+    data.site_codes.push(entry);
     data.site_codes.sort((a, b) =>
       a.site_name.localeCompare(b.site_name, 'fr', { sensitivity: 'base' }));
 
@@ -154,15 +173,23 @@ router.post('/site-codes', requireAdmin, async (req, res) => {
 router.put('/site-codes/:siteId', requireAdmin, async (req, res) => {
   try {
     const { siteId } = req.params;
-    const { code } = req.body || {};
+    const { code, code_regate, code_pst } = req.body || {};
     if (!code?.trim()) return res.status(400).json({ error: 'code requis' });
 
-    const c    = String(code).trim().toUpperCase().slice(0, 8);
+    const c  = String(code).trim().toUpperCase().slice(0, 8);
     const data = await load();
     const entry = (data.site_codes || []).find(s => s.site_id === siteId);
     if (!entry) return res.status(404).json({ error: 'Code site introuvable' });
 
     entry.code = c;
+    if (code_regate !== undefined) {
+      const cr = String(code_regate).trim().toUpperCase().slice(0, 10);
+      if (cr) entry.code_regate = cr; else delete entry.code_regate;
+    }
+    if (code_pst !== undefined) {
+      const cp = String(code_pst).trim().toUpperCase().slice(0, 10);
+      if (cp) entry.code_pst = cp; else delete entry.code_pst;
+    }
     await save(data);
     await addLog(req.user.username, 'SITE_CODE_UPDATE', { site_id: siteId, code: c });
     res.json({ ok: true });

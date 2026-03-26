@@ -323,6 +323,19 @@ export async function renameSite(id, newName) {
   await pipe.exec();
 }
 
+export async function updateSiteFields(id, fields) {
+  const exists = await redis.exists(`site:${id}`);
+  if (!exists) throw new Error('Site introuvable');
+  const toSet = {};
+  const toDel = [];
+  for (const [k, v] of Object.entries(fields)) {
+    if (v === null || v === undefined || v === '') toDel.push(k);
+    else toSet[k] = String(v);
+  }
+  if (Object.keys(toSet).length) await redis.hset(`site:${id}`, toSet);
+  if (toDel.length)              await redis.hdel(`site:${id}`, ...toDel);
+}
+
 export async function deleteSite(id) {
   const site = await redis.hgetall(`site:${id}`);
   if (!site?.name) return;

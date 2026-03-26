@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, showToast, sortSites, showConfirm, initTheme,
+  get, post, put, patch, del, showToast, sortSites, showConfirm, initTheme,
 } from './api.js';
 
 let isAdmin   = false;
@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupInlineEdits();
   setupDomainAdd();
+  setupNotes();
   setupCodeModal();
 
   // Changement de mot de passe
@@ -122,6 +123,7 @@ function renderInfos() {
   setVal('dns_dc',    infosData.dns_dc);
   setVal('route_psm', infosData.route_psm);
   renderDomains();
+  renderNotes();
   renderCodes();
 }
 
@@ -182,6 +184,67 @@ async function saveField(key) {
     setVal(key, value);
     closeEdit(key);
     showToast('Mis à jour', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Notes
+// ---------------------------------------------------------------------------
+function renderNotes() {
+  const text  = infosData?.notes || '';
+  const textEl  = document.getElementById('notes-text');
+  const emptyEl = document.getElementById('notes-empty');
+  const editBtn = document.getElementById('btn-edit-notes');
+  const addBtn  = document.getElementById('btn-add-notes');
+  if (!textEl) return;
+
+  textEl.textContent = text;
+  if (text) {
+    textEl.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (editBtn) editBtn.classList.remove('hidden');
+    if (addBtn)  addBtn.classList.add('hidden');
+  } else {
+    textEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = '';
+    if (editBtn) editBtn.classList.add('hidden');
+    if (addBtn && isAdmin) addBtn.classList.remove('hidden');
+  }
+}
+
+function setupNotes() {
+  document.getElementById('btn-add-notes')?.addEventListener('click', openNotesEdit);
+  document.getElementById('btn-edit-notes')?.addEventListener('click', openNotesEdit);
+  document.getElementById('btn-cancel-notes')?.addEventListener('click', closeNotesEdit);
+  document.getElementById('btn-save-notes')?.addEventListener('click', saveNotes);
+}
+
+function openNotesEdit() {
+  document.getElementById('inp-notes').value = infosData?.notes || '';
+  document.getElementById('notes-display').style.display = 'none';
+  document.getElementById('notes-edit').classList.remove('hidden');
+  document.getElementById('inp-notes').focus();
+}
+
+function closeNotesEdit() {
+  document.getElementById('notes-display').style.display = '';
+  document.getElementById('notes-edit').classList.add('hidden');
+}
+
+async function saveNotes() {
+  const value = document.getElementById('inp-notes').value;
+  const btn   = document.getElementById('btn-save-notes');
+  btn.disabled = true;
+  try {
+    await put('/api/infos', { notes: value });
+    infosData.notes = value;
+    renderNotes();
+    closeNotesEdit();
+    showToast('Notes enregistrées', 'success');
   } catch (e) {
     showToast(e.message, 'error');
   } finally {
@@ -307,19 +370,27 @@ async function deleteDomain(domain) {
 // ---------------------------------------------------------------------------
 // Codes Site
 // ---------------------------------------------------------------------------
-function renderCodes() {
+function renderCodes(filter = '') {
   const list  = document.getElementById('codes-list');
-  const codes = infosData?.site_codes || [];
+  const q     = filter.trim().toLowerCase();
+  const all   = infosData?.site_codes || [];
+  const codes = q ? all.filter(c => c.site_name.toLowerCase().includes(q)) : all;
 
-  if (!codes.length) {
+  if (!all.length) {
     list.innerHTML = '<div style="color:var(--tx-3);font-size:13px;padding:16px 16px 8px">Aucun code site défini</div>';
+    return;
+  }
+  if (!codes.length) {
+    list.innerHTML = '<div style="color:var(--tx-3);font-size:13px;padding:16px 16px 8px">Aucun résultat</div>';
     return;
   }
 
   list.innerHTML = codes.map(c => `
     <div class="code-row" data-site-id="${esc(c.site_id)}">
-      <span style="font-family:monospace;font-size:14px;font-weight:700;color:#58a6ff;min-width:90px;letter-spacing:.04em">${esc(c.code)}</span>
+      <span style="font-family:monospace;font-size:14px;font-weight:700;color:#58a6ff;width:90px;-ms-flex-negative:0;flex-shrink:0;letter-spacing:.04em">${esc(c.code)}</span>
       <span style="-webkit-box-flex:1;-ms-flex:1;flex:1;font-size:13px;color:var(--tx-2)">${esc(c.site_name)}</span>
+      <span style="width:110px;-ms-flex-negative:0;flex-shrink:0;font-size:13px;font-family:monospace;font-weight:600;color:${c.code_regate ? 'var(--tx-1)' : 'var(--tx-3)'}">${esc(c.code_regate || '—')}</span>
+      <span style="width:110px;-ms-flex-negative:0;flex-shrink:0;font-size:13px;font-family:monospace;font-weight:600;color:${c.code_pst    ? 'var(--tx-1)' : 'var(--tx-3)'}">${esc(c.code_pst    || '—')}</span>
       ${isAdmin ? `
         <button class="btn btn-g btn-sm code-edit-btn" data-site-id="${esc(c.site_id)}" data-code="${esc(c.code)}" data-name="${esc(c.site_name)}" title="Modifier">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -346,12 +417,17 @@ function renderCodes() {
 // Modal code site
 // ---------------------------------------------------------------------------
 function setupCodeModal() {
+  document.getElementById('inp-search-code')?.addEventListener('input', e => {
+    renderCodes(e.target.value);
+  });
   document.getElementById('btn-add-code')?.addEventListener('click', () => openCodeModal('add'));
   document.getElementById('btn-cancel-code').addEventListener('click', closeCodeModal);
   document.getElementById('btn-submit-code').addEventListener('click', submitCode);
-  document.getElementById('modal-code-input').addEventListener('input', e => {
-    e.target.value = e.target.value.toUpperCase();
-  });
+  for (const id of ['modal-code-input', 'modal-code-regate', 'modal-code-pst']) {
+    document.getElementById(id)?.addEventListener('input', e => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+  }
   // Fermer si clic hors de la modal-box
   document.getElementById('modal-code').addEventListener('click', e => {
     if (e.target === document.getElementById('modal-code')) closeCodeModal();
@@ -362,23 +438,27 @@ function openCodeModal(mode, siteId = null, code = '', siteName = '') {
   modalMode  = mode;
   editSiteId = siteId;
 
-  const assignedIds = new Set((infosData?.site_codes || []).map(c => c.site_id));
+  const assignedIds = new Set((infosData?.site_codes || []).map(c => String(c.site_id)));
   const select      = document.getElementById('modal-site-select');
 
-  // Peupler le sélecteur
+  // Peupler le sélecteur — exclure les sites déjà assignés (sauf celui en cours d'édition)
   select.innerHTML = '<option value="">— Sélectionner un site —</option>';
   for (const s of allSites) {
-    const alreadyUsed = assignedIds.has(s.id) && s.id !== siteId;
+    if (assignedIds.has(String(s.id)) && String(s.id) !== String(siteId)) continue;
     const opt = document.createElement('option');
     opt.value        = s.id;
     opt.dataset.name = s.name;
-    opt.textContent  = s.name + (alreadyUsed ? ' (code déjà défini)' : '');
-    opt.disabled     = alreadyUsed;
-    if (alreadyUsed) opt.style.color = 'var(--tx-4)';
+    opt.textContent  = s.name;
     select.appendChild(opt);
   }
 
   document.getElementById('modal-code-input').value = code;
+
+  // Pré-remplir Code Regate / Code PST si édition
+  const existing = (infosData?.site_codes || []).find(c => String(c.site_id) === String(siteId));
+  document.getElementById('modal-code-regate').value = existing?.code_regate || '';
+  document.getElementById('modal-code-pst').value    = existing?.code_pst    || '';
+
   document.getElementById('modal-code-title').textContent =
     mode === 'edit' ? 'Modifier le code site' : 'Ajouter un code site';
 
@@ -407,18 +487,27 @@ async function submitCode() {
 
   if (!siteId)  { showToast('Sélectionnez un site', 'warn'); return; }
   if (!code)    { showToast('Entrez un code', 'warn'); return; }
+  if (modalMode === 'add') {
+    const alreadyAssigned = (infosData?.site_codes || []).some(c => String(c.site_id) === String(siteId));
+    if (alreadyAssigned) { showToast('Un code site est déjà défini pour ce site', 'warn'); return; }
+  }
 
   const siteName = modalMode === 'edit'
     ? (infosData?.site_codes?.find(c => c.site_id === siteId)?.site_name || '')
     : (select.options[select.selectedIndex]?.dataset.name || '');
+  const code_regate = document.getElementById('modal-code-regate').value.trim().toUpperCase().slice(0, 10);
+  const code_pst    = document.getElementById('modal-code-pst').value.trim().toUpperCase().slice(0, 10);
+
   const btn = document.getElementById('btn-submit-code');
   btn.disabled = true;
   try {
     if (modalMode === 'edit') {
-      await put(`/api/infos/site-codes/${encodeURIComponent(siteId)}`, { code });
+      await put(`/api/infos/site-codes/${encodeURIComponent(siteId)}`, { code, code_regate, code_pst });
     } else {
-      await post('/api/infos/site-codes', { site_id: siteId, site_name: siteName, code });
+      await post('/api/infos/site-codes', { site_id: siteId, site_name: siteName, code, code_regate, code_pst });
     }
+    // Sauvegarder Code Regate / PST sur le hash Redis du site
+    await patch(`/api/sites/${encodeURIComponent(siteId)}/codes`, { code_regate, code_pst });
     showToast(modalMode === 'edit' ? 'Code modifié' : 'Code ajouté', 'success');
     closeCodeModal();
     await loadInfos();
