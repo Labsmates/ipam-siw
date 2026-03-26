@@ -46,6 +46,7 @@ IPAMBBD/
 │   ├── ipcalc.html         ← Calculateur IP (accessible à tous les utilisateurs)
 │   ├── admin.html          ← Administration
 │   ├── config.html         ← Configuration système (super admin uniquement)
+│   ├── maintenance.html    ← Page de maintenance standalone (dark, auto-refresh)
 │   ├── info.html           ← Informations réseau (visible tous les utilisateurs)
 │   ├── css/
 │   │   └── theme.css       ← Thème sombre / clair gris platine (variables CSS)
@@ -63,7 +64,8 @@ IPAMBBD/
 │   ├── redis.mjs           ← Couche d'accès Redis
 │   ├── utils.mjs           ← sha256, uid, now
 │   ├── middleware/
-│   │   └── auth.mjs        ← Vérification JWT (requireAuth, requireAdmin, requireSuperAdmin)
+│   │   ├── auth.mjs        ← Vérification JWT (requireAuth, requireAdmin, requireSuperAdmin)
+│   │   └── maintenance.mjs ← Mode maintenance (intercept + bypass cookie 8h, cache 5s)
 │   └── routes/
 │       ├── auth.mjs        ← Login, utilisateurs, /me/password
 │       ├── sites.mjs       ← CRUD sites, ajout VLAN (IPs auto), import
@@ -357,7 +359,8 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 | Calculateur IP | `/ipcalc.html` | Auth | Calcul de sous-réseaux CIDR (plage, masque, broadcast, hosts) |
 | Informations réseau | `/info.html` | Auth | DNS DDI, domaines, route PSM, codes site (lecture tous / édition admin) |
 | Administration | `/admin.html` | Admin | Gestion utilisateurs, sites, journaux, changement MDP |
-| Configuration système | `/config.html` | **Super admin** | Services, config Redis, sauvegarde/restauration, bases de données |
+| Configuration système | `/config.html` | **Super admin** | Services, config Redis, sauvegarde/restauration, bases de données, maintenance |
+| Maintenance | `/maintenance.html` | Public (no auth) | Page affichée automatiquement quand le mode maintenance est activé |
 
 ### Gestion des IPs
 
@@ -444,7 +447,7 @@ Les modifications sont journalisées dans le journal d'activité admin.
 
 ## Configuration système (super admin)
 
-La page `/config.html` est réservée au compte **ADMIN** (super administrateur). Elle offre 4 onglets :
+La page `/config.html` est réservée au compte **ADMIN** (super administrateur). Elle offre les onglets suivants :
 
 ### Services
 - Statut en temps réel (actif / inactif / échoué) pour `ipam`, `httpd`, `redis`
@@ -472,9 +475,24 @@ La page `/config.html` est réservée au compte **ADMIN** (super administrateur)
 - Restaurer depuis un fichier `.rdb` (validation des magic bytes + redémarrage Redis automatique)
 
 ### Bases de données supplémentaires
-- Ajouter des connexions Redis (nom, hôte, port, mot de passe, index DB)
-- Tester la connectivité (PING avec latence)
-- Synchroniser toutes les clés vers une instance cible (DUMP/RESTORE en cursor scan)
+- Ajouter des connexions Redis, PostgreSQL ou MariaDB (nom, hôte, port, utilisateur, mot de passe)
+- Tester la connectivité (PING Redis / TCP pour PostgreSQL et MariaDB)
+- Synchroniser toutes les clés vers une instance Redis cible (DUMP/RESTORE en cursor scan)
+
+### APIs externes
+- Référencer des endpoints API (nom, URL, clé, description)
+- Tester la disponibilité par requête HEAD (statut HTTP + latence)
+
+### Connexion SharePoint
+- Configurer une connexion SharePoint (URL site, Client ID, Tenant ID, secret OAuth2, dossier cible)
+- Tester l'authentification Microsoft via OAuth2 client credentials
+- Utilisé pour l'export Excel automatisé vers SharePoint
+
+### Maintenance
+- Activer / désactiver le mode maintenance en un clic (avec confirmation)
+- Personnaliser le message affiché aux utilisateurs
+- Définir une date/heure de fin prévue (compte à rebours sur la page maintenance)
+- Générer et régénérer une **clé de bypass** pour permettre aux admins d'accéder au site
 
 ### Prérequis serveur
 
@@ -490,6 +508,69 @@ Le script crée :
 - `/etc/sudoers.d/ipam` — commandes `systemctl` (start/stop/restart/reload/status), `journalctl` et `shutdown` sans mot de passe
 - `ipam` ∈ groupe `redis` — accès en lecture/écriture au fichier RDB
 - Permissions `664` sur `/var/lib/redis/ipam.rdb`
+
+---
+
+## Mode maintenance
+
+### Fonctionnement
+
+Quand la maintenance est activée depuis `/config.html` (onglet **Maintenance**) :
+
+- Toutes les requêtes vers le site sont interceptées par le middleware Express
+- Les utilisateurs voient la page `/maintenance.html` (code HTTP 503)
+- Les appels API retournent `{ error: "Site en maintenance", maintenance: true }` en 503
+- La page maintenance s'auto-rafraîchit toutes les 30 secondes et redirige vers `/` si le site repasse en ligne
+- Si **Node.js est arrêté**, Apache sert directement `maintenance.html` depuis le disque (via `Alias`) — le site affiche toujours la page de maintenance même sans backend
+
+### Accéder au site en tant qu'administrateur pendant la maintenance
+
+Les administrateurs peuvent bypasser la maintenance grâce à une **clé secrète**.
+
+#### Étape 1 — Récupérer la clé de bypass
+
+Depuis `/config.html` → onglet **Maintenance** :
+- La clé est affichée dans le champ **Clé de bypass**
+- Cliquer **Copier** pour copier l'URL complète directement :
+  ```
+  https://votre-serveur.com/?bypass=VOTRE_CLE_SECRETE
+  ```
+- Cliquer **Régénérer** pour générer une nouvelle clé (invalide la précédente immédiatement après sauvegarde)
+
+#### Étape 2 — Se connecter
+
+Ouvrir l'URL avec la clé dans le navigateur :
+```
+https://votre-serveur.com/?bypass=VOTRE_CLE_SECRETE
+```
+
+Le serveur pose automatiquement un **cookie sécurisé** (`HttpOnly`, `SameSite=Lax`) valable **8 heures**.
+Après ce premier accès, le paramètre `?bypass=...` n'est plus nécessaire — le cookie suffit pour toutes les pages.
+
+#### Étape 3 — Naviguer normalement
+
+Toutes les pages et l'API sont accessibles normalement avec le cookie en place.
+Le cookie expire après 8 heures ou à la fermeture de la session selon le navigateur.
+
+> **Note :** Le paramètre `?bypass=` peut être ajouté à n'importe quelle URL du site :
+> ```
+> https://votre-serveur.com/config.html?bypass=VOTRE_CLE_SECRETE
+> ```
+
+### Désactiver la maintenance
+
+Depuis `/config.html` → onglet **Maintenance** → bouton **Désactiver la maintenance**.
+
+Le site redevient accessible immédiatement pour tous les utilisateurs (le cache middleware se vide en moins de 5 secondes).
+
+### Cas particuliers
+
+| Situation | Comportement |
+|-----------|-------------|
+| Node.js down | Apache sert `maintenance.html` directement depuis `/var/www/ipam/client/` |
+| Pas de clé bypass définie | Aucun bypass possible (même avec `?bypass=...`) |
+| Cookie expiré | Ré-utiliser l'URL avec `?bypass=CLE` pour reposer le cookie |
+| Clé régénérée | L'ancienne clé est immédiatement invalide — redistribuer la nouvelle URL |
 
 ---
 
