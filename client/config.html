@@ -58,6 +58,9 @@ th{text-align:left}
 .cfg-row{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;margin-bottom:12px}
 .cfg-label{width:190px;-ms-flex-negative:0;flex-shrink:0;font-size:13px;color:var(--tx-2);font-family:'JetBrains Mono','Courier New',monospace}
 .db-row{background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;margin-bottom:10px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px}
+/* Maintenance */
+.btn-maint-on{background:#f8514918;color:#f85149;border:1px solid #f8514940}.btn-maint-on:hover{background:#f8514930}
+.btn-maint-off{background:#3fb95018;color:#3fb950;border:1px solid #3fb95040}.btn-maint-off:hover{background:#3fb95030}
 </style>
 </head>
 <body>
@@ -163,6 +166,7 @@ th{text-align:left}
       <button class="admin-tab" data-tab="databases">Bases de données</button>
       <button class="admin-tab" data-tab="apis">APIs</button>
       <button class="admin-tab" data-tab="sharepoint">SharePoint</button>
+      <button class="admin-tab" data-tab="maintenance">Maintenance</button>
     </div>
   </div>
 
@@ -487,6 +491,74 @@ th{text-align:left}
           </button>
         </div>
         <div id="sp-status" style="margin-top:12px;font-size:13px;color:var(--tx-3)"></div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Maintenance ══ -->
+    <div id="pane-maintenance" class="admin-pane hidden">
+      <div style="margin-bottom:20px">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Mode maintenance</h3>
+        <p style="font-size:13px;color:var(--tx-3);margin:0">Lorsqu'il est activé, les utilisateurs sont redirigés vers la page de maintenance.</p>
+      </div>
+      <div style="max-width:600px;display:flex;flex-direction:column;gap:16px">
+
+        <!-- Carte toggle -->
+        <div class="svc-card" style="display:flex;align-items:center;justify-content:space-between;gap:20px">
+          <div>
+            <div style="font-weight:600;font-size:14px;color:var(--tx-1);margin-bottom:4px">Activer la maintenance</div>
+            <div style="font-size:12px;color:var(--tx-3)">Le site devient inaccessible pour les utilisateurs non bypassés.</div>
+          </div>
+          <button id="btn-toggle-maint" class="btn btn-g" style="min-width:140px;justify-content:center">
+            Chargement…
+          </button>
+        </div>
+
+        <!-- Message -->
+        <div class="svc-card">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:10px">Message affiché</label>
+          <textarea id="maint-message" class="inp" rows="3" placeholder="Le site est actuellement en cours de maintenance. Merci de réessayer dans quelques minutes." style="resize:vertical;line-height:1.5"></textarea>
+        </div>
+
+        <!-- Fin prévue -->
+        <div class="svc-card">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:4px">Fin prévue <span style="font-weight:400;color:var(--tx-3)">(optionnel)</span></label>
+          <p style="font-size:12px;color:var(--tx-3);margin:0 0 10px">Un compte à rebours s'affichera sur la page de maintenance.</p>
+          <input id="maint-planned-end" class="inp" type="datetime-local" style="max-width:260px">
+          <button id="btn-clear-end" class="btn btn-g btn-sm" style="margin-top:8px">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Effacer la date
+          </button>
+        </div>
+
+        <!-- Clé de bypass -->
+        <div class="svc-card">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:4px">Clé de bypass</label>
+          <p style="font-size:12px;color:var(--tx-3);margin:0 0 10px">Les admins peuvent accéder au site via <code style="background:var(--bg-1);padding:1px 6px;border-radius:4px;font-size:11px">?bypass=VOTRE_CLE</code></p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="maint-bypass-key" class="inp" style="flex:1;font-family:monospace;font-size:13px" placeholder="Aucune clé définie" readonly>
+            <button id="btn-copy-bypass" class="btn btn-g btn-sm" title="Copier">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copier
+            </button>
+            <button id="btn-regen-bypass" class="btn btn-g btn-sm" title="Générer une nouvelle clé">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+              Régénérer
+            </button>
+          </div>
+          <div id="bypass-url-preview" style="margin-top:8px;font-size:11px;color:var(--tx-3);font-family:monospace;word-break:break-all"></div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="btn-save-maint" class="btn btn-p">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Enregistrer
+          </button>
+          <a href="/maintenance.html" target="_blank" class="btn btn-g">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Prévisualiser
+          </a>
+        </div>
       </div>
     </div>
 

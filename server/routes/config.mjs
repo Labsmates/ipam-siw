@@ -12,6 +12,7 @@ import net           from 'net';
 import Redis         from 'ioredis';
 import { redis, addLog } from '../redis.mjs';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
+import { invalidateMaintenanceCache } from '../middleware/maintenance.mjs';
 import { uid } from '../utils.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -29,6 +30,7 @@ const RDB_PATH         = '/var/lib/redis/ipam.rdb';
 const DB_CONFIG_KEY    = 'config:databases';
 const API_CONFIG_KEY   = 'config:apis';
 const SP_CONFIG_KEY    = 'config:sharepoint';
+const MAINT_KEY        = 'config:maintenance';
 
 const ALLOWED_SET_PARAMS = new Set([
   'maxmemory', 'maxmemory-policy', 'appendonly', 'requirepass', 'loglevel', 'save',
@@ -980,6 +982,63 @@ router.post('/sharepoint/test', async (req, res) => {
       res.json({ ok: true, message: 'Authentification SharePoint réussie' });
     } catch (fe) { clearTimeout(timer); throw fe; }
   } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+// =============================================================================
+// ONGLET MAINTENANCE
+// =============================================================================
+
+async function loadMaintenance() {
+  const raw = await redis.get(MAINT_KEY);
+  return raw ? JSON.parse(raw) : { enabled: false, message: '', bypassKey: '', plannedEnd: null };
+}
+async function saveMaintenance(data) {
+  await redis.set(MAINT_KEY, JSON.stringify(data));
+  invalidateMaintenanceCache();
+}
+
+// GET /api/config/maintenance
+router.get('/maintenance', async (req, res) => {
+  try {
+    const m = await loadMaintenance();
+    res.json({ ...m }); // bypassKey inclus pour l'admin
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/config/maintenance  — met à jour message, bypassKey, plannedEnd (sans changer enabled)
+router.put('/maintenance', async (req, res) => {
+  try {
+    const { message, bypassKey, plannedEnd } = req.body || {};
+    const m = await loadMaintenance();
+    if (message    !== undefined) m.message    = String(message).trim();
+    if (bypassKey  !== undefined) m.bypassKey  = String(bypassKey).trim();
+    if (plannedEnd !== undefined) m.plannedEnd = plannedEnd || null;
+    await saveMaintenance(m);
+    await addLog(req.user.username, 'MAINTENANCE_UPDATE', { message: m.message, plannedEnd: m.plannedEnd });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/config/maintenance/enable
+router.post('/maintenance/enable', async (req, res) => {
+  try {
+    const m    = await loadMaintenance();
+    m.enabled  = true;
+    await saveMaintenance(m);
+    await addLog(req.user.username, 'MAINTENANCE_ENABLE', {});
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/config/maintenance/disable
+router.post('/maintenance/disable', async (req, res) => {
+  try {
+    const m    = await loadMaintenance();
+    m.enabled  = false;
+    await saveMaintenance(m);
+    await addLog(req.user.username, 'MAINTENANCE_DISABLE', {});
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 export default router;

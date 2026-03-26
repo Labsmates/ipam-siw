@@ -12,8 +12,9 @@ import accountRequestsRouter from './routes/account_requests.mjs';
 import configRouter          from './routes/config.mjs';
 import infosRouter           from './routes/infos.mjs';
 import { securityHeaders } from './middleware/security.mjs';
+import { maintenanceMiddleware } from './middleware/maintenance.mjs';
 import { ensureDefaultAdmin } from './routes/auth.mjs';
-import { autoTagAllVlans }   from './redis.mjs';
+import { autoTagAllVlans, redis } from './redis.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT      = parseInt(process.env.PORT || '3000');
@@ -23,6 +24,24 @@ const app = express();
 app.disable('x-powered-by');
 app.use(securityHeaders);
 app.use(express.json({ limit: '10mb' }));
+
+// ── Route publique : statut maintenance (pas d'auth, pas de maintenance block) ──
+app.get('/api/maintenance/status', async (_req, res) => {
+  try {
+    const raw = await redis.get('config:maintenance');
+    const m   = raw ? JSON.parse(raw) : { enabled: false };
+    res.json({
+      enabled:    !!m.enabled,
+      message:    m.message    || '',
+      plannedEnd: m.plannedEnd || null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Middleware maintenance (avant static et routes protégées) ──────────────────
+app.use(maintenanceMiddleware);
 
 // Static files
 app.use(express.static(path.join(__dirname, '../client')));

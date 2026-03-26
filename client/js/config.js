@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupDatabasesTab();
   setupApisTab();
   setupSharepointTab();
+  setupMaintenanceTab();
 
   // Rafraîchissement auto des services toutes les 10 secondes
   setInterval(loadServices, 10_000);
@@ -847,6 +848,122 @@ async function addDatabase() {
     document.getElementById('db-field-dbname').style.display = 'none';
     document.getElementById('db-field-index').style.display  = '';
     await loadDatabases();
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// =============================================================================
+// ONGLET MAINTENANCE
+// =============================================================================
+let _maintEnabled = false;
+
+function setupMaintenanceTab() {
+  document.querySelector('[data-tab="maintenance"]')?.addEventListener('click', loadMaintenanceConfig);
+  document.getElementById('btn-save-maint')?.addEventListener('click', saveMaintenanceConfig);
+  document.getElementById('btn-toggle-maint')?.addEventListener('click', toggleMaintenance);
+  document.getElementById('btn-regen-bypass')?.addEventListener('click', regenBypassKey);
+  document.getElementById('btn-clear-end')?.addEventListener('click', () => {
+    document.getElementById('maint-planned-end').value = '';
+  });
+  document.getElementById('btn-copy-bypass')?.addEventListener('click', () => {
+    const v = document.getElementById('maint-bypass-key').value;
+    if (!v) { showToast('Aucune clé à copier', 'warn'); return; }
+    navigator.clipboard.writeText(window.location.origin + '/?bypass=' + v)
+      .then(() => showToast('URL de bypass copiée', 'success'))
+      .catch(() => showToast('Échec de la copie', 'error'));
+  });
+  // Mettre à jour l'aperçu URL quand la clé change (via regen)
+  document.getElementById('maint-bypass-key')?.addEventListener('input', updateBypassPreview);
+}
+
+async function loadMaintenanceConfig() {
+  try {
+    const m = await get('/api/config/maintenance');
+    _maintEnabled = !!m.enabled;
+    document.getElementById('maint-message').value      = m.message    || '';
+    document.getElementById('maint-bypass-key').value   = m.bypassKey  || '';
+    if (m.plannedEnd) {
+      // datetime-local attend "YYYY-MM-DDTHH:MM"
+      const d = new Date(m.plannedEnd);
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('maint-planned-end').value =
+        `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } else {
+      document.getElementById('maint-planned-end').value = '';
+    }
+    updateToggleButton();
+    updateBypassPreview();
+  } catch (e) {
+    showToast(`Erreur maintenance : ${e.message}`, 'error');
+  }
+}
+
+function updateToggleButton() {
+  const btn = document.getElementById('btn-toggle-maint');
+  if (!btn) return;
+  if (_maintEnabled) {
+    btn.className = 'btn btn-maint-on';
+    btn.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      Désactiver la maintenance`;
+  } else {
+    btn.className = 'btn btn-maint-off';
+    btn.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Activer la maintenance`;
+  }
+}
+
+function updateBypassPreview() {
+  const key = document.getElementById('maint-bypass-key')?.value;
+  const el  = document.getElementById('bypass-url-preview');
+  if (!el) return;
+  el.textContent = key
+    ? `${window.location.origin}/?bypass=${key}`
+    : '';
+}
+
+function regenBypassKey() {
+  const key = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+  document.getElementById('maint-bypass-key').value = key;
+  updateBypassPreview();
+  showToast('Nouvelle clé générée — pensez à sauvegarder', 'warn');
+}
+
+async function toggleMaintenance() {
+  const action  = _maintEnabled ? 'disable' : 'enable';
+  const willOn  = !_maintEnabled;
+  const confirmed = await showConfirm({
+    title:       willOn ? 'Activer la maintenance' : 'Désactiver la maintenance',
+    message:     willOn
+      ? 'Le site sera inaccessible pour tous les utilisateurs (sauf bypass). Continuer ?'
+      : 'Le site redeviendra accessible. Continuer ?',
+    confirmText: willOn ? 'Activer' : 'Désactiver',
+    danger:      willOn,
+  });
+  if (!confirmed) return;
+  try {
+    await post(`/api/config/maintenance/${action}`);
+    _maintEnabled = willOn;
+    updateToggleButton();
+    showToast(willOn ? 'Maintenance activée' : 'Maintenance désactivée', willOn ? 'warn' : 'success');
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+async function saveMaintenanceConfig() {
+  const message   = document.getElementById('maint-message')?.value.trim();
+  const bypassKey = document.getElementById('maint-bypass-key')?.value.trim();
+  const endRaw    = document.getElementById('maint-planned-end')?.value;
+  const plannedEnd = endRaw ? new Date(endRaw).toISOString() : null;
+
+  try {
+    await put('/api/config/maintenance', { message, bypassKey, plannedEnd });
+    showToast('Configuration maintenance sauvegardée', 'success');
+    updateBypassPreview();
   } catch (e) {
     showToast(`Erreur : ${e.message}`, 'error');
   }
