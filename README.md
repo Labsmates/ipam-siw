@@ -378,7 +378,7 @@ Lors de la réservation ou du renommage d'un hostname, le suffixe est appliqué 
 
 | Tag VLAN | Suffixe appliqué |
 |---|---|
-| `METIER`, `FLUX`, `PROCEF`, `IPMI PROCEF` | `.dct.adt.local` |
+| `METIER`, `FLUX`, `PROCEF`, ` Autre` | `.dct.adt.local` |
 | `ADMIN` | `.hdcadmin.sf.intra.laposte.fr` |
 | `IPMI`, inconnu | Aucun — hostname saisi tel quel |
 
