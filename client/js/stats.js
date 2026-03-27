@@ -5,6 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, showToast, sortSites, showConfirm, initTheme,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
@@ -90,6 +91,7 @@ let _searchRoleLin = '';
 let _searchIpSite  = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
   checkHttps();
   initTheme();
   if (!requireAuth()) return;
@@ -107,6 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
 
+  setupElevationMode();
   loadSidebar();
 
   // Auto-refresh when an IP changes in another tab (site.js broadcasts via localStorage)

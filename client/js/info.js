@@ -5,6 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, patch, del, showToast, sortSites, showConfirm, initTheme,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 let isAdmin   = false;
@@ -94,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateThemeBtn();
   themeBtn.addEventListener('click', () => { toggleTheme(); updateThemeBtn(); });
 
+  setupElevationMode();
   loadSidebar();
 });
 

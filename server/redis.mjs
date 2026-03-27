@@ -839,10 +839,33 @@ export async function generateBypassKey(username) {
     if (i === 4 || i === 8) key += '-';
     key += BYPASS_KEY_CHARS[Math.floor(Math.random() * BYPASS_KEY_CHARS.length)];
   }
+  const generated_at  = new Date().toISOString();
+  const expires_at    = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   await redis.hset('config:bypass_key', {
     key,
     generated_by: username,
-    generated_at: new Date().toISOString(),
+    generated_at,
+    expires_at,
+    used_at:  '',
+    used_by:  '',
+    used_for: '',
   });
   return key;
+}
+
+// Valide la clé (existence, non-utilisée, < 24h) et la marque utilisée atomiquement.
+// Lance une exception avec message lisible en cas d'échec.
+export async function validateAndUseBypassKey(key, username, purpose) {
+  const data = await redis.hgetall('config:bypass_key');
+  if (!data?.key) throw new Error('Aucune clé de bypass configurée');
+  if (data.used_at)  throw new Error('Cette clé a déjà été utilisée');
+  if (new Date(data.expires_at).getTime() < Date.now())
+    throw new Error('Clé de bypass expirée (validité 24h)');
+  if (data.key !== String(key || '').trim().toUpperCase())
+    throw new Error('Clé de bypass invalide');
+  await redis.hset('config:bypass_key', {
+    used_at:  new Date().toISOString(),
+    used_by:  username,
+    used_for: purpose,
+  });
 }

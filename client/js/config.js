@@ -6,6 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, getToken, logout,
   get, post, put, del,
   showToast, fmtDate, openModal, closeModal, showConfirm, initTheme, sortSites,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
@@ -19,7 +20,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const user = getUser();
 
-  // Guard : admins uniquement
+  setupElevationMode();
+
+  // Guard : admins uniquement (ou utilisateurs avec Mode Adm actif)
   if (user?.role !== 'admin') {
     window.location.replace('/admin.html');
     return;

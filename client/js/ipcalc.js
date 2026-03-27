@@ -5,9 +5,11 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, showToast, showConfirm, initTheme, sortSites,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
   checkHttps();
   initTheme();
   if (!requireAuth()) return;
@@ -33,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     })) logout();
   });
 
+  setupElevationMode();
   loadSidebar();
   setupIpCalc();
   setupNetTools();

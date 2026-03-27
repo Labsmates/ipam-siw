@@ -19,7 +19,7 @@ export function requireAdmin(req, res, next) {
 }
 
 export function requireSuperAdmin(req, res, next) {
-  if (req.user?.username !== 'ADMIN')
+  if (req.user?.username !== 'ADMIN' && req.user?.elevated !== 'sa')
     return res.status(403).json({ error: 'Accès refusé — super administrateur uniquement' });
   next();
 }

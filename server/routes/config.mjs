@@ -1049,10 +1049,18 @@ router.post('/maintenance/disable', async (req, res) => {
 router.get('/bypass-key', async (req, res) => {
   try {
     const data = await getBypassKey();
-    res.json(data
-      ? { key: data.key, generated_by: data.generated_by, generated_at: data.generated_at }
-      : { key: null, generated_by: null, generated_at: null }
-    );
+    if (!data) return res.json({ key: null, generated_by: null, generated_at: null, expires_at: null, used_at: null, used_by: null, used_for: null });
+    const expired = data.expires_at && new Date(data.expires_at).getTime() < Date.now();
+    res.json({
+      key:          expired ? null : data.key,
+      generated_by: data.generated_by,
+      generated_at: data.generated_at,
+      expires_at:   data.expires_at,
+      used_at:      data.used_at  || null,
+      used_by:      data.used_by  || null,
+      used_for:     data.used_for || null,
+      expired,
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

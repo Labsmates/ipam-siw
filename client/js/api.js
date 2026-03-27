@@ -423,3 +423,182 @@ export function setupGlobalIpSearch(inputId, dropdownId) {
     }
   }
 }
+
+// =============================================================================
+// Mode SA / Mode Adm — élévation temporaire via clé de bypass
+// =============================================================================
+const ELEV_KEY = 'ipam_elevation';
+
+function getElevation() {
+  try {
+    const e = JSON.parse(localStorage.getItem(ELEV_KEY) || 'null');
+    if (!e) return null;
+    if (e.expires < Date.now()) { _clearElevation(e); return null; }
+    return e;
+  } catch { return null; }
+}
+
+function _clearElevation(e) {
+  if (e?.backup_token) sessionStorage.setItem(TOKEN_KEY, e.backup_token);
+  if (e?.backup_user)  sessionStorage.setItem(USER_KEY,  e.backup_user);
+  localStorage.removeItem(ELEV_KEY);
+}
+
+// Doit être appelé EN PREMIER dans DOMContentLoaded, avant requireAuth/getUser.
+// Restaure le token élevé si une élévation active est présente dans localStorage.
+export function restoreElevationSession() {
+  const elev = getElevation();
+  if (!elev) return;
+  if (getToken() !== elev.token) {
+    sessionStorage.setItem(TOKEN_KEY, elev.token);
+    sessionStorage.setItem(USER_KEY, JSON.stringify(elev.user));
+  }
+}
+
+// Appelé après `const user = getUser()` — configure le bouton Mode SA / Mode Adm dans la sidebar.
+export function setupElevationMode() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+
+  const elev = getElevation();
+
+  // Rôle original : depuis la sauvegarde si élevé, sinon depuis la session actuelle
+  const originalRole = elev
+    ? (JSON.parse(elev.backup_user || '{}')?.role || 'user')
+    : (getUser()?.role || 'user');
+
+  // Montrer le lien Config pour les utilisateurs en Mode Adm
+  if (elev?.type === 'adm') {
+    document.getElementById('nav-config-link')?.classList.remove('hidden');
+    document.getElementById('nav-admin-link')?.classList.remove('hidden');
+  }
+
+  const showSA  = originalRole === 'admin' && !elev;
+  const showAdm = originalRole === 'user'  && !elev;
+  if (!showSA && !showAdm && !elev) return;
+
+  // Point d'ancrage : après nav-config-link
+  const refEl = document.getElementById('nav-config-link');
+  if (!refEl) return;
+
+  let section = document.getElementById('nav-elevation-section');
+  if (!section) {
+    section = document.createElement('div');
+    section.id = 'nav-elevation-section';
+    section.style.cssText = 'padding:4px 10px 10px';
+    refEl.parentNode.insertBefore(section, refEl.nextSibling);
+  }
+
+  let countdownTimer = null;
+
+  function renderBtn() {
+    const e = getElevation();
+    if (e) {
+      const mins  = Math.max(1, Math.round((e.expires - Date.now()) / 60000));
+      const label = e.type === 'sa' ? 'Mode SA' : 'Mode Adm';
+      section.innerHTML = `
+        <div style="background:#0d2240;border:1px solid #1f4080;border-radius:8px;padding:8px 12px">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+            <div style="width:7px;height:7px;background:#3fb950;border-radius:50%;flex-shrink:0"></div>
+            <span style="font-size:12px;font-weight:700;color:#58a6ff">${label} actif</span>
+            <span id="elev-countdown" style="font-size:11px;color:var(--tx-3);margin-left:auto">${mins}min</span>
+          </div>
+          <button id="btn-elev-deactivate" style="width:100%;background:none;border:1px solid #f8514940;color:#f85149;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer">Désactiver</button>
+        </div>`;
+      document.getElementById('btn-elev-deactivate').addEventListener('click', () => {
+        _clearElevation(getElevation());
+        clearInterval(countdownTimer);
+        window.location.reload();
+      });
+      // Countdown rafraîchi chaque minute
+      clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        const remaining = getElevation();
+        if (!remaining) { clearInterval(countdownTimer); window.location.reload(); return; }
+        const m = Math.max(1, Math.round((remaining.expires - Date.now()) / 60000));
+        const el = document.getElementById('elev-countdown');
+        if (el) el.textContent = `${m}min`;
+      }, 30_000);
+    } else {
+      const type  = showSA ? 'sa' : 'adm';
+      const label = showSA ? 'Mode SA' : 'Mode Adm';
+      const color = showSA ? '#8957e5' : '#d29922';
+      section.innerHTML = `
+        <button id="btn-elevation-mode" style="width:100%;background:${color}18;border:1px solid ${color}40;color:${color};border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .15s"
+          onmouseenter="this.style.background='${color}30'" onmouseleave="this.style.background='${color}18'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          ${label}
+        </button>`;
+      document.getElementById('btn-elevation-mode').addEventListener('click', () => openElevModal(type));
+    }
+  }
+
+  function openElevModal(type) {
+    const label = type === 'sa' ? 'Mode SA — Super Admin' : 'Mode Adm — Accès Admin';
+    const color = type === 'sa' ? '#8957e5' : '#d29922';
+    const desc  = type === 'sa'
+      ? 'Élève vos droits en super administrateur pendant 1 heure.'
+      : 'Débloque les droits administrateur pendant 1 heure.';
+
+    let modal = document.getElementById('modal-elevation');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-elevation';
+      document.body.appendChild(modal);
+    }
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = `
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:14px;padding:28px 32px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:34px;height:34px;background:${color};border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3 style="font-size:15px;font-weight:700;margin:0;color:var(--tx-1)">${label}</h3>
+        </div>
+        <p style="color:var(--tx-3);font-size:13px;margin:0 0 18px">${desc} Saisissez la clé de bypass fournie par votre administrateur.</p>
+        <div style="margin-bottom:14px">
+          <input id="elev-key-input" class="inp" type="text" placeholder="XXXX-XXXX-XXXX" autocomplete="off"
+            style="font-family:'JetBrains Mono','Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-align:center">
+        </div>
+        <div id="elev-key-error" style="display:none;background:#f8514918;border:1px solid #f8514940;border-radius:7px;padding:8px 12px;font-size:12px;color:#f85149;margin-bottom:14px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="btn-elev-cancel" class="btn" style="background:var(--bg-4);border:1px solid var(--brd);color:var(--tx-2)">Annuler</button>
+          <button id="btn-elev-confirm" class="btn" style="background:${color};color:#fff;font-weight:600">Activer</button>
+        </div>
+      </div>`;
+
+    const keyInput = modal.querySelector('#elev-key-input');
+    const errBox   = modal.querySelector('#elev-key-error');
+    const btnOk    = modal.querySelector('#btn-elev-confirm');
+    const btnCancel= modal.querySelector('#btn-elev-cancel');
+
+    keyInput.addEventListener('input', () => { keyInput.value = keyInput.value.toUpperCase(); });
+    keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnOk.click(); });
+    btnCancel.addEventListener('click', () => { modal.remove(); });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    setTimeout(() => keyInput.focus(), 50);
+
+    btnOk.addEventListener('click', async () => {
+      const key = keyInput.value.trim();
+      if (!key) { errBox.textContent = 'Saisissez la clé de bypass.'; errBox.style.display = 'block'; return; }
+      errBox.style.display = 'none';
+      btnOk.disabled = true; btnOk.textContent = 'Vérification…';
+      try {
+        const data = await post('/api/bypass/elevate', { key, type });
+        // Sauvegarder la session originale et remplacer par le token élevé
+        const backup = { token: data.token, user: data.user, type, expires: new Date(data.expires_at).getTime(),
+          backup_token: getToken(), backup_user: sessionStorage.getItem(USER_KEY) };
+        localStorage.setItem(ELEV_KEY, JSON.stringify(backup));
+        modal.remove();
+        window.location.reload();
+      } catch (e) {
+        errBox.textContent = e.message;
+        errBox.style.display = 'block';
+        keyInput.select();
+        btnOk.disabled = false; btnOk.textContent = 'Activer';
+      }
+    });
+  }
+
+  renderBtn();
+}

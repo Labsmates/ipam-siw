@@ -6,6 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, patch, del, showToast, sortIPs, sortSites, statusBadge, fmtDate,
   openModal, closeModal, cidrToIPs, showConfirm, initTheme, setupGlobalIpSearch,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,7 @@ function updateHostnameHint(inputId, hintId, suffix) {
 // Init
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
   checkHttps();
   initTheme();
   if (!requireAuth()) return;
@@ -93,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Populate sidebar
+  setupElevationMode();
   loadSidebar();
 
   // Password change modal (accessible to all users)

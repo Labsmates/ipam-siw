@@ -5,6 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, showToast, sortSites, showConfirm, initTheme,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const data = await get('/api/sites');
     const allSites = sortSites(data.sites || []);
+    setupElevationMode();
     setupExport(allSites);
     loadSidebar(allSites);
   } catch (err) {

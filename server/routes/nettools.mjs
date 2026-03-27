@@ -6,7 +6,7 @@
 import { Router } from 'express';
 import { spawn  } from 'child_process';
 import { requireAuth } from '../middleware/auth.mjs';
-import { getBypassKey } from '../redis.mjs';
+import { validateAndUseBypassKey } from '../redis.mjs';
 
 const router = Router();
 
@@ -70,11 +70,13 @@ router.post('/traceroute', requireAuth, async (req, res) => {
 router.post('/scan', requireAuth, async (req, res) => {
   const { network, prefix, bypass_key } = req.body;
 
-  // Validation de la clé de bypass
+  // Validation de la clé de bypass (single-use, 24h)
   if (!bypass_key) return res.status(403).json({ error: 'Clé de bypass requise pour le scan réseau' });
-  const stored = await getBypassKey();
-  if (!stored || stored.key !== String(bypass_key).trim().toUpperCase())
-    return res.status(403).json({ error: 'Clé de bypass invalide' });
+  try {
+    await validateAndUseBypassKey(bypass_key, req.user.username, 'scan');
+  } catch (e) {
+    return res.status(403).json({ error: e.message });
+  }
   if (!isValidIP(network)) return res.status(400).json({ error: 'Réseau invalide' });
   const p = parseInt(prefix);
   if (isNaN(p) || p < 22 || p > 30)

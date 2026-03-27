@@ -5,6 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, showToast, sortSites, showConfirm, initTheme,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 function fmtDate(ts) {
@@ -34,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
 
+  setupElevationMode();
   loadSidebar();
   document.getElementById('search-input').addEventListener('input', renderFiltered);
 

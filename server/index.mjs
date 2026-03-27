@@ -12,6 +12,7 @@ import accountRequestsRouter from './routes/account_requests.mjs';
 import configRouter          from './routes/config.mjs';
 import infosRouter           from './routes/infos.mjs';
 import nettoolsRouter        from './routes/nettools.mjs';
+import bypassRouter          from './routes/bypass.mjs';
 import { securityHeaders } from './middleware/security.mjs';
 import { maintenanceMiddleware } from './middleware/maintenance.mjs';
 import { ensureDefaultAdmin } from './routes/auth.mjs';
@@ -59,6 +60,7 @@ app.use('/api/account_requests', accountRequestsRouter);
 app.use('/api/config',           configRouter);
 app.use('/api/infos',            infosRouter);
 app.use('/api/nettools',         nettoolsRouter);
+app.use('/api/bypass',           bypassRouter);
 
 // SPA fallback: unknown routes → index.html
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '../client/index.html')));

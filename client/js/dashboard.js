@@ -5,9 +5,11 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, showToast, sortSites, showConfirm, initTheme, setupGlobalIpSearch,
+  restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
   checkHttps();
   initTheme();
   if (!requireAuth()) return;
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
 
+  setupElevationMode();
   loadSidebar();
 
   // Password change modal

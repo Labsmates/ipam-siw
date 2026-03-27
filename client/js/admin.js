@@ -8,6 +8,7 @@ import {
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
   checkHttps();
   initTheme();
   if (!requireAuth()) return;
@@ -25,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Populate sidebar
+  setupElevationMode();
   loadAdminSidebar();
 
   // Tabs
@@ -627,16 +629,42 @@ function setupLogFilters() {
 // =============================================================================
 async function loadBypassKey() {
   try {
-    const data = await get('/api/config/bypass-key');
+    const data    = await get('/api/config/bypass-key');
     const display = document.getElementById('bypass-key-display');
     const meta    = document.getElementById('bypass-key-meta');
-    if (data.key) {
-      display.textContent = data.key;
-      const d = new Date(data.generated_at);
-      meta.textContent = `Générée par ${data.generated_by} le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-    } else {
+    const status  = document.getElementById('bypass-key-status');
+
+    if (!data.generated_at) {
       display.textContent = '—';
       meta.textContent = 'Aucune clé générée';
+      status.style.display = 'none';
+      return;
+    }
+
+    const genDate = new Date(data.generated_at);
+    const expDate = data.expires_at ? new Date(data.expires_at) : null;
+    const fmt     = d => `${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    if (data.expired || !data.key) {
+      display.textContent = '— expirée —';
+      display.style.color = 'var(--tx-4)';
+    } else {
+      display.textContent = data.key;
+      display.style.color = '#58a6ff';
+    }
+
+    meta.textContent = `Générée par ${data.generated_by} le ${fmt(genDate)}${expDate ? ' · expire le ' + fmt(expDate) : ''}`;
+
+    if (data.used_at) {
+      const usedDate = new Date(data.used_at);
+      const purposeLabel = { scan: 'Scan réseau', sa: 'Mode SA', adm: 'Mode Adm' }[data.used_for] || data.used_for;
+      status.style.cssText = 'display:block;background:#0d2e1a;border:1px solid #238636;color:#3fb950;border-radius:7px;padding:7px 10px;font-size:12px;margin-top:10px';
+      status.textContent   = `✓ Utilisée par ${data.used_by} le ${fmt(usedDate)} — ${purposeLabel}`;
+    } else if (!data.expired && data.key) {
+      status.style.cssText = 'display:block;background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:7px;padding:7px 10px;font-size:12px;margin-top:10px';
+      status.textContent   = '⏳ Non utilisée — disponible';
+    } else {
+      status.style.display = 'none';
     }
   } catch (e) { showToast('Erreur chargement clé de bypass', 'error'); }
 }
