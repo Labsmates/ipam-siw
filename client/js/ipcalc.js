@@ -164,7 +164,7 @@ window._showToast = showToast;
 
 function setupNetTools() {
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  const tabs   = ['ping', 'traceroute', 'scan'];
+  const tabs   = ['ping', 'traceroute', 'scan', 'nmap', 'nc'];
   const tabEls = tabs.map(t => document.getElementById(`nt-tab-${t}`));
   const panels = tabs.map(t => document.getElementById(`nt-panel-${t}`));
 
@@ -288,6 +288,45 @@ function setupNetTools() {
     const p   = parseInt(pfx);
     if (p >= 22 && p <= 30) opt.value = p;
     else showToast(`/${pfx} hors plage /22–/30 pour le scan`, 'warn');
+  });
+
+  // ── Nmap ──────────────────────────────────────────────────────────────────
+  const nmapIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M8 11h6M11 8v6"/></svg> Nmap`;
+  document.getElementById('nt-btn-nmap').addEventListener('click', async () => {
+    const target = document.getElementById('nt-nmap-target').value.trim();
+    const ports  = document.getElementById('nt-nmap-ports').value.trim();
+    if (!checkTarget(target, 'Nmap')) return;
+    setLoading('nt-btn-nmap', 'nt-nmap-output', true);
+    try {
+      const data = await post('/api/nettools/nmap', { target, ports });
+      showOutput('nt-nmap-output', data.output, data.success);
+    } catch (e) {
+      showOutput('nt-nmap-output', `Erreur : ${e.message}`, false);
+    }
+    setLoading('nt-btn-nmap', 'nt-nmap-output', false, nmapIcon);
+  });
+  document.getElementById('nt-nmap-target').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('nt-btn-nmap').click();
+  });
+
+  // ── Netcat ────────────────────────────────────────────────────────────────
+  const ncIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Tester`;
+  document.getElementById('nt-btn-nc').addEventListener('click', async () => {
+    const target = document.getElementById('nt-nc-target').value.trim();
+    const port   = document.getElementById('nt-nc-port').value.trim();
+    if (!checkTarget(target, 'NC')) return;
+    if (!port || isNaN(parseInt(port, 10))) { showToast('NC : port invalide', 'warn'); return; }
+    setLoading('nt-btn-nc', 'nt-nc-output', true);
+    try {
+      const data = await post('/api/nettools/nc', { target, port: parseInt(port, 10) });
+      showOutput('nt-nc-output', data.output || (data.success ? `Port ${port} ouvert sur ${target}` : `Port ${port} fermé ou inaccessible sur ${target}`), data.success);
+    } catch (e) {
+      showOutput('nt-nc-output', `Erreur : ${e.message}`, false);
+    }
+    setLoading('nt-btn-nc', 'nt-nc-output', false, ncIcon);
+  });
+  document.getElementById('nt-nc-port').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('nt-btn-nc').click();
   });
 }
 

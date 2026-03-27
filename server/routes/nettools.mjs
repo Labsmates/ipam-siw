@@ -96,4 +96,31 @@ router.post('/scan', requireAuth, async (req, res) => {
   res.json({ alive, total: ips.length, responding: alive.length });
 });
 
+// ── POST /api/nettools/nmap ───────────────────────────────────────────────────
+// Ports : liste/plage de ports (ex: 22,80,443 ou 1-1024) — facultatif
+router.post('/nmap', requireAuth, async (req, res) => {
+  const { target, ports } = req.body;
+  if (!isValidTarget(target)) return res.status(400).json({ error: 'IP ou FQDN invalide' });
+  const portsStr = (ports || '').trim();
+  if (portsStr && (!/^[\d,\-]+$/.test(portsStr) || portsStr.length > 200))
+    return res.status(400).json({ error: 'Ports invalides (ex : 22,80,443 ou 1-1024)' });
+  const args = ['-Pn', '--open', '--host-timeout', '30s'];
+  if (portsStr) args.push('-p', portsStr);
+  args.push(target.trim());
+  const { output, code } = await run('nmap', args, 60_000);
+  res.json({ output, success: code === 0 });
+});
+
+// ── POST /api/nettools/nc ─────────────────────────────────────────────────────
+// Teste l'ouverture d'un port TCP (netcat -z)
+router.post('/nc', requireAuth, async (req, res) => {
+  const { target, port } = req.body;
+  if (!isValidTarget(target)) return res.status(400).json({ error: 'IP ou FQDN invalide' });
+  const p = parseInt(port, 10);
+  if (isNaN(p) || p < 1 || p > 65535)
+    return res.status(400).json({ error: 'Port invalide (1–65535)' });
+  const { output, code } = await run('nc', ['-z', '-v', '-w', '3', target.trim(), String(p)], 10_000);
+  res.json({ output, success: code === 0 });
+});
+
 export default router;
