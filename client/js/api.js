@@ -366,3 +366,60 @@ document.addEventListener('click', e => {
     e.target.closest('.modal-overlay')?.classList.add('hidden');
   }
 });
+
+// =============================================================================
+// Recherche IP globale — partagée par dashboard.js et site.js
+// =============================================================================
+export function setupGlobalIpSearch(inputId, dropdownId) {
+  const input    = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  if (!input || !dropdown) return;
+
+  const STATUS_COLOR = { 'Libre': '#3fb950', 'Utilisé': '#58a6ff', 'Réservée': '#d29922' };
+  function _e(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  let debounce = null;
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    const q = input.value.trim();
+    if (q.length < 3) {
+      dropdown.style.display = 'none';
+      dropdown.innerHTML = '';
+      return;
+    }
+    debounce = setTimeout(() => doSearch(q), 280);
+  });
+
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !dropdown.contains(e.target))
+      dropdown.style.display = 'none';
+  });
+  input.addEventListener('focus', () => {
+    if (dropdown.innerHTML) dropdown.style.display = '';
+  });
+
+  async function doSearch(q) {
+    dropdown.innerHTML = '<div style="padding:12px 16px;color:var(--tx-3);font-size:13px;">Recherche…</div>';
+    dropdown.style.display = '';
+    try {
+      const data    = await get(`/api/ips/search?q=${encodeURIComponent(q)}`);
+      const results = data.results || [];
+      if (!results.length) {
+        dropdown.innerHTML = '<div style="padding:12px 16px;color:var(--tx-3);font-size:13px;">Aucune adresse IP trouvée.</div>';
+        return;
+      }
+      dropdown.innerHTML = results.map(r => {
+        const color = STATUS_COLOR[r.status] || 'var(--tx-3)';
+        return `<a href="/site.html?id=${encodeURIComponent(r.site_id)}" class="ip-search-row">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--tx-1);min-width:120px">${_e(r.ip_address)}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};border:1px solid ${color}44;white-space:nowrap">${_e(r.status)}</span>
+          <span style="font-size:12px;color:var(--tx-4);white-space:nowrap">VLAN ${_e(r.vlan_id)}</span>
+          <span style="font-size:12px;font-weight:600;color:var(--tx-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_e(r.site_name)}</span>
+          ${r.hostname ? `<span style="font-size:11px;color:var(--tx-4);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">${_e(r.hostname)}</span>` : ''}
+        </a>`;
+      }).join('');
+    } catch (e) {
+      dropdown.innerHTML = `<div style="padding:12px 16px;color:#f85149;font-size:13px;">Erreur : ${_e(e.message)}</div>`;
+    }
+  }
+}

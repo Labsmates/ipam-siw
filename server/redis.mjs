@@ -252,6 +252,9 @@ export async function listSitesWithStats() {
         ip_free:      stats[id].ip_libre,
         ip_used:      stats[id].ip_utilise,
         ip_reserved:  stats[id].ip_reservee,
+        site_code:    s.site_code    || '',
+        code_regate:  s.code_regate  || '',
+        code_pst:     s.code_pst     || '',
       };
     })
     .filter(Boolean)
@@ -515,12 +518,79 @@ export async function getIp(id) {
   return ip?.ip_address ? { id: parseInt(id), ...ip } : null;
 }
 
+// Recherche globale d'une IP ou d'un hostname dans tous les sites/VLANs
+export async function searchAllIPs(query) {
+  const q = query.toLowerCase();
+  const siteIds = await redis.smembers('sites');
+  if (!siteIds.length) return [];
+
+  // 1. Noms des sites + liste des VLANs par site
+  const pipe1 = redis.pipeline();
+  siteIds.forEach(sid => { pipe1.hget(`site:${sid}`, 'name'); pipe1.smembers(`site:${sid}:vlans`); });
+  const r1 = await pipe1.exec();
+
+  const siteNames  = {};
+  const vlanToSite = {};
+  const allVlanIds = [];
+  siteIds.forEach((sid, i) => {
+    siteNames[sid] = r1[i * 2][1] || '';
+    (r1[i * 2 + 1][1] || []).forEach(vid => { vlanToSite[vid] = sid; allVlanIds.push(vid); });
+  });
+  if (!allVlanIds.length) return [];
+
+  // 2. Données VLAN + index IP adresse→id
+  const pipe2 = redis.pipeline();
+  allVlanIds.forEach(vid => { pipe2.hgetall(`vlan:${vid}`); pipe2.hgetall(`vlan:${vid}:ips:idx`); });
+  const r2 = await pipe2.exec();
+
+  const candidates = [];
+  for (let i = 0; i < allVlanIds.length; i++) {
+    const vlan  = r2[i * 2][1];
+    const ipIdx = r2[i * 2 + 1][1];
+    if (!vlan || !ipIdx) continue;
+    const sid = vlanToSite[allVlanIds[i]];
+    for (const [ipAddr, ipId] of Object.entries(ipIdx)) {
+      if (ipAddr.includes(q)) {
+        candidates.push({ ip_db_id: ipId, ip_address: ipAddr,
+          site_id: parseInt(sid), site_name: siteNames[sid],
+          vlan_id: vlan.vlan_id, vlan_db_id: parseInt(allVlanIds[i]) });
+        if (candidates.length >= 100) break;
+      }
+    }
+    if (candidates.length >= 100) break;
+  }
+  if (!candidates.length) return [];
+
+  // 3. Hostname + statut pour les candidats
+  const pipe3 = redis.pipeline();
+  candidates.forEach(c => pipe3.hmget(`ip:${c.ip_db_id}`, 'hostname', 'status'));
+  const r3 = await pipe3.exec();
+  candidates.forEach((c, i) => {
+    c.hostname = r3[i][1][0] || '';
+    c.status   = r3[i][1][1] || 'Libre';
+  });
+
+  const toInt = ip => ip.split('.').reduce((a, n) => a * 256 + parseInt(n), 0);
+  return candidates.sort((a, b) => toInt(a.ip_address) - toInt(b.ip_address));
+}
+
 export async function updateIpStatus(id, status) {
   const VALID = ['Libre', 'Utilisé', 'Réservée'];
   if (!VALID.includes(status)) throw new Error('Statut invalide');
   const ip = await redis.hgetall(`ip:${id}`);
   if (!ip?.ip_address) throw new Error('IP introuvable');
   await redis.hset(`ip:${id}`, { status, updated_at: now() });
+}
+
+export async function deleteIp(id) {
+  const ip = await redis.hgetall(`ip:${id}`);
+  if (!ip?.ip_address) return false;
+  const pipe = redis.pipeline();
+  pipe.del(`ip:${id}`);
+  pipe.srem(`vlan:${ip.vlan_id}:ips`, String(id));
+  pipe.hdel(`vlan:${ip.vlan_id}:ips:idx`, ip.ip_address);
+  await pipe.exec();
+  return true;
 }
 
 export async function updateIp(id, { status, hostname }) {

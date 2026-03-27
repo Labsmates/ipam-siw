@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, showToast, sortSites, showConfirm, initTheme,
+  get, post, showToast, sortSites, showConfirm, initTheme, setupGlobalIpSearch,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   await loadSites();
+  setupGlobalIpSearch('search-ip-global', 'ip-global-dropdown');
 });
 
 async function loadSidebar() {

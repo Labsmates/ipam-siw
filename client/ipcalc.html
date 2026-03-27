@@ -34,6 +34,14 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 #sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:var(--bg-2);border-right:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;z-index:10}
 #app-main{margin-left:260px;height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;overflow:hidden}
 .ipcalc-card{background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px}
+.nt-tab{padding:7px 16px;border-radius:7px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.nt-tab:hover{background:var(--bg-hover);color:var(--tx-1)}
+.nt-tab.active{background:#58a6ff18;border-color:#58a6ff40;color:#58a6ff}
+.nt-output{background:#0d1117;border:1px solid var(--brd);border-radius:8px;padding:14px 16px;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;color:#e6edf3;white-space:pre-wrap;word-break:break-all;max-height:340px;overflow-y:auto;line-height:1.65;margin-top:12px}
+.nt-cmds{background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:12px 16px;margin-top:10px;font-size:12px;color:var(--tx-3)}
+.nt-cmds code{font-family:'JetBrains Mono','Courier New',monospace;color:var(--tx-2);background:var(--bg-4);padding:1px 6px;border-radius:4px;font-size:11px}
+.nt-cmds .cmd-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+.nt-cmds .cmd-lbl{min-width:90px;color:var(--tx-4);font-size:11px}
 </style>
 </head>
 <body>
@@ -59,17 +67,21 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
   </div>
 
   <div style="padding:10px 10px 6px;border-bottom:1px solid var(--brd)">
-    <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      Sites IPAM
-    </a>
     <a href="/dashboard.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       Tableau de bord
     </a>
+    <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Sites IPAM
+    </a>
     <a href="/stats.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Statistiques
+    </a>
+    <a href="/ipcalc.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;-webkit-box-sizing:border-box;box-sizing:border-box">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Calculateur IP
     </a>
     <a href="/export.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -78,10 +90,6 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     <a href="/archive.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
       Archive
-    </a>
-    <a href="/ipcalc.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;-webkit-box-sizing:border-box;box-sizing:border-box">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      Calculateur IP
     </a>
     <a href="/info.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
@@ -154,7 +162,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         </div>
       </div>
 
-      <!-- Résultats -->
+      <!-- Résultats calculateur -->
       <div id="ipcalc-result" class="hidden">
 
         <!-- Bandeau réseau/masque -->
@@ -181,6 +189,100 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
           <div id="ipcalc-card-wildcard"  class="ipcalc-card"></div>
         </div>
       </div>
+
+      <!-- ══ Outils réseau ══ -->
+      <div style="margin-top:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#3fb950,#238636);border-radius:9px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(63,185,80,.25);flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div>
+            <h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0">Outils réseau</h2>
+            <div style="font-size:12px;color:var(--tx-3)">Ping, Traceroute et scan de disponibilité — exécutés depuis le serveur.</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:6px;margin-bottom:16px">
+          <button id="nt-tab-ping"       class="nt-tab active">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;margin-right:5px;vertical-align:middle"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>Ping
+          </button>
+          <button id="nt-tab-traceroute" class="nt-tab">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;margin-right:5px;vertical-align:middle"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Traceroute
+          </button>
+          <button id="nt-tab-scan"       class="nt-tab">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;margin-right:5px;vertical-align:middle"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Scan réseau
+          </button>
+        </div>
+
+        <!-- Panel Ping -->
+        <div id="nt-panel-ping" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-end">
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Adresse IP cible</div>
+              <input id="nt-ping-target" class="inp" placeholder="ex : 192.168.1.1 ou serveur.domaine.local" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+            </div>
+            <button id="nt-btn-ping" class="btn" style="background:#3fb950;color:#0d1117;font-weight:600">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+              Ping
+            </button>
+          </div>
+          <div id="nt-ping-output" class="nt-output hidden"></div>
+          <div class="nt-cmds" style="margin-top:10px">
+            <div style="font-size:11px;color:var(--tx-4);margin-bottom:6px;font-weight:600">Commandes équivalentes</div>
+            <div class="cmd-row"><span class="cmd-lbl">Linux</span><code>ping -c 4 &lt;ip&gt;</code></div>
+            <div class="cmd-row"><span class="cmd-lbl">Windows</span><code>ping &lt;ip&gt;</code></div>
+            <div class="cmd-row"><span class="cmd-lbl">PowerShell</span><code>Test-Connection -ComputerName &lt;ip&gt; -Count 4</code></div>
+          </div>
+        </div>
+
+        <!-- Panel Traceroute -->
+        <div id="nt-panel-traceroute" class="hidden" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-end">
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Adresse IP cible</div>
+              <input id="nt-tr-target" class="inp" placeholder="ex : 192.168.1.1 ou serveur.domaine.local" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+            </div>
+            <button id="nt-btn-tr" class="btn" style="background:#d29922;color:#0d1117;font-weight:600">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Traceroute
+            </button>
+          </div>
+          <div id="nt-tr-output" class="nt-output hidden"></div>
+          <div class="nt-cmds" style="margin-top:10px">
+            <div style="font-size:11px;color:var(--tx-4);margin-bottom:6px;font-weight:600">Commandes équivalentes</div>
+            <div class="cmd-row"><span class="cmd-lbl">Linux</span><code>traceroute -n &lt;ip&gt;</code></div>
+            <div class="cmd-row"><span class="cmd-lbl">Windows</span><code>tracert &lt;ip&gt;</code></div>
+            <div class="cmd-row"><span class="cmd-lbl">PowerShell</span><code>Test-NetConnection -ComputerName &lt;ip&gt; -TraceRoute</code></div>
+          </div>
+        </div>
+
+        <!-- Panel Scan réseau -->
+        <div id="nt-panel-scan" class="hidden" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:flex-end">
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Adresse réseau</div>
+              <input id="nt-scan-network" class="inp" placeholder="ex : 192.168.1.0" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Masque CIDR</div>
+              <select id="nt-scan-prefix" class="inp" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px;width:90px"></select>
+            </div>
+            <button id="nt-btn-scan" class="btn" style="background:#58a6ff;color:#0d1117;font-weight:600">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Scanner
+            </button>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--tx-4)">Plages supportées : /22 à /30 — max 1022 hôtes. <span id="nt-scan-use-calc" style="color:#58a6ff;cursor:pointer;text-decoration:underline;display:none">Utiliser le réseau calculé</span></div>
+          <div id="nt-scan-output" class="nt-output hidden"></div>
+          <div class="nt-cmds" style="margin-top:10px">
+            <div style="font-size:11px;color:var(--tx-4);margin-bottom:6px;font-weight:600">Commandes équivalentes</div>
+            <div class="cmd-row"><span class="cmd-lbl">Linux</span><code>fping -a -g &lt;réseau&gt;/&lt;cidr&gt; 2&gt;/dev/null</code></div>
+            <div class="cmd-row"><span class="cmd-lbl">Windows</span><code>1..254 | % { if(Test-Connection -Quiet -Count 1 192.168.1.$_){$_} }</code></div>
+          </div>
+        </div>
+
+      </div><!-- /outils réseau -->
 
     </div>
   </div>

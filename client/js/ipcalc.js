@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, showToast, showConfirm, initTheme, sortSites,
+  get, post, showToast, showConfirm, initTheme, sortSites,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loadSidebar();
   setupIpCalc();
+  setupNetTools();
 });
 
 async function loadSidebar() {
@@ -150,7 +151,143 @@ function runIpCalc() {
   card('ipcalc-card-wildcard',  'Masque inverse',         wildcard,               'var(--tx-2)');
 
   document.getElementById('ipcalc-result').classList.remove('hidden');
+  // Rendre disponible le lien "Utiliser le réseau calculé" dans le scan
+  document.getElementById('nt-scan-use-calc').style.display = 'inline';
 }
 
 // Expose showToast globally for onclick handlers in innerHTML
 window._showToast = showToast;
+
+// =============================================================================
+// Outils réseau — Ping / Traceroute / Scan
+// =============================================================================
+
+function setupNetTools() {
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  const tabs   = ['ping', 'traceroute', 'scan'];
+  const tabEls = tabs.map(t => document.getElementById(`nt-tab-${t}`));
+  const panels = tabs.map(t => document.getElementById(`nt-panel-${t}`));
+
+  function activateTab(idx) {
+    tabEls.forEach((el, i) => el.classList.toggle('active', i === idx));
+    panels.forEach((el, i) => el.classList.toggle('hidden', i !== idx));
+  }
+  tabEls.forEach((el, i) => el.addEventListener('click', () => activateTab(i)));
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function setLoading(btnId, outputId, loading, label) {
+    const btn = document.getElementById(btnId);
+    const out = document.getElementById(outputId);
+    if (loading) {
+      btn.disabled = true;
+      btn.textContent = 'En cours…';
+      out.classList.remove('hidden');
+      out.textContent = 'Exécution en cours…';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = label;
+    }
+  }
+
+  function showOutput(outputId, text, success) {
+    const out = document.getElementById(outputId);
+    out.classList.remove('hidden');
+    out.style.borderColor = success === false ? '#f8514940' : success === true ? '#3fb95040' : 'var(--brd)';
+    out.textContent = text;
+  }
+
+  const TARGET_RE = /^[a-zA-Z0-9][\w.\-]{0,252}$/;
+  function checkTarget(val, label) {
+    if (!val || !TARGET_RE.test(val)) { showToast(`${label} : IP ou FQDN invalide`, 'warn'); return false; }
+    return true;
+  }
+  // Validation IP stricte pour le scan (IP uniquement)
+  const IP_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
+  function checkIP(val, label) {
+    if (!val || !IP_RE.test(val)) { showToast(`${label} : IP invalide`, 'warn'); return false; }
+    return true;
+  }
+
+  // ── Ping ──────────────────────────────────────────────────────────────────
+  const pingIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg> Ping`;
+  document.getElementById('nt-btn-ping').addEventListener('click', async () => {
+    const target = document.getElementById('nt-ping-target').value.trim();
+    if (!checkTarget(target, 'Ping')) return;
+    setLoading('nt-btn-ping', 'nt-ping-output', true);
+    try {
+      const data = await post('/api/nettools/ping', { target });
+      showOutput('nt-ping-output', data.output, data.success);
+    } catch (e) {
+      showOutput('nt-ping-output', `Erreur : ${e.message}`, false);
+    }
+    setLoading('nt-btn-ping', 'nt-ping-output', false, pingIcon);
+  });
+  document.getElementById('nt-ping-target').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('nt-btn-ping').click();
+  });
+
+  // ── Traceroute ────────────────────────────────────────────────────────────
+  const trIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Traceroute`;
+  document.getElementById('nt-btn-tr').addEventListener('click', async () => {
+    const target = document.getElementById('nt-tr-target').value.trim();
+    if (!checkTarget(target, 'Traceroute')) return;
+    setLoading('nt-btn-tr', 'nt-tr-output', true);
+    try {
+      const data = await post('/api/nettools/traceroute', { target });
+      showOutput('nt-tr-output', data.output, data.success);
+    } catch (e) {
+      showOutput('nt-tr-output', `Erreur : ${e.message}`, false);
+    }
+    setLoading('nt-btn-tr', 'nt-tr-output', false, trIcon);
+  });
+  document.getElementById('nt-tr-target').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('nt-btn-tr').click();
+  });
+
+  // ── Scan réseau ───────────────────────────────────────────────────────────
+  const scanSel = document.getElementById('nt-scan-prefix');
+  for (let i = 22; i <= 30; i++) {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = `/${i}`;
+    if (i === 24) opt.selected = true;
+    scanSel.appendChild(opt);
+  }
+
+  const scanIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Scanner`;
+  document.getElementById('nt-btn-scan').addEventListener('click', async () => {
+    const network = document.getElementById('nt-scan-network').value.trim();
+    const prefix  = parseInt(document.getElementById('nt-scan-prefix').value);
+    if (!checkIP(network, 'Scan')) return;
+    setLoading('nt-btn-scan', 'nt-scan-output', true);
+    const hosts = Math.pow(2, 32 - prefix) - 2;
+    document.getElementById('nt-scan-output').textContent =
+      `Scan de ${network}/${prefix} (${hosts} hôtes) en cours…`;
+    try {
+      const data = await post('/api/nettools/scan', { network, prefix });
+      const lines = [
+        `Réseau : ${network}/${prefix}  |  ${data.responding} / ${data.total} hôtes répondent\n`,
+        '─'.repeat(50),
+        ...(data.alive.length
+          ? data.alive.map(ip => `  ✓  ${ip}`)
+          : ['  Aucun hôte ne répond.']),
+      ];
+      showOutput('nt-scan-output', lines.join('\n'), data.responding > 0);
+    } catch (e) {
+      showOutput('nt-scan-output', `Erreur : ${e.message}`, false);
+    }
+    setLoading('nt-btn-scan', 'nt-scan-output', false, scanIcon);
+  });
+
+  // Lien "Utiliser le réseau calculé" — rempli quand le calculateur a un résultat
+  document.getElementById('nt-scan-use-calc').addEventListener('click', () => {
+    const cidr = document.getElementById('ipcalc-cidr-label')?.textContent;
+    if (!cidr) return;
+    const [net, pfx] = cidr.split('/');
+    document.getElementById('nt-scan-network').value = net;
+    const opt = document.getElementById('nt-scan-prefix');
+    const p   = parseInt(pfx);
+    if (p >= 22 && p <= 30) opt.value = p;
+    else showToast(`/${pfx} hors plage /22–/30 pour le scan`, 'warn');
+  });
+}
+

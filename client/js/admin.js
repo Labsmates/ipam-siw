@@ -278,13 +278,16 @@ function renderSites() {
   const q = searchSite.toLowerCase();
   const filtered = q ? allSites.filter(s => s.name.toLowerCase().includes(q)) : allSites;
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--tx-3);padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--tx-3);padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map(s => `
     <tr style="border-bottom:1px solid var(--bg-4);"
         onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
       <td style="padding:12px 16px;color:var(--tx-1);font-weight:600;">${esc(s.name)}</td>
+      <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.site_code ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.site_code || '—'}</td>
+      <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.code_regate ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.code_regate || '—'}</td>
+      <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.code_pst ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.code_pst || '—'}</td>
       <td style="padding:12px 16px;color:var(--tx-3);">${(s.vlan_count || 0)} VLAN(s)</td>
       <td style="padding:12px 16px;color:var(--tx-3);">${(s.total || 0).toLocaleString('fr')} IPs</td>
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">

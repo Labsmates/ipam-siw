@@ -7,7 +7,24 @@ const router = express.Router();
 
 // GET /api/sites
 router.get('/', requireAuth, async (_req, res) => {
-  try { res.json({ sites: await listSitesWithStats() }); }
+  try {
+    const sites = await listSitesWithStats();
+    try {
+      const raw = await redis.get('config:infos');
+      const infos = raw ? JSON.parse(raw) : {};
+      const siteCodesMap = {};
+      (infos.site_codes || []).forEach(sc => { siteCodesMap[String(sc.site_id)] = sc; });
+      sites.forEach(s => {
+        const entry = siteCodesMap[String(s.id)];
+        if (entry) {
+          if (entry.code        && !s.site_code)   s.site_code   = entry.code;
+          if (entry.code_regate && !s.code_regate) s.code_regate = entry.code_regate;
+          if (entry.code_pst    && !s.code_pst)    s.code_pst    = entry.code_pst;
+        }
+      });
+    } catch (_) {}
+    res.json({ sites });
+  }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
