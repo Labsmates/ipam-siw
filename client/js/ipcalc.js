@@ -254,16 +254,39 @@ function setupNetTools() {
   }
 
   const scanIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Scanner`;
-  document.getElementById('nt-btn-scan').addEventListener('click', async () => {
+
+  // Modal bypass key helpers
+  const modal      = document.getElementById('modal-bypass-key');
+  const keyInput   = document.getElementById('bypass-key-input');
+  const keyError   = document.getElementById('bypass-key-error');
+  const btnConfirm = document.getElementById('btn-bypass-confirm');
+  const btnCancel  = document.getElementById('btn-bypass-cancel');
+
+  function openBypassModal() {
+    keyInput.value = '';
+    keyError.style.display = 'none';
+    modal.style.display = 'flex';
+    setTimeout(() => keyInput.focus(), 50);
+  }
+  function closeBypassModal() {
+    modal.style.display = 'none';
+  }
+  btnCancel.addEventListener('click', closeBypassModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeBypassModal(); });
+  keyInput.addEventListener('input', () => {
+    keyInput.value = keyInput.value.toUpperCase();
+  });
+
+  async function runScanWithKey(bypass_key) {
     const network = document.getElementById('nt-scan-network').value.trim();
     const prefix  = parseInt(document.getElementById('nt-scan-prefix').value);
-    if (!checkIP(network, 'Scan')) return;
     setLoading('nt-btn-scan', 'nt-scan-output', true);
     const hosts = Math.pow(2, 32 - prefix) - 2;
     document.getElementById('nt-scan-output').textContent =
       `Scan de ${network}/${prefix} (${hosts} hôtes) en cours…`;
     try {
-      const data = await post('/api/nettools/scan', { network, prefix });
+      const data = await post('/api/nettools/scan', { network, prefix, bypass_key });
+      closeBypassModal();
       const lines = [
         `Réseau : ${network}/${prefix}  |  ${data.responding} / ${data.total} hôtes répondent\n`,
         '─'.repeat(50),
@@ -273,9 +296,34 @@ function setupNetTools() {
       ];
       showOutput('nt-scan-output', lines.join('\n'), data.responding > 0);
     } catch (e) {
-      showOutput('nt-scan-output', `Erreur : ${e.message}`, false);
+      // Clé invalide → rester dans le modal avec message d'erreur
+      if (e.message.includes('bypass') || e.message.includes('invalide') || e.message.includes('403')) {
+        keyError.textContent = e.message;
+        keyError.style.display = 'block';
+        keyInput.select();
+      } else {
+        closeBypassModal();
+        showOutput('nt-scan-output', `Erreur : ${e.message}`, false);
+      }
     }
     setLoading('nt-btn-scan', 'nt-scan-output', false, scanIcon);
+  }
+
+  btnConfirm.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) { keyError.textContent = 'Veuillez saisir la clé de bypass.'; keyError.style.display = 'block'; return; }
+    keyError.style.display = 'none';
+    btnConfirm.disabled = true; btnConfirm.textContent = 'Vérification…';
+    await runScanWithKey(key);
+    btnConfirm.disabled = false;
+    btnConfirm.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Lancer le scan`;
+  });
+  keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnConfirm.click(); });
+
+  document.getElementById('nt-btn-scan').addEventListener('click', () => {
+    const network = document.getElementById('nt-scan-network').value.trim();
+    if (!checkIP(network, 'Scan')) return;
+    openBypassModal();
   });
 
   // Lien "Utiliser le réseau calculé" — rempli quand le calculateur a un résultat

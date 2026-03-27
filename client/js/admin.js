@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadVlanRequests();
   await loadAccountRequests();
   setupPasswordChange();
+  setupBypassKey();
   setupExport();
 
   // Refresh on tab click
@@ -68,6 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'vlan-requests') loadVlanRequests();
       if (tab.dataset.tab === 'vlans') loadVlans();
       if (tab.dataset.tab === 'account-requests') loadAccountRequests();
+      if (tab.dataset.tab === 'bypass-key') loadBypassKey();
     });
   });
   document.getElementById('btn-refresh-vlan-requests')?.addEventListener('click', loadVlanRequests);
@@ -620,6 +622,50 @@ function setupLogFilters() {
 // =============================================================================
 // PASSWORD CHANGE (own password)
 // =============================================================================
+// =============================================================================
+// Clé de bypass
+// =============================================================================
+async function loadBypassKey() {
+  try {
+    const data = await get('/api/config/bypass-key');
+    const display = document.getElementById('bypass-key-display');
+    const meta    = document.getElementById('bypass-key-meta');
+    if (data.key) {
+      display.textContent = data.key;
+      const d = new Date(data.generated_at);
+      meta.textContent = `Générée par ${data.generated_by} le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    } else {
+      display.textContent = '—';
+      meta.textContent = 'Aucune clé générée';
+    }
+  } catch (e) { showToast('Erreur chargement clé de bypass', 'error'); }
+}
+
+function setupBypassKey() {
+  document.getElementById('btn-generate-bypass-key').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-generate-bypass-key');
+    btn.disabled = true; btn.textContent = 'Génération…';
+    try {
+      const data = await post('/api/config/bypass-key/generate', {});
+      document.getElementById('bypass-key-display').textContent = data.key;
+      const now = new Date();
+      document.getElementById('bypass-key-meta').textContent =
+        `Générée à l'instant — ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+      showToast('Nouvelle clé générée', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> Générer une nouvelle clé`;
+    }
+  });
+
+  document.getElementById('btn-copy-bypass-key').addEventListener('click', () => {
+    const key = document.getElementById('bypass-key-display').textContent.trim();
+    if (!key || key === '—') { showToast('Aucune clé à copier', 'warn'); return; }
+    navigator.clipboard.writeText(key).then(() => showToast('Clé copiée', 'success'));
+  });
+}
+
 function setupPasswordChange() {
   document.getElementById('form-change-pw').addEventListener('submit', async e => {
     e.preventDefault();

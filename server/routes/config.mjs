@@ -10,7 +10,7 @@ import fs            from 'fs';
 import os            from 'os';
 import net           from 'net';
 import Redis         from 'ioredis';
-import { redis, addLog } from '../redis.mjs';
+import { redis, addLog, getBypassKey, generateBypassKey } from '../redis.mjs';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
 import { invalidateMaintenanceCache } from '../middleware/maintenance.mjs';
 import { uid } from '../utils.mjs';
@@ -1038,6 +1038,30 @@ router.post('/maintenance/disable', async (req, res) => {
     await saveMaintenance(m);
     await addLog(req.user.username, 'MAINTENANCE_DISABLE', {});
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// =============================================================================
+// Clé de bypass — Scan réseau
+// =============================================================================
+
+// GET /api/config/bypass-key — lire la clé actuelle
+router.get('/bypass-key', async (req, res) => {
+  try {
+    const data = await getBypassKey();
+    res.json(data
+      ? { key: data.key, generated_by: data.generated_by, generated_at: data.generated_at }
+      : { key: null, generated_by: null, generated_at: null }
+    );
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/config/bypass-key/generate — générer une nouvelle clé
+router.post('/bypass-key/generate', async (req, res) => {
+  try {
+    const key = await generateBypassKey(req.user.username);
+    await addLog(req.user.username, 'BYPASS_KEY_GEN', 'Nouvelle clé de bypass générée', 'info');
+    res.json({ key });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

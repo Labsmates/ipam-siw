@@ -162,6 +162,7 @@ th{text-align:left}
       <button class="admin-tab" data-tab="logs">Journaux</button>
       <button class="admin-tab" data-tab="export">Export Excel</button>
       <button class="admin-tab" data-tab="password">Mon mot de passe</button>
+      <button class="admin-tab" data-tab="bypass-key">Clé de bypass</button>
     </div>
   </div>
 
@@ -468,6 +469,35 @@ th{text-align:left}
             Enregistrer
           </button>
         </form>
+      </div>
+    </div>
+
+    <!-- ══ Clé de bypass ══ -->
+    <div id="pane-bypass-key" class="admin-pane hidden" style="max-width:560px">
+      <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 6px">Clé de bypass — Scan réseau</h3>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 20px">Cette clé est requise pour lancer un scan réseau depuis le calculateur IP. Communiquez-la aux utilisateurs qui en ont besoin.</p>
+
+      <!-- Clé actuelle -->
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:24px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--tx-3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px">Clé active</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div id="bypass-key-display" style="flex:1;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:12px 16px;font-family:'JetBrains Mono','Courier New',monospace;font-size:20px;font-weight:700;color:#58a6ff;letter-spacing:.15em;text-align:center">
+            —
+          </div>
+          <button id="btn-copy-bypass-key" class="btn" style="background:var(--bg-4);border:1px solid var(--brd);color:var(--tx-2);padding:10px 14px" title="Copier la clé">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+        <div id="bypass-key-meta" style="font-size:12px;color:var(--tx-3)">Aucune clé générée</div>
+      </div>
+
+      <!-- Générer -->
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:20px">
+        <div style="font-size:12px;color:var(--tx-3);margin-bottom:14px">Générer une nouvelle clé invalidera immédiatement la précédente.</div>
+        <button id="btn-generate-bypass-key" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          Générer une nouvelle clé
+        </button>
       </div>
     </div>
 

@@ -822,3 +822,27 @@ export async function deleteAccountRequest(id) {
   await redis.del(`account_request:${id}`);
   await redis.srem('account_requests', String(id));
 }
+
+// =============================================================================
+// Clé de bypass — Scan réseau
+// =============================================================================
+const BYPASS_KEY_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+
+export async function getBypassKey() {
+  const data = await redis.hgetall('config:bypass_key');
+  return data?.key ? data : null;
+}
+
+export async function generateBypassKey(username) {
+  let key = '';
+  for (let i = 0; i < 12; i++) {
+    if (i === 4 || i === 8) key += '-';
+    key += BYPASS_KEY_CHARS[Math.floor(Math.random() * BYPASS_KEY_CHARS.length)];
+  }
+  await redis.hset('config:bypass_key', {
+    key,
+    generated_by: username,
+    generated_at: new Date().toISOString(),
+  });
+  return key;
+}
