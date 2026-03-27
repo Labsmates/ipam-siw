@@ -12,6 +12,7 @@ import {
 // Init
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
   checkHttps(); initTheme();
   if (!requireAuth()) return;
   startInactivityTimer();
