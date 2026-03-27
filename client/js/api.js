@@ -467,16 +467,19 @@ export function setupElevationMode() {
   const originalRole = backupUser?.role || getUser()?.role || 'user';
   const originalName = backupUser?.username || getUser()?.username || '';
 
-  // Montrer le lien Config pour les utilisateurs en Mode Adm
+  // Mode Adm actif : afficher UNIQUEMENT le lien Configuration système (pas Administration)
   if (elev?.type === 'adm') {
     document.getElementById('nav-config-link')?.classList.remove('hidden');
-    document.getElementById('nav-admin-link')?.classList.remove('hidden');
   }
 
-  // Mode SA : admins uniquement, PAS le super-admin (username = 'ADMIN')
+  // Identifiants éligibles : commence par P ou X (insensible à la casse), hors ADMIN
   const isSuperAdmin = originalName === 'ADMIN';
-  const showSA  = originalRole === 'admin' && !isSuperAdmin && !elev;
-  const showAdm = originalRole === 'user'  && !elev;
+  const isPorX       = /^[PX]/i.test(originalName);
+
+  // Mode SA  : admin P/X uniquement
+  // Mode Adm : utilisateur P/X uniquement
+  const showSA  = originalRole === 'admin' && isPorX && !isSuperAdmin && !elev;
+  const showAdm = originalRole === 'user'  && isPorX && !elev;
   if (!showSA && !showAdm && !elev) return;
 
   // Style identique aux liens nav (Administration, Configuration système…)

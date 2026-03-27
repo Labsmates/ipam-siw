@@ -23,9 +23,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupElevationMode();
 
-  // Guard : admins uniquement (ou utilisateurs avec Mode Adm actif)
-  if (user?.role !== 'admin') {
-    window.location.replace('/admin.html');
+  // Guard : admins OU utilisateurs avec Mode Adm actif (elevated:'adm')
+  if (user?.role !== 'admin' && user?.elevated !== 'adm') {
+    window.location.replace('/site.html');
     return;
   }
 
