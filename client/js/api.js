@@ -463,9 +463,9 @@ export function setupElevationMode() {
   const elev = getElevation();
 
   // Rôle original : depuis la sauvegarde si élevé, sinon depuis la session actuelle
-  const originalRole = elev
-    ? (JSON.parse(elev.backup_user || '{}')?.role || 'user')
-    : (getUser()?.role || 'user');
+  const backupUser   = elev ? (JSON.parse(elev.backup_user || '{}')) : null;
+  const originalRole = backupUser?.role || getUser()?.role || 'user';
+  const originalName = backupUser?.username || getUser()?.username || '';
 
   // Montrer le lien Config pour les utilisateurs en Mode Adm
   if (elev?.type === 'adm') {
@@ -473,9 +473,14 @@ export function setupElevationMode() {
     document.getElementById('nav-admin-link')?.classList.remove('hidden');
   }
 
-  const showSA  = originalRole === 'admin' && !elev;
+  // Mode SA : admins uniquement, PAS le super-admin (username = 'ADMIN')
+  const isSuperAdmin = originalName === 'ADMIN';
+  const showSA  = originalRole === 'admin' && !isSuperAdmin && !elev;
   const showAdm = originalRole === 'user'  && !elev;
   if (!showSA && !showAdm && !elev) return;
+
+  // Style identique aux liens nav (Administration, Configuration système…)
+  const NAV_STYLE = 'display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;margin-top:4px;box-sizing:border-box;transition:all .15s;text-align:left;-webkit-box-sizing:border-box;-webkit-transition:all .15s';
 
   // Point d'ancrage : après nav-config-link
   const refEl = document.getElementById('nav-config-link');
@@ -485,7 +490,6 @@ export function setupElevationMode() {
   if (!section) {
     section = document.createElement('div');
     section.id = 'nav-elevation-section';
-    section.style.cssText = 'padding:4px 10px 10px';
     refEl.parentNode.insertBefore(section, refEl.nextSibling);
   }
 
@@ -496,21 +500,20 @@ export function setupElevationMode() {
     if (e) {
       const mins  = Math.max(1, Math.round((e.expires - Date.now()) / 60000));
       const label = e.type === 'sa' ? 'Mode SA' : 'Mode Adm';
+      const color = e.type === 'sa' ? '#8957e5' : '#d29922';
       section.innerHTML = `
-        <div style="background:#0d2240;border:1px solid #1f4080;border-radius:8px;padding:8px 12px">
-          <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
-            <div style="width:7px;height:7px;background:#3fb950;border-radius:50%;flex-shrink:0"></div>
-            <span style="font-size:12px;font-weight:700;color:#58a6ff">${label} actif</span>
-            <span id="elev-countdown" style="font-size:11px;color:var(--tx-3);margin-left:auto">${mins}min</span>
-          </div>
-          <button id="btn-elev-deactivate" style="width:100%;background:none;border:1px solid #f8514940;color:#f85149;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer">Désactiver</button>
-        </div>`;
+        <button id="btn-elev-deactivate" style="${NAV_STYLE};border-color:${color}50;color:${color}"
+          onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+          <div style="width:7px;height:7px;background:${color};border-radius:50%;flex-shrink:0"></div>
+          <span>${label} actif</span>
+          <span id="elev-countdown" style="font-size:11px;color:var(--tx-3);margin-left:auto">${mins}min</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
       document.getElementById('btn-elev-deactivate').addEventListener('click', () => {
         _clearElevation(getElevation());
         clearInterval(countdownTimer);
         window.location.reload();
       });
-      // Countdown rafraîchi chaque minute
       clearInterval(countdownTimer);
       countdownTimer = setInterval(() => {
         const remaining = getElevation();
@@ -523,10 +526,13 @@ export function setupElevationMode() {
       const type  = showSA ? 'sa' : 'adm';
       const label = showSA ? 'Mode SA' : 'Mode Adm';
       const color = showSA ? '#8957e5' : '#d29922';
+      const icon  = showSA
+        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
       section.innerHTML = `
-        <button id="btn-elevation-mode" style="width:100%;background:${color}18;border:1px solid ${color}40;color:${color};border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .15s"
-          onmouseenter="this.style.background='${color}30'" onmouseleave="this.style.background='${color}18'">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <button id="btn-elevation-mode" style="${NAV_STYLE};border-color:${color}40;color:${color}"
+          onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+          ${icon}
           ${label}
         </button>`;
       document.getElementById('btn-elevation-mode').addEventListener('click', () => openElevModal(type));
