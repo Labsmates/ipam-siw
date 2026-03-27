@@ -32,6 +32,7 @@ const WIN_ROLES = [
 // Linux roles — only CFT and Nutanix are tracked
 const LIN_ROLES = [
   { code: 'XG',   label: 'Serveurs CFT' },
+  { code: 'XD',   label: 'Serveurs CFT' },
   { code: 'SPHY', label: 'Serveurs Nutanix' },
 ];
 
@@ -66,6 +67,7 @@ function classifyHostname(raw) {
   if (isLinux) {
     if (/^SP/i.test(label)) return { type: 'linux', role: 'SPHY' };
     if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
+    if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XD' };
     return null;
   }
 
