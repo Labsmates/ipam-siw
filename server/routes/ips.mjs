@@ -16,7 +16,7 @@ router.get('/search', requireAuth, async (req, res) => {
 // PUT /api/ips/:id — modifier statut et/ou hostname
 router.put('/:id', requireAuth, async (req, res) => {
   try {
-    const { status, hostname } = req.body || {};
+    const { status, hostname, comment } = req.body || {};
     if (status === undefined && hostname === undefined)
       return res.status(400).json({ error: 'Statut ou hostname requis' });
     const ip = await getIp(req.params.id);
@@ -31,7 +31,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     // Archive entry when an IP is released and had a hostname
     if (status === 'Libre' && ip.hostname) {
       await addLog(req.user.username, 'RELEASE_IP',
-        JSON.stringify({ ip: ip.ip_address, hostname: ip.hostname }), 'info');
+        JSON.stringify({ ip: ip.ip_address, hostname: ip.hostname, comment: (comment || '').slice(0, 300) }), 'info');
     }
     res.json({ ok: true });
   } catch (e) {

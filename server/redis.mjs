@@ -727,6 +727,16 @@ export async function deleteLogEntry(raw) {
   return removed > 0;
 }
 
+export async function clearArchiveLogs() {
+  const all = await redis.lrange('logs', 0, 4999);
+  const toRemove = all.filter(r => { try { return JSON.parse(r).action === 'RELEASE_IP'; } catch { return false; } });
+  if (!toRemove.length) return 0;
+  const pipe = redis.pipeline();
+  for (const raw of toRemove) pipe.lrem('logs', 0, raw);
+  await pipe.exec();
+  return toRemove.length;
+}
+
 // =============================================================================
 // VLAN REQUESTS (pending approval)
 // =============================================================================

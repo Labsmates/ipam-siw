@@ -124,25 +124,60 @@ router.get('/system/info', async (req, res) => {
     info.cpuCount = cpus.length;
     info.cpuLoad  = os.loadavg();              // [1m, 5m, 15m]
 
-    // Interfaces réseau (on exclut uniquement le loopback par nom)
+    // Interfaces réseau — filtrage par internal flag, normalisation family (Node v18+ retourne 4/6)
     info.ips = [];
     try {
       const nets = os.networkInterfaces();
       for (const [iface, addrs] of Object.entries(nets)) {
-        if (iface === 'lo' || iface === 'lo0') continue;
         for (const a of addrs) {
-          info.ips.push({ iface, address: a.address, family: a.family });
+          if (a.internal) continue;
+          const family = a.family === 4 ? 'IPv4' : a.family === 6 ? 'IPv6' : String(a.family);
+          info.ips.push({ iface, address: a.address, family, netmask: a.netmask || null });
         }
       }
     } catch (_) {}
     // Fallback via `ip addr` si os.networkInterfaces() a échoué ou retourné vide
     if (!info.ips.length) {
-      const ipOut = await tryExec('/usr/sbin/ip', ['-o', 'addr', 'show'], s => s) || '';
-      for (const line of ipOut.split('\n')) {
-        const m = line.match(/^\d+:\s+(\S+)\s+(inet6?)\s+([^\s/]+)/);
-        if (m && m[1] !== 'lo') info.ips.push({ iface: m[1], address: m[3], family: m[2] === 'inet' ? 'IPv4' : 'IPv6' });
+      let ipOut = null;
+      for (const bin of ['/usr/sbin/ip', '/usr/bin/ip', '/sbin/ip', '/bin/ip']) {
+        ipOut = await tryExec(bin, ['-o', 'addr', 'show'], s => s);
+        if (ipOut) break;
+      }
+      if (ipOut) {
+        for (const line of (ipOut || '').split('\n')) {
+          const m = line.match(/^\d+:\s+(\S+)\s+(inet6?)\s+([^\s/]+)(?:\/(\d+))?/);
+          if (!m || m[1] === 'lo') continue;
+          const family  = m[2] === 'inet' ? 'IPv4' : 'IPv6';
+          let netmask = null;
+          if (family === 'IPv4' && m[4]) {
+            const p = parseInt(m[4], 10);
+            const mask = p === 0 ? 0 : (~0 << (32 - p)) >>> 0;
+            netmask = [(mask >> 24) & 0xFF, (mask >> 16) & 0xFF, (mask >> 8) & 0xFF, mask & 0xFF].join('.');
+          }
+          info.ips.push({ iface: m[1], address: m[3], family, netmask });
+        }
       }
     }
+
+    // Gateway par défaut — essayer plusieurs chemins
+    info.gateway = null;
+    for (const bin of ['/usr/sbin/ip', '/usr/bin/ip', '/sbin/ip', '/bin/ip']) {
+      info.gateway = await tryExec(bin, ['route', 'show', 'default'], s => {
+        const m = s.match(/default via (\S+)/);
+        return m?.[1] || null;
+      });
+      if (info.gateway) break;
+    }
+
+    // Serveurs DNS (resolv.conf)
+    info.dns = [];
+    try {
+      const resolv = fs.readFileSync('/etc/resolv.conf', 'utf8');
+      for (const line of resolv.split('\n')) {
+        const m = line.match(/^nameserver\s+(\S+)/);
+        if (m) info.dns.push(m[1]);
+      }
+    } catch (_) {}
 
     // ── Sous-processus ───────────────────────────────────────────────────────
     // Noyau Linux

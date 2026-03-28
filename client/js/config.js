@@ -23,13 +23,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupElevationMode();
 
-  // Guard : admins OU utilisateurs avec Mode Adm actif (elevated:'adm')
-  if (user?.role !== 'admin' && user?.elevated !== 'adm') {
+  const PX_RE    = /^[PX]/i;
+  const isUserPX = user?.role === 'user' && PX_RE.test(user?.username || '');
+
+  // Guard : admin OU utilisateur P/X (accès restreint)
+  if (user?.role !== 'admin' && !isUserPX) {
     window.location.replace('/site.html');
     return;
   }
 
   document.getElementById('nav-username').textContent = user.username;
+  // Rôle affiché dans la sidebar
+  document.getElementById('nav-role').textContent =
+    user?.username === 'ADMIN' ? 'Super Administrateur' :
+    user?.role === 'admin'     ? 'Administrateur' :
+                                 'Utilisateur';
+
+  // Mode utilisateur P/X — accès restreint (Services uniquement)
+  if (isUserPX) {
+    setupUserPXConfig(user);
+    return;
+  }
 
   document.getElementById('btn-logout').addEventListener('click', async () => {
     if (await showConfirm({
@@ -204,13 +218,20 @@ function renderSysInfo(info) {
         info.disk?.pct && parseInt(info.disk.pct) > 85 ? '#f85149' : parseInt(info.disk?.pct) > 65 ? '#d29922' : '#3fb950'],
       ['Disque /libre',  info.disk?.avail ?? '—'],
     ]),
-    card('Réseau', iconNet,
-      info.ips?.length
-        ? info.ips.map(ip => [
-            `${ip.iface} (${ip.family})`, ip.address, ip.family === 'IPv4' ? '#58a6ff' : 'var(--tx-2)',
-          ])
-        : [['Interfaces', '—']]
-    ),
+    card('Réseau', iconNet, (() => {
+      const rows = [];
+      if (info.ips?.length) {
+        for (const ip of info.ips) {
+          rows.push([`${ip.iface} (${ip.family})`, ip.address, ip.family === 'IPv4' ? '#58a6ff' : 'var(--tx-2)']);
+          if (ip.netmask) rows.push([`  Masque`, ip.netmask]);
+        }
+      } else {
+        rows.push(['Interfaces', '—']);
+      }
+      if (info.gateway) rows.push(['Passerelle', info.gateway, '#3fb950']);
+      if (info.dns?.length) rows.push(['DNS', info.dns.join(', ')]);
+      return rows;
+    })()),
     card('Logiciels', iconStack, [
       ['Node.js',  info.nodeVersion],
       ['Redis',    info.redisVersion],
@@ -264,7 +285,7 @@ function statusLabel(active) {
   return { text: active || 'Inconnu', color: '#d29922' };
 }
 
-function renderServiceCards(services) {
+function renderServiceCards(services, readonly = false) {
   const grid = document.getElementById('services-grid');
   if (!services || !Object.keys(services).length) {
     grid.innerHTML = '<div style="color:var(--tx-3);font-size:13px">Aucun service disponible.</div>';
@@ -289,6 +310,7 @@ function renderServiceCards(services) {
       </div>
       ${info.pid    ? `<div style="font-size:12px;color:var(--tx-3);margin-bottom:4px">PID : <span style="color:var(--tx-2);font-family:monospace">${esc(info.pid)}</span></div>` : ''}
       ${info.memory ? `<div style="font-size:12px;color:var(--tx-3);margin-bottom:4px">Mémoire : <span style="color:var(--tx-2)">${esc(info.memory)}</span></div>` : ''}
+      ${readonly ? '' : `
       <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
         ${info.active !== 'active' ? `
         <button class="btn btn-sm" style="background:#0d2a1a;color:#3fb950;border:1px solid #1b4d2e" data-action="start" data-svc="${name}">
@@ -310,14 +332,16 @@ function renderServiceCards(services) {
           Logs
         </button>
       </div>
-      <div id="logs-${name}" class="log-panel hidden"></div>
+      <div id="logs-${name}" class="log-panel hidden"></div>`}
     `;
     grid.appendChild(card);
   }
 
-  grid.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', () => handleServiceAction(btn.dataset.action, btn.dataset.svc));
-  });
+  if (!readonly) {
+    grid.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => handleServiceAction(btn.dataset.action, btn.dataset.svc));
+    });
+  }
 }
 
 async function handleServiceAction(action, svc) {
@@ -1152,4 +1176,360 @@ async function testSharepoint() {
       btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Tester la connexion';
     }
   }
+}
+
+// =============================================================================
+// Mode utilisateur P/X — accès restreint (onglet Services uniquement via bypass)
+// =============================================================================
+
+const SERVICES_ACCESS_KEY = 'ipam_services_access';
+
+function getServicesAccess() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(SERVICES_ACCESS_KEY) || 'null');
+    if (!s) return null;
+    if (s.expires < Date.now()) { sessionStorage.removeItem(SERVICES_ACCESS_KEY); return null; }
+    return s;
+  } catch { return null; }
+}
+
+function setupUserPXConfig(user) {
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
+  });
+
+  loadConfigSidebar();
+
+  // Griser tous les onglets sauf Informations, Services et Certificat SSL
+  const LOCKED_TABS = new Set(['redis-config', 'backup', 'maintenance', 'databases', 'apis', 'sharepoint']);
+  document.querySelectorAll('.admin-tab').forEach(tab => {
+    if (LOCKED_TABS.has(tab.dataset.tab)) {
+      tab.disabled = true;
+      tab.style.cssText += ';opacity:.3;cursor:not-allowed;pointer-events:none';
+    }
+  });
+
+  // Cacher tous les panes
+  document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
+
+  // Onglet Informations — accessible directement
+  const sysinfoTab = document.querySelector('.admin-tab[data-tab="sysinfo"]');
+  sysinfoTab?.addEventListener('click', () => {
+    document.querySelectorAll('.admin-tab').forEach(t => setTabActive(t, false));
+    setTabActive(sysinfoTab, true);
+    document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
+    document.getElementById('pane-sysinfo')?.classList.remove('hidden');
+    loadSysInfoForUser();
+  });
+
+  // Onglet Certificat SSL — visible en lecture, installer requiert clé bypass
+  let _certTabSetup = false;
+  const certTab = document.querySelector('.admin-tab[data-tab="cert"]');
+  certTab?.addEventListener('click', () => {
+    document.querySelectorAll('.admin-tab').forEach(t => setTabActive(t, false));
+    setTabActive(certTab, true);
+    document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
+    document.getElementById('pane-cert')?.classList.remove('hidden');
+    if (!_certTabSetup) { _certTabSetup = true; setupCertTabForUser(); }
+    else loadCertInfoForUser();
+  });
+
+  // Onglet Services — clé bypass requise
+  const servicesTab = document.querySelector('.admin-tab[data-tab="services"]');
+  servicesTab?.addEventListener('click', () => {
+    document.querySelectorAll('.admin-tab').forEach(t => setTabActive(t, false));
+    setTabActive(servicesTab, true);
+    if (getServicesAccess()) showServicesPane();
+    else openServicesKeyModal();
+  });
+
+  // Afficher Informations par défaut
+  if (sysinfoTab) setTabActive(sysinfoTab, true);
+  document.getElementById('pane-sysinfo')?.classList.remove('hidden');
+  loadSysInfoForUser();
+}
+
+function renderServicesLocked() {
+  const pane = document.getElementById('pane-services');
+  if (!pane) return;
+  document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
+  let ph = document.getElementById('services-locked-ph');
+  if (!ph) {
+    ph = document.createElement('div');
+    ph.id = 'services-locked-ph';
+    pane.parentNode.insertBefore(ph, pane);
+  }
+  ph.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 32px;text-align:center';
+  ph.innerHTML = `
+    <div style="width:56px;height:56px;background:#58a6ff18;border:1px solid #58a6ff40;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:18px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div style="font-size:16px;font-weight:700;color:var(--tx-1);margin-bottom:8px">Accès restreint</div>
+    <div style="font-size:13px;color:var(--tx-3);margin-bottom:24px;max-width:340px">L'accès aux Services requiert une clé de bypass à usage unique valable 15 minutes.</div>
+    <button id="btn-open-services-key" class="btn" style="background:#58a6ff;color:#0d1117;font-weight:600;padding:10px 22px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Saisir la clé de bypass
+    </button>`;
+  document.getElementById('btn-open-services-key')?.addEventListener('click', openServicesKeyModal);
+}
+
+function showServicesPane() {
+  document.getElementById('services-locked-ph')?.remove();
+  const pane = document.getElementById('pane-services');
+  if (!pane) return;
+  document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
+  pane.classList.remove('hidden');
+  const access = getServicesAccess();
+  if (access) {
+    const mins = Math.max(1, Math.round((access.expires - Date.now()) / 60000));
+    let banner = document.getElementById('services-access-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'services-access-banner';
+      banner.style.cssText = 'background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:8px;padding:8px 14px;font-size:12px;margin-bottom:14px;display:flex;align-items:center;gap:8px';
+      pane.insertBefore(banner, pane.firstChild);
+    }
+    banner.textContent = `⏱ Accès Services actif — expire dans ${mins} min`;
+  }
+  if (access?.token) loadServicesForUser(access.token).catch(err => showToast(err.message, 'error'));
+}
+
+async function loadServicesForUser(token) {
+  const grid = document.getElementById('services-grid');
+  if (grid) grid.innerHTML = '<p style="color:var(--tx-3);font-size:13px">Chargement…</p>';
+
+  const resp = await fetch('/api/bypass/services/status', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur chargement services');
+  }
+  const { services } = await resp.json();
+  renderServiceCards(services, true);
+}
+
+async function loadSysInfoForUser() {
+  try {
+    const { info } = await fetch('/api/bypass/system/info', {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }).then(async r => {
+      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'Erreur'); }
+      return r.json();
+    });
+    renderSysInfo(info);
+  } catch (e) {
+    const grid = document.getElementById('sysinfo-grid');
+    if (grid) grid.innerHTML = `<div style="color:var(--tx-3);font-size:13px">Erreur : ${esc(e.message)}</div>`;
+  }
+}
+
+// =============================================================================
+// Mode utilisateur P/X — onglet Certificat SSL
+// =============================================================================
+
+const CERT_ACCESS_KEY = 'ipam_cert_access';
+
+function getCertAccess() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(CERT_ACCESS_KEY) || 'null');
+    if (!s) return null;
+    if (s.expires < Date.now()) { sessionStorage.removeItem(CERT_ACCESS_KEY); return null; }
+    return s;
+  } catch { return null; }
+}
+
+async function loadCertInfoForUser() {
+  const block = document.getElementById('cert-info-block');
+  if (!block) return;
+  try {
+    const resp = await fetch('/api/bypass/cert/info', {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erreur'); }
+    const { info } = await resp.json();
+    if (!info) {
+      block.innerHTML = '<div style="color:var(--tx-3);font-size:13px">Aucun certificat trouvé.</div>';
+      return;
+    }
+    const dl = info.daysLeft;
+    const badgeColor = dl == null ? '#8b949e' : dl < 0 ? '#f85149' : dl < 30 ? '#d29922' : '#3fb950';
+    const badgeText  = dl == null ? 'Inconnu' : dl < 0 ? `Expiré depuis ${Math.abs(dl)}j` : dl < 30 ? `Expire dans ${dl}j` : `Valide — ${dl} jours restants`;
+    const row = (label, value) => value ? `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--brd)">
+        <span style="font-size:12px;color:var(--tx-3);flex-shrink:0;padding-right:16px">${label}</span>
+        <span style="font-size:12px;color:var(--tx-1);font-weight:500;text-align:right;word-break:break-all;font-family:'JetBrains Mono','Courier New',monospace">${esc(value)}</span>
+      </div>` : '';
+    block.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <span style="background:${badgeColor}20;color:${badgeColor};border:1px solid ${badgeColor}50;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600">${badgeText}</span>
+        ${info.hasPending ? '<span style="background:#58a6ff20;color:#58a6ff;border:1px solid #58a6ff50;border-radius:999px;padding:4px 12px;font-size:12px">CSR en attente d\'installation</span>' : ''}
+      </div>
+      ${row('Sujet',       info.subject)}
+      ${row('Émetteur',    info.issuer)}
+      ${row('Valide du',   info.notBefore)}
+      ${row('Expire le',   info.notAfter)}
+      ${row('SAN',         info.san)}
+      ${row('Numéro de série', info.serial)}
+      ${row('Empreinte SHA256', info.fingerprint)}
+    `;
+  } catch (e) {
+    if (block) block.innerHTML = `<div style="color:#f85149;font-size:13px">${esc(e.message)}</div>`;
+  }
+}
+
+function setupCertTabForUser() {
+  loadCertInfoForUser();
+  document.getElementById('btn-refresh-cert')?.addEventListener('click', loadCertInfoForUser);
+
+  // Désactiver le bouton auto-signé (non autorisé)
+  const btnSelfSigned = document.getElementById('btn-self-signed');
+  if (btnSelfSigned) {
+    btnSelfSigned.disabled = true;
+    btnSelfSigned.style.cssText += ';opacity:.3;cursor:not-allowed;pointer-events:none';
+    btnSelfSigned.title = 'Non autorisé pour les utilisateurs P/X';
+  }
+
+  // Installer certificat — requiert clé bypass cert
+  const btnInstall = document.getElementById('btn-install-cert');
+  if (btnInstall) {
+    // Cloner pour supprimer les listeners existants éventuels
+    const clone = btnInstall.cloneNode(true);
+    btnInstall.parentNode.replaceChild(clone, btnInstall);
+    clone.addEventListener('click', async () => {
+      const access = getCertAccess();
+      if (!access) { openCertKeyModal(); return; }
+      const cert = document.getElementById('cert-install-pem')?.value.trim();
+      if (!cert) { showToast('Collez le certificat PEM', 'warn'); return; }
+      if (!await showConfirm({
+        title: 'Installer le certificat',
+        message: 'Le certificat sera installé et Apache rechargé. Continuer ?',
+        confirmText: 'Installer',
+      })) return;
+      clone.disabled = true; clone.textContent = 'Installation…';
+      try {
+        const resp = await fetch('/api/bypass/cert/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access.token}` },
+          body: JSON.stringify({ cert }),
+        });
+        if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erreur'); }
+        const { keyInstalled } = await resp.json();
+        showToast(`Certificat installé${keyInstalled ? ' (+ clé privée)' : ''}. Apache rechargé.`, 'success');
+        document.getElementById('cert-install-pem').value = '';
+        loadCertInfoForUser();
+      } catch (e) { showToast(e.message, 'error'); }
+      finally {
+        clone.disabled = false;
+        clone.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Installer et recharger Apache';
+      }
+    });
+  }
+}
+
+function openCertKeyModal() {
+  let modal = document.getElementById('modal-cert-key');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'modal-cert-key'; document.body.appendChild(modal); }
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:14px;padding:28px 32px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:34px;height:34px;background:#3fb950;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h3 style="font-size:15px;font-weight:700;margin:0;color:var(--tx-1)">Accès Certificat SSL</h3>
+      </div>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 18px">Clé à usage unique — valable 15 minutes après validation.</p>
+      <div style="margin-bottom:14px">
+        <input id="cert-key-input" class="inp" type="text" placeholder="XXXX-XXXX-XXXX" autocomplete="off"
+          style="font-family:'JetBrains Mono','Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-align:center">
+      </div>
+      <div id="cert-key-error" style="display:none;background:#f8514918;border:1px solid #f8514940;border-radius:7px;padding:8px 12px;font-size:12px;color:#f85149;margin-bottom:14px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="btn-cert-cancel" class="btn" style="background:var(--bg-4);border:1px solid var(--brd);color:var(--tx-2)">Annuler</button>
+        <button id="btn-cert-confirm" class="btn" style="background:#3fb950;color:#0d1117;font-weight:600">Valider</button>
+      </div>
+    </div>`;
+  const keyInput = modal.querySelector('#cert-key-input');
+  const errBox   = modal.querySelector('#cert-key-error');
+  const btnOk    = modal.querySelector('#btn-cert-confirm');
+  keyInput.addEventListener('input', () => { keyInput.value = keyInput.value.toUpperCase(); });
+  keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnOk.click(); });
+  modal.querySelector('#btn-cert-cancel').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  setTimeout(() => keyInput.focus(), 50);
+  btnOk.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) { errBox.textContent = 'Saisissez la clé de bypass.'; errBox.style.display = 'block'; return; }
+    errBox.style.display = 'none';
+    btnOk.disabled = true; btnOk.textContent = 'Vérification…';
+    try {
+      const resp = await fetch('/api/bypass/cert-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ key }),
+      });
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erreur'); }
+      const data = await resp.json();
+      sessionStorage.setItem(CERT_ACCESS_KEY, JSON.stringify({ token: data.token, expires: new Date(data.expires_at).getTime() }));
+      modal.remove();
+      // Déclencher l'installation maintenant que la clé est validée
+      document.getElementById('btn-install-cert')?.click();
+    } catch (e) {
+      errBox.textContent = e.message;
+      errBox.style.display = 'block';
+      keyInput.select();
+      btnOk.disabled = false; btnOk.textContent = 'Valider';
+    }
+  });
+}
+
+function openServicesKeyModal() {
+  let modal = document.getElementById('modal-services-key');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'modal-services-key'; document.body.appendChild(modal); }
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:14px;padding:28px 32px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:34px;height:34px;background:#58a6ff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h3 style="font-size:15px;font-weight:700;margin:0;color:var(--tx-1)">Accès Services</h3>
+      </div>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 18px">Clé à usage unique — valable 15 minutes après validation.</p>
+      <div style="margin-bottom:14px">
+        <input id="services-key-input" class="inp" type="text" placeholder="XXXX-XXXX-XXXX" autocomplete="off"
+          style="font-family:'JetBrains Mono','Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-align:center">
+      </div>
+      <div id="services-key-error" style="display:none;background:#f8514918;border:1px solid #f8514940;border-radius:7px;padding:8px 12px;font-size:12px;color:#f85149;margin-bottom:14px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="btn-svc-cancel" class="btn" style="background:var(--bg-4);border:1px solid var(--brd);color:var(--tx-2)">Annuler</button>
+        <button id="btn-svc-confirm" class="btn" style="background:#58a6ff;color:#0d1117;font-weight:600">Valider</button>
+      </div>
+    </div>`;
+  const keyInput = modal.querySelector('#services-key-input');
+  const errBox   = modal.querySelector('#services-key-error');
+  const btnOk    = modal.querySelector('#btn-svc-confirm');
+  keyInput.addEventListener('input', () => { keyInput.value = keyInput.value.toUpperCase(); });
+  keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnOk.click(); });
+  modal.querySelector('#btn-svc-cancel').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  setTimeout(() => keyInput.focus(), 50);
+  btnOk.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) { errBox.textContent = 'Saisissez la clé de bypass.'; errBox.style.display = 'block'; return; }
+    errBox.style.display = 'none';
+    btnOk.disabled = true; btnOk.textContent = 'Vérification…';
+    try {
+      const data = await post('/api/bypass/services-access', { key });
+      sessionStorage.setItem(SERVICES_ACCESS_KEY, JSON.stringify({ token: data.token, expires: new Date(data.expires_at).getTime() }));
+      modal.remove();
+      showServicesPane();
+    } catch (e) {
+      errBox.textContent = e.message;
+      errBox.style.display = 'block';
+      keyInput.select();
+      btnOk.disabled = false; btnOk.textContent = 'Valider';
+    }
+  });
 }

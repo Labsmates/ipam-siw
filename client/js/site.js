@@ -79,20 +79,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   user = getUser();
   document.getElementById('nav-username').textContent = user?.username || '';
-  document.getElementById('nav-role').textContent = user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
+  document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
   document.getElementById('btn-logout').addEventListener('click', async () => {
     if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
   });
-
-  if (user?.role === 'admin') {
-    document.getElementById('nav-admin-link').classList.remove('hidden');
-    document.getElementById('nav-config-link')?.classList.remove('hidden');
-  }
-
-  // Viewers cannot access archive page — hide that sidebar link
-  if (user?.role === 'viewer') {
-    document.getElementById('nav-archive-link')?.classList.add('hidden');
-  }
 
   // Populate sidebar
   setupElevationMode();
@@ -585,13 +575,15 @@ function setupModals(user) {
   // --- Release ---
   document.getElementById('form-release').addEventListener('submit', async e => {
     e.preventDefault();
-    const id = document.getElementById('release-ip-id').value;
+    const id      = document.getElementById('release-ip-id').value;
+    const comment = (document.getElementById('release-comment')?.value || '').trim();
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true; btn.textContent = 'Libération…';
     try {
-      await put(`/api/ips/${encodeURIComponent(id)}`, { status: 'Libre' });
+      await put(`/api/ips/${encodeURIComponent(id)}`, { status: 'Libre', comment });
       showToast('IP libérée', 'success');
       localStorage.setItem('ipam-ip-change', Date.now());
+      if (document.getElementById('release-comment')) document.getElementById('release-comment').value = '';
       closeModal('modal-release');
       await loadSite();
     } catch (err) {
@@ -600,7 +592,10 @@ function setupModals(user) {
       btn.disabled = false; btn.textContent = 'Confirmer la libération';
     }
   });
-  document.getElementById('btn-cancel-release').addEventListener('click', () => closeModal('modal-release'));
+  document.getElementById('btn-cancel-release').addEventListener('click', () => {
+    if (document.getElementById('release-comment')) document.getElementById('release-comment').value = '';
+    closeModal('modal-release');
+  });
 
   // --- Request VLAN (utilisateur uniquement, pas viewer) ---
   if (user?.role === 'user') {

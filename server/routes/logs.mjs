@@ -1,5 +1,5 @@
 import express from 'express';
-import { getLogs, clearLogs, deleteLogEntry } from '../redis.mjs';
+import { getLogs, clearLogs, clearArchiveLogs, deleteLogEntry } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -14,11 +14,28 @@ router.get('/archive', requireAuth, async (req, res) => {
       .map(l => {
         try {
           const d = JSON.parse(l.details);
-          return { username: l.username, ip: d.ip, hostname: d.hostname, created_at: l.created_at };
+          return {
+            username:   l.username,
+            ip:         d.ip,
+            hostname:   d.hostname,
+            comment:    d.comment || '',
+            created_at: l.created_at,
+            _raw:       l._raw,
+          };
         } catch { return null; }
       })
       .filter(Boolean);
     res.json({ releases });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/logs/archive — effacer toutes les entrées de libération (super admin only)
+router.delete('/archive', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    if (req.user.username !== 'ADMIN' && req.user.elevated !== 'sa')
+      return res.status(403).json({ error: 'Seul le super administrateur peut vider l\'archive' });
+    const count = await clearArchiveLogs();
+    res.json({ ok: true, count });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -33,7 +50,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 // DELETE /api/logs/entry — supprimer un log individuel (super admin only)
 router.delete('/entry', requireAuth, requireAdmin, async (req, res) => {
   try {
-    if (req.user.username !== 'ADMIN')
+    if (req.user.username !== 'ADMIN' && req.user.elevated !== 'sa')
       return res.status(403).json({ error: 'Seul le super administrateur peut supprimer des journaux' });
     const { raw } = req.body || {};
     if (!raw) return res.status(400).json({ error: 'Entrée manquante' });
@@ -46,7 +63,7 @@ router.delete('/entry', requireAuth, requireAdmin, async (req, res) => {
 // DELETE /api/logs — effacer tous les logs (super admin only)
 router.delete('/', requireAuth, requireAdmin, async (req, res) => {
   try {
-    if (req.user.username !== 'ADMIN')
+    if (req.user.username !== 'ADMIN' && req.user.elevated !== 'sa')
       return res.status(403).json({ error: 'Seul le super administrateur peut effacer les journaux' });
     await clearLogs();
     res.json({ ok: true });

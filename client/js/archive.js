@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, showToast, sortSites, showConfirm, initTheme,
+  get, del, delBody, showToast, sortSites, showConfirm, initTheme,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
 
@@ -16,7 +16,12 @@ function fmtDate(ts) {
   });
 }
 
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 let allReleases = [];
+let isSuperAdmin = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
@@ -25,21 +30,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   startInactivityTimer();
 
   const user = getUser();
-  if (user?.role === 'viewer') { window.location.replace('/site.html'); return; }
   document.getElementById('nav-username').textContent = user?.username || '';
-  document.getElementById('nav-role').textContent = user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';
+  document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
   document.getElementById('btn-logout').addEventListener('click', async () => {
     if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
   });
-  if (user?.role === 'admin') {
-    document.getElementById('nav-admin-link').classList.remove('hidden');
-    document.getElementById('nav-config-link')?.classList.remove('hidden');
-  }
-
   setupElevationMode();
   loadSidebar();
-  document.getElementById('search-input').addEventListener('input', renderFiltered);
 
+  isSuperAdmin = user?.username === 'ADMIN' || user?.elevated === 'sa';
+
+  // Export button — visible to all
+  document.getElementById('btn-export-archive')?.addEventListener('click', exportCsv);
+
+  // Super admin controls
+  if (isSuperAdmin) {
+    document.getElementById('archive-admin-controls')?.classList.remove('hidden');
+    document.getElementById('btn-clear-archive')?.addEventListener('click', clearAllArchive);
+  }
+
+  document.getElementById('search-input').addEventListener('input', renderFiltered);
   await loadArchive();
 });
 
@@ -86,7 +96,8 @@ function renderFiltered() {
     ? allReleases.filter(r =>
         r.hostname?.toLowerCase().includes(q) ||
         r.ip?.toLowerCase().includes(q) ||
-        r.username?.toLowerCase().includes(q)
+        r.username?.toLowerCase().includes(q) ||
+        r.comment?.toLowerCase().includes(q)
       )
     : allReleases;
 
@@ -107,6 +118,9 @@ function renderFiltered() {
   empty.classList.add('hidden');
   tbody.innerHTML = filtered.map((r, i) => {
     const bg = i % 2 === 1 ? 'background:var(--bg-3);' : '';
+    const deleteBtn = isSuperAdmin
+      ? `<button class="btn-del-entry" data-raw="${esc(r._raw)}" title="Supprimer cette entrée" style="background:none;border:none;color:#f85149;cursor:pointer;padding:3px 6px;border-radius:5px;opacity:.6;transition:opacity .15s" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`
+      : '';
     return `
       <tr style="${bg}border-bottom:1px solid var(--brd);">
         <td style="padding:11px 16px;font-size:13px;font-family:'Consolas','Courier New',monospace;color:var(--tx-1);">${esc(r.hostname)}</td>
@@ -115,11 +129,65 @@ function renderFiltered() {
         <td style="padding:11px 16px;">
           <span style="display:inline-block;background:#58a6ff18;border:1px solid #58a6ff44;color:#58a6ff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:600;">${esc(r.username)}</span>
         </td>
+        <td style="padding:11px 16px;font-size:13px;color:var(--tx-3);max-width:240px;">${r.comment ? `<span title="${esc(r.comment)}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.comment)}</span>` : '<span style="color:var(--tx-4)">—</span>'}</td>
+        ${isSuperAdmin ? `<td style="padding:6px 12px;white-space:nowrap;">${deleteBtn}</td>` : ''}
       </tr>
     `;
   }).join('');
+
+  // Wire individual delete buttons
+  if (isSuperAdmin) {
+    tbody.querySelectorAll('.btn-del-entry').forEach(btn => {
+      btn.addEventListener('click', () => deleteEntry(btn.dataset.raw));
+    });
+  }
 }
 
-function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+async function deleteEntry(raw) {
+  if (!await showConfirm({ title: 'Supprimer cette entrée', message: 'Supprimer définitivement cette ligne d\'archive ?', confirmText: 'Supprimer', danger: true })) return;
+  try {
+    await delBody('/api/logs/entry', { raw });
+    allReleases = allReleases.filter(r => r._raw !== raw);
+    document.getElementById('archive-subtitle').textContent =
+      `${allReleases.length} libération(s) enregistrée(s) — les plus récentes en premier`;
+    renderFiltered();
+    showToast('Entrée supprimée', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function clearAllArchive() {
+  if (!await showConfirm({ title: 'Vider l\'archive', message: 'Supprimer définitivement toutes les entrées de libération ? Cette action est irréversible.', confirmText: 'Vider l\'archive', danger: true })) return;
+  try {
+    await del('/api/logs/archive');
+    allReleases = [];
+    document.getElementById('archive-subtitle').textContent = '0 libération(s) enregistrée(s)';
+    renderFiltered();
+    showToast('Archive vidée', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function exportCsv() {
+  if (!allReleases.length) { showToast('Aucune donnée à exporter', 'warn'); return; }
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  const rows = q
+    ? allReleases.filter(r =>
+        r.hostname?.toLowerCase().includes(q) ||
+        r.ip?.toLowerCase().includes(q) ||
+        r.username?.toLowerCase().includes(q) ||
+        r.comment?.toLowerCase().includes(q)
+      )
+    : allReleases;
+
+  const csvEsc = v => `"${String(v || '').replace(/"/g, '""')}"`;
+  const lines = [
+    ['Hostname', 'Adresse IP', 'Date', 'Utilisateur', 'Commentaire'].map(csvEsc).join(','),
+    ...rows.map(r => [r.hostname, r.ip, fmtDate(r.created_at), r.username, r.comment || ''].map(csvEsc).join(',')),
+  ];
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `archive-liberations-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
