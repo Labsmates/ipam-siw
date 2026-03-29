@@ -241,7 +241,7 @@ router.get('/services/status', async (req, res) => {
     for (const svc of ALLOWED_SERVICES) {
       try {
         const { stdout } = await execFileAsync(
-          '/usr/bin/sudo', ['/usr/bin/systemctl', 'status', svc],
+          '/usr/bin/systemctl', ['status', svc],
           { timeout: 5000 }
         );
         const activeMatch = stdout.match(/Active:\s+(\S+)/);
@@ -282,7 +282,7 @@ router.post('/services/:name/restart', async (req, res) => {
     // - redis : déconnecte ioredis avant l'envoi → 502
     res.json({ ok: true });
     setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', name], { timeout: 30000 })
+      execFileAsync('/usr/bin/systemctl', ['restart', name], { timeout: 30000 })
         .catch(() => {});
     });
   } catch (e) {
@@ -301,7 +301,7 @@ router.post('/services/:name/reload', async (req, res) => {
     // Répondre avant le reload : httpd coupe la connexion TCP en se rechargeant → 502
     res.json({ ok: true });
     setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', name], { timeout: 30000 })
+      execFileAsync('/usr/bin/systemctl', [ 'reload', name], { timeout: 30000 })
         .catch(() => {});
     });
   } catch (e) {
@@ -317,7 +317,7 @@ router.post('/services/:name/start', async (req, res) => {
     await addLog(req.user.username, 'SVC_START', `Service « ${name} » démarré`, 'ok');
     res.json({ ok: true });
     setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'start', name], { timeout: 30000 })
+      execFileAsync('/usr/bin/systemctl', [ 'start', name], { timeout: 30000 })
         .catch(() => {});
     });
   } catch (e) {
@@ -334,7 +334,7 @@ router.post('/services/:name/stop', async (req, res) => {
     // Répondre AVANT l'arrêt : stopper ipam tue le processus Node.js courant
     res.json({ ok: true });
     setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'stop', name], { timeout: 30000 })
+      execFileAsync('/usr/bin/systemctl', [ 'stop', name], { timeout: 30000 })
         .catch(() => {});
     });
   } catch (e) {
@@ -348,7 +348,7 @@ router.post('/server/reboot', async (req, res) => {
     // Exécuter d'abord — shutdown ne tue pas Node.js immédiatement,
     // donc la réponse est envoyée avant l'extinction effective.
     // Si sudo échoue (droit non configuré), l'erreur remonte au client.
-    await execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-r', '+1', 'Le serveur va redémarrer dans 1 minute'], { timeout: 10000 });
+    await execFileAsync('/usr/sbin/shutdown', [ '-r', '+1', 'Le serveur va redémarrer dans 1 minute'], { timeout: 10000 });
     await addLog(req.user.username, 'SERVER_REBOOT', 'Redémarrage du serveur dans 1 minute', 'danger');
     res.json({ ok: true });
   } catch (e) {
@@ -359,7 +359,7 @@ router.post('/server/reboot', async (req, res) => {
 // POST /api/config/server/halt
 router.post('/server/halt', async (req, res) => {
   try {
-    await execFileAsync('/usr/bin/sudo', ['/usr/sbin/shutdown', '-h', '+1', 'Le serveur va s\'arrêter dans 1 minute'], { timeout: 10000 });
+    await execFileAsync('/usr/sbin/shutdown', [ '-h', '+1', 'Le serveur va s\'arrêter dans 1 minute'], { timeout: 10000 });
     await addLog(req.user.username, 'SERVER_HALT', 'Arrêt du serveur dans 1 minute', 'danger');
     res.json({ ok: true });
   } catch (e) {
@@ -373,7 +373,7 @@ router.get('/services/:name/logs', async (req, res) => {
   if (!assertService(name, res)) return;
   try {
     const { stdout } = await execFileAsync(
-      '/usr/bin/sudo', ['/usr/bin/journalctl', '-u', name, '-n', '100', '--no-pager'],
+      '/usr/bin/journalctl', [ '-u', name, '-n', '100', '--no-pager'],
       { timeout: 10000 }
     );
     res.json({ logs: stdout });
@@ -512,7 +512,7 @@ router.post('/redis/restore', async (req, res) => {
       `Restauration RDB (${buf.length} octets) — Redis redémarré`, 'danger');
 
     // Redémarrer Redis pour qu'il charge le nouveau fichier RDB
-    await execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'restart', 'redis'], { timeout: 30000 });
+    await execFileAsync('/usr/bin/systemctl', [ 'restart', 'redis'], { timeout: 30000 });
 
     res.json({ ok: true, message: 'Restauration effectuée. Redis redémarré.' });
   } catch (e) {
@@ -834,7 +834,7 @@ router.post('/cert/install', async (req, res) => {
 
     res.json({ ok: true, keyInstalled });
     setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
+      execFileAsync('/usr/bin/systemctl', [ 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -877,7 +877,7 @@ router.post('/cert/self-signed', async (req, res) => {
 
     res.json({ ok: true });
     setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
+      execFileAsync('/usr/bin/systemctl', [ 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
