@@ -282,6 +282,10 @@ router.post('/services/:name/restart', async (req, res) => {
     // - redis : déconnecte ioredis avant l'envoi → 502
     res.json({ ok: true });
     setImmediate(() => {
+      if (name === 'ipam') {
+        // Auto-restart via systemd (Restart=always) — pas besoin de droits root
+        process.exit(0);
+      }
       execFileAsync('/usr/bin/systemctl', ['restart', name], { timeout: 30000 })
         .catch(() => {});
     });
