@@ -154,6 +154,10 @@ export async function updateUserRole(id, role) {
   await redis.hset(`user:${id}`, 'role', role);
 }
 
+export async function updateUserStatus(id, disabled) {
+  await redis.hset(`user:${id}`, 'disabled', disabled ? '1' : '0');
+}
+
 // =============================================================================
 // SITES
 // =============================================================================

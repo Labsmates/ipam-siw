@@ -2,7 +2,7 @@ import express from 'express';
 import jwt     from 'jsonwebtoken';
 import { getJwtSecret, ensureDefaultAdmin as _ensureAdmin,
          createUser, getUserByUsername, getUserById,
-         listUsers, deleteUser, updatePassword, updateUserRole, addLog,
+         listUsers, deleteUser, updatePassword, updateUserRole, updateUserStatus, addLog,
          incrementLoginCount } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 import { sha256 } from '../utils.mjs';
@@ -20,6 +20,8 @@ router.post('/login', loginRateLimit, async (req, res) => {
     const user = await getUserByUsername(username.trim().toUpperCase());
     if (!user || user.pw_hash !== sha256(password))
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
+    if (user.disabled === '1')
+      return res.status(403).json({ error: 'Ce compte est désactivé. Contactez un administrateur.' });
     // Succès : réinitialise le compteur de tentatives pour cette IP
     res.locals.resetLoginRate?.();
     incrementLoginCount(user.id).catch(() => {});
@@ -46,7 +48,7 @@ router.get('/me', requireAuth, async (req, res) => {
 router.get('/users', requireAuth, requireAdmin, async (_req, res) => {
   try {
     const users = await listUsers();
-    res.json({ users: users.map(u => ({ id: u.id, username: u.username, full_name: u.full_name || '', role: u.role, created_at: u.created_at, login_count: parseInt(u.login_count || '0', 10), last_login: u.last_login || null })) });
+    res.json({ users: users.map(u => ({ id: u.id, username: u.username, full_name: u.full_name || '', role: u.role, created_at: u.created_at, login_count: parseInt(u.login_count || '0', 10), last_login: u.last_login || null, disabled: u.disabled === '1' })) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -107,6 +109,23 @@ router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
     await updateUserRole(req.params.id, role);
     await addLog(req.user.username, 'CHANGE_ROLE', `${target.username} : ${target.role} → ${role}`, 'info');
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/users/:id/status (admin — désactiver / activer un compte)
+router.patch('/users/:id/status', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { disabled } = req.body || {};
+    const target = await getUserById(req.params.id);
+    if (!target) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    if (target.username?.toLowerCase() === 'admin')
+      return res.status(403).json({ error: 'Impossible de désactiver le super administrateur' });
+    if (req.params.id === req.user.userId)
+      return res.status(400).json({ error: 'Impossible de désactiver votre propre compte' });
+    await updateUserStatus(req.params.id, !!disabled);
+    const action = disabled ? 'DISABLE_USER' : 'ENABLE_USER';
+    await addLog(req.user.username, action, `Compte « ${target.username} » ${disabled ? 'désactivé' : 'activé'}`, 'warn');
+    res.json({ ok: true, disabled: !!disabled });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

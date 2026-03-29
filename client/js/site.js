@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Populate sidebar
   setupElevationMode();
+  setupAdminSectionToggle();
   loadSidebar();
 
   // Password change modal (accessible to all users)
@@ -725,6 +726,39 @@ function setupModals(user) {
 // ---------------------------------------------------------------------------
 // Sidebar population
 // ---------------------------------------------------------------------------
+function setupAdminSectionToggle() {
+  const adminLink  = document.getElementById('nav-admin-link');
+  const configLink = document.getElementById('nav-config-link');
+  const toggleBtn  = document.getElementById('btn-nav-admin-toggle');
+  const linksDiv   = document.getElementById('nav-admin-links');
+  const icon       = document.getElementById('btn-nav-admin-toggle-icon');
+  if (!toggleBtn || !linksDiv) return;
+
+  // Afficher le bouton uniquement si au moins un lien admin/config est visible
+  const observer = new MutationObserver(() => {
+    const anyVisible = (adminLink && !adminLink.classList.contains('hidden')) ||
+                       (configLink && !configLink.classList.contains('hidden'));
+    toggleBtn.classList.toggle('hidden', !anyVisible);
+  });
+  [adminLink, configLink].filter(Boolean).forEach(el =>
+    observer.observe(el, { attributes: true, attributeFilter: ['class'] })
+  );
+
+  // Restaurer l'état depuis localStorage
+  const collapsed = localStorage.getItem('ipam_nav_admin_collapsed') === '1';
+  if (collapsed) {
+    linksDiv.style.display = 'none';
+    icon.setAttribute('points', '6 9 12 15 18 9');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    const isNowHidden = linksDiv.style.display === 'none';
+    linksDiv.style.display = isNowHidden ? '' : 'none';
+    icon.setAttribute('points', isNowHidden ? '18 15 12 9 6 15' : '6 9 12 15 18 9');
+    localStorage.setItem('ipam_nav_admin_collapsed', isNowHidden ? '0' : '1');
+  });
+}
+
 async function loadSidebar() {
   try {
     const data = await get('/api/sites');

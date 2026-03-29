@@ -221,7 +221,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
           </div>
           <div>
             <h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0">Outils réseau</h2>
-            <div style="font-size:12px;color:var(--tx-3)">Ping, Traceroute et scan de disponibilité — exécutés depuis le serveur.</div>
+            <div style="font-size:12px;color:var(--tx-3)">Ping, Traceroute, Nmap, Netcat et capture réseau — exécutés depuis le serveur.</div>
           </div>
         </div>
 
@@ -241,6 +241,9 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
           </button>
           <button id="nt-tab-nc"         class="nt-tab">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;margin-right:5px;vertical-align:middle"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Test port (nc)
+          </button>
+          <button id="nt-tab-tcpdump" class="nt-tab hidden" style="background:#f8514918;color:#f85149;border:1px solid #f8514940">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;margin-right:5px;vertical-align:middle"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>tcpdump
           </button>
         </div>
 
@@ -358,6 +361,35 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
             <div class="cmd-row"><span class="cmd-lbl">Linux (nc)</span><code>nc -z -v -w 3 &lt;ip&gt; &lt;port&gt;</code></div>
             <div class="cmd-row"><span class="cmd-lbl">Linux (curl)</span><code>curl -sv telnet://&lt;ip&gt;:&lt;port&gt;</code></div>
             <div class="cmd-row"><span class="cmd-lbl">PowerShell</span><code>Test-NetConnection -ComputerName &lt;ip&gt; -Port &lt;port&gt;</code></div>
+          </div>
+        </div>
+
+        <!-- Panel tcpdump (admin uniquement) -->
+        <div id="nt-panel-tcpdump" class="hidden" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="display:grid;grid-template-columns:120px 1fr 80px auto;gap:10px;align-items:flex-end">
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Interface</div>
+              <input id="nt-tcpdump-iface" class="inp" value="any" placeholder="any, eth0…" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Filtre BPF <span style="color:var(--tx-4)">(optionnel — ex : host 192.168.1.1)</span></div>
+              <input id="nt-tcpdump-filter" class="inp" placeholder="ex : host 192.168.1.10 ou port 443" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Nb paquets</div>
+              <input id="nt-tcpdump-count" class="inp" type="number" value="20" min="1" max="200" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+            </div>
+            <button id="nt-btn-tcpdump" class="btn" style="background:#f85149;color:#fff;font-weight:600">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              Capturer
+            </button>
+          </div>
+          <div id="nt-tcpdump-output" class="nt-output hidden"></div>
+          <div class="nt-cmds" style="margin-top:10px">
+            <div style="font-size:11px;color:var(--tx-4);margin-bottom:6px;font-weight:600">Commandes équivalentes</div>
+            <div class="cmd-row"><span class="cmd-lbl">Capture</span><code>tcpdump -i &lt;iface&gt; -c 20 -n host &lt;ip&gt;</code></div>
+            <div class="cmd-row"><span class="cmd-lbl">Avec port</span><code>tcpdump -i any -c 20 -n port 443</code></div>
+            <div class="cmd-row"><span class="cmd-lbl">Écriture pcap</span><code>tcpdump -i eth0 -w capture.pcap -c 100</code></div>
           </div>
         </div>
 

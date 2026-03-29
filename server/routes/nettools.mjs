@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import { spawn  } from 'child_process';
-import { requireAuth } from '../middleware/auth.mjs';
+import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 import { validateAndUseBypassKey } from '../redis.mjs';
 
 const router = Router();
@@ -130,6 +130,28 @@ router.post('/nc', requireAuth, async (req, res) => {
   if (isNaN(p) || p < 1 || p > 65535)
     return res.status(400).json({ error: 'Port invalide (1–65535)' });
   const { output, code } = await run('nc', ['-z', '-v', '-w', '3', target.trim(), String(p)], 10_000);
+  res.json({ output, success: code === 0 });
+});
+
+// ── POST /api/nettools/tcpdump ────────────────────────────────────────────────
+// Admin / super admin uniquement — capture réseau limitée
+const IFACE_RE  = /^[a-zA-Z0-9][\w.\-]{0,15}$/;
+const FILTER_RE = /^[a-zA-Z0-9.:/ \-]{0,120}$/;
+
+router.post('/tcpdump', requireAuth, requireAdmin, async (req, res) => {
+  const { iface = 'any', filter = '', count = 20 } = req.body || {};
+  if (!IFACE_RE.test(iface))
+    return res.status(400).json({ error: 'Interface invalide (ex : eth0, ens3, any)' });
+  const cnt = parseInt(count, 10);
+  if (isNaN(cnt) || cnt < 1 || cnt > 200)
+    return res.status(400).json({ error: 'Nombre de paquets : 1–200' });
+  if (filter && !FILTER_RE.test(filter))
+    return res.status(400).json({ error: 'Filtre invalide (ex : host 192.168.1.1)' });
+
+  const args = ['/usr/sbin/tcpdump', '-i', iface, '-c', String(cnt), '-n', '-l', '--immediate-mode'];
+  if (filter.trim()) args.push(...filter.trim().split(/\s+/));
+
+  const { output, code } = await run('/usr/bin/sudo', args, 30_000);
   res.json({ output, success: code === 0 });
 });
 

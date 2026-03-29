@@ -1441,6 +1441,7 @@ function setupApacheConfigTab() {
     loadApacheConfig();
     loadApacheConfs();
     loadApacheServerIps();
+    loadVhostIp();
   });
   document.getElementById('btn-apache-refresh')?.addEventListener('click', loadApacheConfig);
   document.getElementById('btn-apache-save')?.addEventListener('click', saveApacheConfig);
@@ -1448,6 +1449,44 @@ function setupApacheConfigTab() {
   document.getElementById('btn-apache-reload')?.addEventListener('click', reloadApache);
   document.getElementById('btn-apache-confs-refresh')?.addEventListener('click', loadApacheConfs);
   document.getElementById('btn-apache-ips-refresh')?.addEventListener('click', loadApacheServerIps);
+  document.getElementById('btn-vhost-ip-save')?.addEventListener('click', saveVhostIp);
+}
+
+async function loadVhostIp() {
+  const cur = document.getElementById('vhost-ip-current');
+  const inp = document.getElementById('vhost-ip-input');
+  if (!cur) return;
+  cur.textContent = '…';
+  try {
+    const d = await get('/api/config/apache/vhost-ip');
+    cur.textContent = d.ip || '(non défini)';
+    if (inp) inp.placeholder = d.ip || 'ex : 192.168.1.50';
+  } catch (e) {
+    cur.textContent = '—';
+  }
+}
+
+async function saveVhostIp() {
+  const inp = document.getElementById('vhost-ip-input');
+  const status = document.getElementById('vhost-ip-status');
+  const btn = document.getElementById('btn-vhost-ip-save');
+  const ip = inp?.value.trim();
+  if (!ip) { showToast('Saisir une IP ou un domaine', 'warn'); return; }
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  status.textContent = '';
+  try {
+    const d = await post('/api/config/apache/vhost-ip', { ip });
+    document.getElementById('vhost-ip-current').textContent = d.ip;
+    inp.value = '';
+    status.style.color = '#3fb950';
+    status.textContent = `ServerName mis à jour → ${esc(d.ip)}. Rechargez Apache pour appliquer.`;
+    showToast(`ServerName → ${d.ip}`, 'success');
+  } catch (e) {
+    status.style.color = '#f85149';
+    status.textContent = e.message;
+    showToast(e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Appliquer';
 }
 
 async function loadApacheServerIps() {

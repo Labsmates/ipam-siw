@@ -138,11 +138,16 @@ function renderUsers() {
     const showDelete    = isSuperAdmin && !isOwnAccount && !isSuperAcct;
     // Changer le rôle : pas sur le compte super admin, pas sur son propre compte
     const showRole      = !isSuperAcct && !isOwnAccount;
+    // Désactiver/Activer : admin ou super admin, pas sur ADMIN, pas sur soi-même
+    const showToggle    = !isSuperAcct && !isOwnAccount;
 
     return `
     <tr style="border-bottom:1px solid var(--bg-4);"
         onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
-      <td style="padding:12px 16px;color:var(--tx-1);font-weight:700;font-family:monospace;letter-spacing:.04em;">${esc(u.username)}</td>
+      <td style="padding:12px 16px;font-weight:700;font-family:monospace;letter-spacing:.04em;">
+        <span style="color:${u.disabled ? 'var(--tx-4)' : 'var(--tx-1)'}">${esc(u.username)}</span>
+        ${u.disabled ? `<span style="font-family:sans-serif;font-size:10px;font-weight:600;color:#f85149;background:#f8514918;border:1px solid #f8514940;border-radius:4px;padding:1px 5px;margin-left:5px;letter-spacing:0">désactivé</span>` : ''}
+      </td>
       <td style="padding:12px 16px;color:var(--tx-2);font-size:13px;">${esc(u.full_name || '—')}</td>
       <td style="padding:12px 16px;">
         <span style="${roleStyle[u.role] || roleStyle.user};display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;">
@@ -163,6 +168,10 @@ function renderUsers() {
           style="background:var(--bg-3);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Changer le rôle
         </button>` : ''}
+        ${showToggle ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" data-disabled="${u.disabled ? '1' : '0'}" class="btn-toggle-status"
+          style="background:${u.disabled ? '#0d2e1a' : '#2e2000'};color:${u.disabled ? '#3fb950' : '#d29922'};border:1px solid ${u.disabled ? '#1a5c30' : '#5c4200'};border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          ${u.disabled ? 'Activer' : 'Désactiver'}
+        </button>` : ''}
         ${showDelete ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-del-user"
           style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Supprimer
@@ -180,6 +189,24 @@ function renderUsers() {
   document.querySelectorAll('.btn-del-user').forEach(btn => {
     btn.addEventListener('click', () => confirmDeleteUser(btn.dataset.uid, btn.dataset.uname));
   });
+  document.querySelectorAll('.btn-toggle-status').forEach(btn => {
+    btn.addEventListener('click', () => toggleUserStatus(btn.dataset.uid, btn.dataset.uname, btn.dataset.disabled === '1'));
+  });
+}
+
+async function toggleUserStatus(uid, uname, isCurrentlyDisabled) {
+  const action = isCurrentlyDisabled ? 'activer' : 'désactiver';
+  if (!await showConfirm({
+    title: isCurrentlyDisabled ? `Activer ${uname}` : `Désactiver ${uname}`,
+    message: `Voulez-vous ${action} le compte de ${uname} ?`,
+    confirmText: isCurrentlyDisabled ? 'Activer' : 'Désactiver',
+    danger: !isCurrentlyDisabled,
+  })) return;
+  try {
+    await patch(`/api/users/${uid}/status`, { disabled: !isCurrentlyDisabled });
+    showToast(`Compte ${uname} ${isCurrentlyDisabled ? 'activé' : 'désactivé'}`, 'success');
+    await loadUsers();
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 function setupUserModals() {

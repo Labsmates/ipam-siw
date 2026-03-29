@@ -184,7 +184,11 @@ window._showToast = showToast;
 
 function setupNetTools() {
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  const tabs   = ['ping', 'traceroute', 'scan', 'nmap', 'nc'];
+  const user = getUser();
+  const isAdmin = user?.username === 'ADMIN' || user?.role === 'admin' || user?.elevated === 'sa';
+  const tabs   = ['ping', 'traceroute', 'scan', 'nmap', 'nc', 'tcpdump'];
+  // Afficher le tab tcpdump uniquement pour les admins
+  if (isAdmin) document.getElementById('nt-tab-tcpdump')?.classList.remove('hidden');
   const tabEls = tabs.map(t => document.getElementById(`nt-tab-${t}`));
   const panels = tabs.map(t => document.getElementById(`nt-panel-${t}`));
 
@@ -396,5 +400,24 @@ function setupNetTools() {
   document.getElementById('nt-nc-port').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('nt-btn-nc').click();
   });
+
+  // ── tcpdump (admin uniquement) ────────────────────────────────────────────
+  if (isAdmin) {
+    const tcpIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Capturer`;
+    document.getElementById('nt-btn-tcpdump').addEventListener('click', async () => {
+      const iface  = (document.getElementById('nt-tcpdump-iface').value  || 'any').trim();
+      const filter = (document.getElementById('nt-tcpdump-filter').value || '').trim();
+      const count  = parseInt(document.getElementById('nt-tcpdump-count').value || '20', 10);
+      if (!iface) { showToast('Interface requise', 'warn'); return; }
+      setLoading('nt-btn-tcpdump', 'nt-tcpdump-output', true);
+      try {
+        const data = await post('/api/nettools/tcpdump', { iface, filter, count });
+        showOutput('nt-tcpdump-output', data.output, data.success);
+      } catch (e) {
+        showOutput('nt-tcpdump-output', `Erreur : ${e.message}`, false);
+      }
+      setLoading('nt-btn-tcpdump', 'nt-tcpdump-output', false, tcpIcon);
+    });
+  }
 }
 

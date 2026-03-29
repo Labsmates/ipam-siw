@@ -1383,6 +1383,42 @@ router.post('/apache/confs/toggle', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/config/apache/vhost-ip — lit le ServerName dans ipam.conf
+const IPAM_CONF = '/etc/httpd/conf.d/ipam.conf';
+
+router.get('/apache/vhost-ip', requireSuperAdmin, async (req, res) => {
+  try {
+    const raw = await fs.promises.readFile(IPAM_CONF, 'utf8');
+    const m   = raw.match(/^\s*ServerName\s+(\S+)/m);
+    res.json({ ip: m?.[1] || '', conf: IPAM_CONF });
+  } catch (e) {
+    res.status(500).json({ error: `Impossible de lire ${IPAM_CONF} : ${e.message}` });
+  }
+});
+
+// POST /api/config/apache/vhost-ip — met à jour le ServerName dans ipam.conf (ports 80 et 443)
+router.post('/apache/vhost-ip', requireSuperAdmin, async (req, res) => {
+  try {
+    const { ip } = req.body || {};
+    if (!ip?.trim()) return res.status(400).json({ error: 'IP ou domaine requis' });
+    const ipClean = ip.trim();
+    // Validation basique : pas de caractères dangereux
+    if (/['"\\;<>&|`$]/.test(ipClean))
+      return res.status(400).json({ error: 'Valeur invalide' });
+
+    const raw = await fs.promises.readFile(IPAM_CONF, 'utf8');
+    // Backup
+    await fs.promises.writeFile(IPAM_CONF + '.ipam.bak', raw);
+    // Remplacer toutes les occurrences de ServerName (ports 80 et 443)
+    const updated = raw.replace(/(^\s*ServerName\s+)\S+/gm, `$1${ipClean}`);
+    await fs.promises.writeFile(IPAM_CONF, updated, 'utf8');
+    await addLog(req.user.username, 'APACHE_VHOST_IP', `ServerName ipam.conf → ${ipClean}`, 'warn');
+    res.json({ ok: true, ip: ipClean });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/config/apache/server-ips — IPs réseau du serveur
 // Plusieurs stratégies en cascade (netlink peut être indisponible en conteneur)
 router.get('/apache/server-ips', async (req, res) => {
