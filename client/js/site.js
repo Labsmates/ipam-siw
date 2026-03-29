@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (user?.role === 'admin') {
     document.getElementById('admin-actions').classList.remove('hidden');
-  } else {
+  } else if (user?.role === 'user') {
     document.getElementById('user-actions').classList.remove('hidden');
   }
 

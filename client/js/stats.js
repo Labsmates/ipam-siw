@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, showToast, sortSites, showConfirm, initTheme,
+  get, post, showToast, sortSites, showConfirm, initTheme,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
 
@@ -102,6 +102,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
   document.getElementById('btn-logout').addEventListener('click', async () => {
     if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
+  });
+  document.getElementById('btn-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.remove('hidden');
+  });
+  document.getElementById('btn-cancel-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.add('hidden');
+  });
+  document.getElementById('form-change-pw')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const current = document.getElementById('cpw-current').value;
+    const newpw   = document.getElementById('cpw-new').value;
+    const confirm2 = document.getElementById('cpw-confirm').value;
+    if (newpw !== confirm2) { showToast('Les mots de passe ne correspondent pas', 'warn'); return; }
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Mise à jour…';
+    try {
+      await post('/api/me/password', { currentPassword: current, newPassword: newpw });
+      showToast('Mot de passe modifié avec succès', 'success');
+      document.getElementById('modal-change-pw').classList.add('hidden');
+      e.target.reset();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Modifier'; }
   });
 
   setupElevationMode();

@@ -28,6 +28,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       danger: true,
     })) logout();
   });
+  document.getElementById('btn-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.remove('hidden');
+  });
+  document.getElementById('btn-cancel-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.add('hidden');
+  });
+  document.getElementById('form-change-pw')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const current = document.getElementById('cpw-current').value;
+    const newpw   = document.getElementById('cpw-new').value;
+    const confirm2 = document.getElementById('cpw-confirm').value;
+    if (newpw !== confirm2) { showToast('Les mots de passe ne correspondent pas', 'warn'); return; }
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Mise à jour…';
+    try {
+      await post('/api/me/password', { currentPassword: current, newPassword: newpw });
+      showToast('Mot de passe modifié avec succès', 'success');
+      document.getElementById('modal-change-pw').classList.add('hidden');
+      e.target.reset();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Modifier'; }
+  });
 
   setupElevationMode();
   loadSidebar();
