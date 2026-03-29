@@ -29,20 +29,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const user = getUser();
   document.getElementById('nav-username').textContent = user?.username || '';
   document.getElementById('nav-role').textContent =
-    user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
+    user?.username === 'ADMIN' ? 'Super Administrateur' : user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
 
   document.getElementById('btn-logout').addEventListener('click', async () => {
     if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true }))
       logout();
   });
-
-  if (user?.role === 'admin') {
-    document.getElementById('nav-admin-link').classList.remove('hidden');
-    document.getElementById('nav-config-link')?.classList.remove('hidden');
-  }
-  if (user?.username === 'ADMIN') {
-    document.getElementById('nav-config-link')?.classList.remove('hidden');
-  }
 
   isAdmin = user?.role === 'admin';
 

@@ -92,7 +92,7 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
 router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { role } = req.body || {};
-    const isSuperAdmin = req.user.username?.toLowerCase() === 'admin';
+    const isSuperAdmin = req.user.username?.toLowerCase() === 'admin' || req.user.elevated === 'sa';
     const validRoles = isSuperAdmin ? ['admin', 'user', 'viewer'] : ['user', 'viewer'];
     if (!validRoles.includes(role))
       return res.status(400).json({ error: 'Rôle invalide' });

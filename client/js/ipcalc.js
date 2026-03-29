@@ -18,13 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const user = getUser();
 
   document.getElementById('nav-username').textContent = user.username;
-  document.getElementById('nav-role').textContent     = user.role === 'admin' ? 'Administrateur' : 'Utilisateur';
-
-  // Liens admin visibles pour les admins seulement
-  if (user?.role === 'admin') {
-    document.getElementById('nav-admin-link')?.classList.remove('hidden');
-    document.getElementById('nav-config-link')?.classList.remove('hidden');
-  }
+  document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';
 
   document.getElementById('btn-logout').addEventListener('click', async () => {
     if (await showConfirm({
