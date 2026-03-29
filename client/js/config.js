@@ -10,10 +10,13 @@ import {
 } from './api.js';
 
 // ---------------------------------------------------------------------------
-// Token bypass services (utilisateurs P/X) — permet d'utiliser les routes
-// /api/bypass/services/* avec le token élevé dans handleServiceAction.
+// État mode utilisateur (role='user') — services visibles sans bypass,
+// mais les actions (start/stop/restart/reload + reboot/halt) requièrent
+// une clé de bypass. _bypassServicesToken stocke le token élevé une fois
+// la clé validée.
 // ---------------------------------------------------------------------------
 let _bypassServicesToken = null;
+let _isUserMode          = false;
 
 // ---------------------------------------------------------------------------
 // Init
@@ -29,25 +32,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupElevationMode();
 
-  const PX_RE    = /^[PX]/i;
-  const isUserPX = user?.role === 'user' && PX_RE.test(user?.username || '');
-
-  // Guard : admin OU utilisateur P/X (accès restreint)
-  if (user?.role !== 'admin' && !isUserPX) {
+  // Guard : admin OU utilisateur (role='user') — les viewers sont redirigés
+  if (user?.role !== 'admin' && user?.role !== 'user') {
     window.location.replace('/site.html');
     return;
   }
 
   document.getElementById('nav-username').textContent = user.username;
-  // Rôle affiché dans la sidebar
   document.getElementById('nav-role').textContent =
     user?.username === 'ADMIN' ? 'Super Administrateur' :
     user?.role === 'admin'     ? 'Administrateur' :
                                  'Utilisateur';
 
-  // Mode utilisateur P/X — accès restreint (Services uniquement)
-  if (isUserPX) {
-    setupUserPXConfig(user);
+  // Mode utilisateur (role='user') — onglet Services visible, actions via bypass
+  if (user?.role === 'user') {
+    setupUserConfig(user);
     return;
   }
 
@@ -375,6 +374,17 @@ function renderServiceCards(services, readonly = false) {
 }
 
 async function handleServiceAction(action, svc) {
+  // Mode utilisateur : s'assurer que le bypass est validé avant toute action
+  if (_isUserMode && !_bypassServicesToken) {
+    const access = getServicesAccess();
+    if (access?.token) {
+      _bypassServicesToken = access.token;
+    } else {
+      openServicesKeyModal(() => handleServiceAction(action, svc));
+      return;
+    }
+  }
+
   const isBypass = !!_bypassServicesToken;
 
   if (action === 'logs') {
@@ -1659,17 +1669,22 @@ async function reloadApache() {
   finally { btn.disabled = false; btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg> Recharger Apache`; }
 }
 
-function setupUserPXConfig(user) {
+function setupUserConfig(user) {
+  _isUserMode = true;
+
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
     if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
   });
 
   loadConfigSidebar();
 
-  // Griser tous les onglets sauf Informations, Services et Certificat SSL
-  const LOCKED_TABS = new Set(['redis-config', 'backup', 'maintenance', 'databases', 'apis', 'sharepoint', 'terminal', 'apache']);
+  const PX_RE = /^[PX]/i;
+  const isPX  = PX_RE.test(user?.username || '');
+
+  // Désactiver tous les onglets non autorisés
+  const UNLOCKED = new Set(['services', ...(isPX ? ['sysinfo', 'cert'] : [])]);
   document.querySelectorAll('.admin-tab').forEach(tab => {
-    if (LOCKED_TABS.has(tab.dataset.tab)) {
+    if (!UNLOCKED.has(tab.dataset.tab)) {
       tab.disabled = true;
       tab.style.cssText += ';opacity:.3;cursor:not-allowed;pointer-events:none';
     }
@@ -1678,41 +1693,110 @@ function setupUserPXConfig(user) {
   // Cacher tous les panes
   document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
 
-  // Onglet Informations — accessible directement
-  const sysinfoTab = document.querySelector('.admin-tab[data-tab="sysinfo"]');
-  sysinfoTab?.addEventListener('click', () => {
+  function switchPane(tabEl, paneId) {
     document.querySelectorAll('.admin-tab').forEach(t => setTabActive(t, false));
-    setTabActive(sysinfoTab, true);
+    setTabActive(tabEl, true);
     document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
-    document.getElementById('pane-sysinfo')?.classList.remove('hidden');
-    loadSysInfoForUser();
-  });
+    document.getElementById(paneId)?.classList.remove('hidden');
+  }
 
-  // Onglet Certificat SSL — visible en lecture, installer requiert clé bypass
-  let _certTabSetup = false;
-  const certTab = document.querySelector('.admin-tab[data-tab="cert"]');
-  certTab?.addEventListener('click', () => {
-    document.querySelectorAll('.admin-tab').forEach(t => setTabActive(t, false));
-    setTabActive(certTab, true);
-    document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
-    document.getElementById('pane-cert')?.classList.remove('hidden');
-    if (!_certTabSetup) { _certTabSetup = true; setupCertTabForUser(); }
-    else loadCertInfoForUser();
-  });
-
-  // Onglet Services — clé bypass requise
+  // Onglet Services — visible immédiatement, actions protégées par bypass
   const servicesTab = document.querySelector('.admin-tab[data-tab="services"]');
   servicesTab?.addEventListener('click', () => {
-    document.querySelectorAll('.admin-tab').forEach(t => setTabActive(t, false));
-    setTabActive(servicesTab, true);
-    if (getServicesAccess()) showServicesPane();
-    else openServicesKeyModal();
+    switchPane(servicesTab, 'pane-services');
   });
 
-  // Afficher Informations par défaut
-  if (sysinfoTab) setTabActive(sysinfoTab, true);
-  document.getElementById('pane-sysinfo')?.classList.remove('hidden');
-  loadSysInfoForUser();
+  // Boutons actions serveur
+  document.getElementById('btn-server-reboot')?.addEventListener('click', () => serverActionForUser('reboot'));
+  document.getElementById('btn-server-halt')?.addEventListener('click',   () => serverActionForUser('halt'));
+
+  // Rafraîchir
+  document.getElementById('btn-refresh-services')?.addEventListener('click', () => {
+    loadServicesForUser().catch(e => showToast(e.message, 'error'));
+  });
+
+  if (isPX) {
+    // Onglet Informations système
+    const sysinfoTab = document.querySelector('.admin-tab[data-tab="sysinfo"]');
+    sysinfoTab?.addEventListener('click', () => {
+      switchPane(sysinfoTab, 'pane-sysinfo');
+      loadSysInfoForUser();
+    });
+
+    // Onglet Certificat SSL
+    let _certTabSetup = false;
+    const certTab = document.querySelector('.admin-tab[data-tab="cert"]');
+    certTab?.addEventListener('click', () => {
+      switchPane(certTab, 'pane-cert');
+      if (!_certTabSetup) { _certTabSetup = true; setupCertTabForUser(); }
+      else loadCertInfoForUser();
+    });
+  }
+
+  // Restaurer bypass token depuis session si encore valide
+  const existingAccess = getServicesAccess();
+  if (existingAccess?.token) _bypassServicesToken = existingAccess.token;
+
+  // Afficher Services par défaut et charger
+  if (servicesTab) setTabActive(servicesTab, true);
+  document.getElementById('pane-services')?.classList.remove('hidden');
+  loadServicesForUser().catch(e => showToast(e.message, 'error'));
+
+  // Auto-refresh toutes les 10s (utilise bypass token si disponible)
+  setInterval(() => loadServicesForUser().catch(() => {}), 10_000);
+}
+
+// Affiche/met à jour la bandeau d'accès bypass actif dans pane-services
+function _updateServicesBypassBanner() {
+  const pane = document.getElementById('pane-services');
+  if (!pane || !_bypassServicesToken) return;
+  const access = getServicesAccess();
+  if (!access) return;
+  const mins = Math.max(1, Math.round((access.expires - Date.now()) / 60000));
+  let banner = document.getElementById('services-access-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'services-access-banner';
+    banner.style.cssText = 'background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:8px;padding:8px 14px;font-size:12px;margin-bottom:14px;display:flex;align-items:center;gap:8px';
+    pane.insertBefore(banner, pane.firstChild);
+  }
+  banner.textContent = `⏱ Actions déverrouillées — expire dans ${mins} min`;
+}
+
+// Actions serveur (reboot/halt) pour les utilisateurs — requiert bypass
+async function serverActionForUser(action) {
+  const isReboot = action === 'reboot';
+  if (!_bypassServicesToken) {
+    const access = getServicesAccess();
+    if (access?.token) {
+      _bypassServicesToken = access.token;
+    } else {
+      openServicesKeyModal(() => serverActionForUser(action));
+      return;
+    }
+  }
+  const confirmed = await showConfirm({
+    title:       isReboot ? 'Redémarrer le serveur' : 'Arrêter le serveur',
+    message:     isReboot
+      ? 'Le serveur va redémarrer. Tous les utilisateurs connectés seront déconnectés.'
+      : 'Le serveur va s\'arrêter. Il sera inaccessible jusqu\'à un redémarrage manuel.',
+    confirmText: isReboot ? 'Redémarrer' : 'Arrêter',
+    danger:      true,
+  });
+  if (!confirmed) return;
+  const btn = document.getElementById(isReboot ? 'btn-server-reboot' : 'btn-server-halt');
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = isReboot ? 'Redémarrage…' : 'Arrêt…'; }
+    const resp = await fetch(`/api/bypass/server/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_bypassServicesToken}` },
+    });
+    if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erreur'); }
+    showToast(isReboot ? 'Redémarrage en cours…' : 'Arrêt en cours…', 'warn');
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = isReboot ? 'Redémarrer le serveur' : 'Arrêter le serveur'; }
+  }
 }
 
 function renderServicesLocked() {
@@ -1740,36 +1824,17 @@ function renderServicesLocked() {
 }
 
 function showServicesPane() {
-  document.getElementById('services-locked-ph')?.remove();
-  const pane = document.getElementById('pane-services');
-  if (!pane) return;
-  document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
-  pane.classList.remove('hidden');
-  const access = getServicesAccess();
-  if (access) {
-    const mins = Math.max(1, Math.round((access.expires - Date.now()) / 60000));
-    let banner = document.getElementById('services-access-banner');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'services-access-banner';
-      banner.style.cssText = 'background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:8px;padding:8px 14px;font-size:12px;margin-bottom:14px;display:flex;align-items:center;gap:8px';
-      pane.insertBefore(banner, pane.firstChild);
-    }
-    banner.textContent = `⏱ Accès Services actif — expire dans ${mins} min`;
-  }
-  if (access?.token) {
-    loadServicesForUser(access.token).catch(err => showToast(err.message, 'error'));
-    setInterval(() => loadServicesForUser(access.token).catch(() => {}), 10_000);
-  }
+  _updateServicesBypassBanner();
 }
 
-async function loadServicesForUser(token) {
-  _bypassServicesToken = token;
+async function loadServicesForUser(token = null) {
+  if (token) _bypassServicesToken = token;
+  const authToken = _bypassServicesToken || getToken();
   const grid = document.getElementById('services-grid');
   if (grid) grid.innerHTML = '<p style="color:var(--tx-3);font-size:13px">Chargement…</p>';
 
   const resp = await fetch('/api/bypass/services/status', {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${authToken}` },
   });
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
@@ -1954,7 +2019,7 @@ function openCertKeyModal() {
   });
 }
 
-function openServicesKeyModal() {
+function openServicesKeyModal(onSuccess = null) {
   let modal = document.getElementById('modal-services-key');
   if (!modal) { modal = document.createElement('div'); modal.id = 'modal-services-key'; document.body.appendChild(modal); }
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
@@ -1992,9 +2057,12 @@ function openServicesKeyModal() {
     btnOk.disabled = true; btnOk.textContent = 'Vérification…';
     try {
       const data = await post('/api/bypass/services-access', { key });
+      _bypassServicesToken = data.token;
       sessionStorage.setItem(SERVICES_ACCESS_KEY, JSON.stringify({ token: data.token, expires: new Date(data.expires_at).getTime() }));
       modal.remove();
-      showServicesPane();
+      _updateServicesBypassBanner();
+      if (onSuccess) onSuccess();
+      else loadServicesForUser(_bypassServicesToken).catch(() => {});
     } catch (e) {
       errBox.textContent = e.message;
       errBox.style.display = 'block';

@@ -854,7 +854,7 @@ export async function generateBypassKey(username) {
     key += BYPASS_KEY_CHARS[Math.floor(Math.random() * BYPASS_KEY_CHARS.length)];
   }
   const generated_at  = new Date().toISOString();
-  const expires_at    = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  const expires_at    = new Date(Date.now() + 3600 * 1000).toISOString();
   await redis.hset('config:bypass_key', {
     key,
     generated_by: username,
@@ -874,7 +874,7 @@ export async function validateAndUseBypassKey(key, username, purpose) {
   if (!data?.key) throw new Error('Aucune clé de bypass configurée');
   if (data.used_at)  throw new Error('Cette clé a déjà été utilisée');
   if (new Date(data.expires_at).getTime() < Date.now())
-    throw new Error('Clé de bypass expirée (validité 24h)');
+    throw new Error('Clé de bypass expirée (validité 1h)');
   if (data.key !== String(key || '').trim().toUpperCase())
     throw new Error('Clé de bypass invalide');
   await redis.hset('config:bypass_key', {

@@ -143,10 +143,8 @@ function assertSvc(svc, res) {
 }
 
 // GET /api/bypass/services/status
-// utilisateur P/X avec token elevated:'services' → statut des services
-router.get('/services/status', requireAuth, async (req, res) => {
-  if (req.user.elevated !== 'services')
-    return res.status(403).json({ error: 'Token services requis' });
+// tout utilisateur authentifié → lecture du statut des services (pas d'action)
+router.get('/services/status', requireAuth, async (_req, res) => {
 
   const results = {};
   for (const svc of SVC_ALLOWED) {
@@ -240,6 +238,28 @@ router.post('/services/:svc/reload', requireAuth, async (req, res) => {
     res.json({ ok: true });
     setImmediate(() => execFileAsync('/usr/bin/systemctl', ['reload', svc], { timeout: 30000 }).catch(() => {}));
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/bypass/server/reboot
+// utilisateur avec token elevated:'services' → redémarre le serveur
+router.post('/server/reboot', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'services') return res.status(403).json({ error: 'Token services requis' });
+  try {
+    await addLog(req.user.username, 'SERVER_REBOOT', 'Redémarrage du serveur (bypass)', 'danger');
+    await execFileAsync('/usr/bin/systemctl', ['reboot'], { timeout: 10000 });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.stderr || e.message }); }
+});
+
+// POST /api/bypass/server/halt
+// utilisateur avec token elevated:'services' → arrête le serveur
+router.post('/server/halt', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'services') return res.status(403).json({ error: 'Token services requis' });
+  try {
+    await addLog(req.user.username, 'SERVER_HALT', 'Arrêt du serveur (bypass)', 'danger');
+    await execFileAsync('/usr/bin/systemctl', ['poweroff'], { timeout: 10000 });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.stderr || e.message }); }
 });
 
 // GET /api/bypass/cert/info
