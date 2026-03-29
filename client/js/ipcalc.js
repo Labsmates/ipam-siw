@@ -403,12 +403,29 @@ function setupNetTools() {
 
   // ── tcpdump (admin uniquement) ────────────────────────────────────────────
   if (isAdmin) {
+    // Charger les interfaces réseau disponibles
+    const ifaceSelect = document.getElementById('nt-tcpdump-iface');
+    get('/api/nettools/interfaces').then(d => {
+      ifaceSelect.innerHTML = '';
+      (d.interfaces || []).forEach(i => {
+        const opt = document.createElement('option');
+        opt.value = i.name;
+        opt.textContent = `${i.name}${i.ips.length ? '  (' + i.ips[0] + ')' : ''}`;
+        ifaceSelect.appendChild(opt);
+      });
+      if (!d.interfaces?.length) {
+        ifaceSelect.innerHTML = '<option value="">Aucune interface détectée</option>';
+      }
+    }).catch(() => {
+      ifaceSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+    });
+
     const tcpIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Capturer`;
     document.getElementById('nt-btn-tcpdump').addEventListener('click', async () => {
-      const iface  = (document.getElementById('nt-tcpdump-iface').value  || 'any').trim();
+      const iface  = ifaceSelect.value.trim();
       const filter = (document.getElementById('nt-tcpdump-filter').value || '').trim();
       const count  = parseInt(document.getElementById('nt-tcpdump-count').value || '20', 10);
-      if (!iface) { showToast('Interface requise', 'warn'); return; }
+      if (!iface) { showToast('Sélectionner une interface', 'warn'); return; }
       setLoading('nt-btn-tcpdump', 'nt-tcpdump-output', true);
       try {
         const data = await post('/api/nettools/tcpdump', { iface, filter, count });

@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { spawn  } from 'child_process';
+import os        from 'os';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 import { validateAndUseBypassKey } from '../redis.mjs';
 
@@ -131,6 +132,19 @@ router.post('/nc', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Port invalide (1–65535)' });
   const { output, code } = await run('nc', ['-z', '-v', '-w', '3', target.trim(), String(p)], 10_000);
   res.json({ output, success: code === 0 });
+});
+
+// ── GET /api/nettools/interfaces ──────────────────────────────────────────────
+router.get('/interfaces', requireAuth, requireAdmin, (req, res) => {
+  const ifaces = os.networkInterfaces();
+  const result = Object.entries(ifaces)
+    .filter(([name]) => name !== 'lo')
+    .map(([name, addrs]) => ({
+      name,
+      ips: (addrs || []).filter(a => !a.internal).map(a => a.address),
+    }))
+    .filter(i => i.ips.length);
+  res.json({ interfaces: result });
 });
 
 // ── POST /api/nettools/tcpdump ────────────────────────────────────────────────

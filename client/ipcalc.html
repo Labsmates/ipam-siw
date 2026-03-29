@@ -366,10 +366,12 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 
         <!-- Panel tcpdump (admin uniquement) -->
         <div id="nt-panel-tcpdump" class="hidden" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
-          <div style="display:grid;grid-template-columns:120px 1fr 80px auto;gap:10px;align-items:flex-end">
+          <div style="display:grid;grid-template-columns:160px 1fr 80px auto;gap:10px;align-items:flex-end">
             <div>
               <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Interface</div>
-              <input id="nt-tcpdump-iface" class="inp" value="any" placeholder="any, eth0…" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+              <select id="nt-tcpdump-iface" class="inp" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px">
+                <option value="">Chargement…</option>
+              </select>
             </div>
             <div>
               <div style="font-size:11px;color:var(--tx-3);margin-bottom:5px">Filtre BPF <span style="color:var(--tx-4)">(optionnel — ex : host 192.168.1.1)</span></div>
