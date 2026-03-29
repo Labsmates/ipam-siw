@@ -94,6 +94,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const pctUtilise = total ? Math.round((utilise + reserve) / total * 100) : 0;
       const pctLibre   = total ? Math.round(libre / total * 100) : 0;
 
+      const codeBadge = (label, val) => val
+        ? `<span style="font-size:10px;font-family:monospace;font-weight:600;color:var(--tx-3);background:var(--bg-1);border:1px solid var(--brd);border-radius:4px;padding:1px 5px;white-space:nowrap;">${label} <span style="color:var(--tx-1)">${esc(val)}</span></span>`
+        : '';
+      const codesRow = [codeBadge('Site', s.site_code), codeBadge('Régate', s.code_regate), codeBadge('PST', s.code_pst)].filter(Boolean).join('');
+
       return `
         <a href="/site.html?id=${encodeURIComponent(s.id)}" class="site-card" style="
           display:block;text-decoration:none;
@@ -104,10 +109,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         "
         onmouseenter="this.style.borderColor='#58a6ff';this.style.webkitTransform='translateY(-2px)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(88,166,255,.12)'"
         onmouseleave="this.style.borderColor='var(--brd)';this.style.webkitTransform='';this.style.transform='';this.style.boxShadow=''">
-          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:start;-ms-flex-align:start;align-items:flex-start;margin-bottom:16px;">
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:start;-ms-flex-align:start;align-items:flex-start;margin-bottom:${codesRow ? '8px' : '16px'};">
             <h3 style="color:var(--tx-1);font-size:15px;font-weight:700;margin:0;letter-spacing:-.01em;">${esc(s.name)}</h3>
             <span style="color:#58a6ff;font-size:12px;background:#0d2240;border:1px solid #1f4080;padding:2px 8px;border-radius:999px;">${s.vlan_count || 0} VLAN${(s.vlan_count || 0) !== 1 ? 's' : ''}</span>
           </div>
+          ${codesRow ? `<div style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:4px;margin-bottom:16px;">${codesRow}</div>` : ''}
 
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
             <div style="text-align:center;background:var(--bg-1);border-radius:8px;padding:10px 6px;">
