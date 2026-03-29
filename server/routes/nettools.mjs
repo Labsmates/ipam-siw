@@ -148,10 +148,10 @@ router.post('/tcpdump', requireAuth, requireAdmin, async (req, res) => {
   if (filter && !FILTER_RE.test(filter))
     return res.status(400).json({ error: 'Filtre invalide (ex : host 192.168.1.1)' });
 
-  const args = ['/usr/sbin/tcpdump', '-i', iface, '-c', String(cnt), '-n', '-l', '--immediate-mode'];
+  const args = ['-i', iface, '-c', String(cnt), '-n', '-l'];
   if (filter.trim()) args.push(...filter.trim().split(/\s+/));
 
-  const { output, code } = await run('/usr/bin/sudo', args, 30_000);
+  const { output, code } = await run('/usr/sbin/tcpdump', args, 30_000);
   res.json({ output, success: code === 0 });
 });
 
