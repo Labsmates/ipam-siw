@@ -135,8 +135,15 @@ router.post('/cert-access', requireAuth, async (req, res) => {
   res.json({ ok: true, token, expires_at });
 });
 
+const RELOAD_ONLY_BYPASS = new Set(['httpd']);
+
+function assertSvc(svc, res) {
+  if (!SVC_ALLOWED.includes(svc)) { res.status(400).json({ error: 'Service non autorisé' }); return false; }
+  return true;
+}
+
 // GET /api/bypass/services/status
-// utilisateur P/X avec token elevated:'services' → statut des services (lecture seule)
+// utilisateur P/X avec token elevated:'services' → statut des services
 router.get('/services/status', requireAuth, async (req, res) => {
   if (req.user.elevated !== 'services')
     return res.status(403).json({ error: 'Token services requis' });
@@ -145,7 +152,7 @@ router.get('/services/status', requireAuth, async (req, res) => {
   for (const svc of SVC_ALLOWED) {
     try {
       const { stdout } = await execFileAsync(
-        '/usr/bin/sudo', ['/usr/bin/systemctl', 'status', svc],
+        '/usr/bin/systemctl', ['status', svc],
         { timeout: 5000 }
       );
       const activeMatch = stdout.match(/Active:\s+(\S+)/);
@@ -168,6 +175,71 @@ router.get('/services/status', requireAuth, async (req, res) => {
   }
 
   res.json({ services: results });
+});
+
+// GET /api/bypass/services/:svc/logs
+router.get('/services/:svc/logs', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'services') return res.status(403).json({ error: 'Token services requis' });
+  const { svc } = req.params;
+  if (!assertSvc(svc, res)) return;
+  try {
+    const { stdout } = await execFileAsync('/usr/bin/journalctl', ['-u', svc, '-n', '100', '--no-pager'], { timeout: 10000 });
+    res.json({ logs: stdout });
+  } catch (e) {
+    res.json({ logs: e.stdout || e.message });
+  }
+});
+
+// POST /api/bypass/services/:svc/start
+router.post('/services/:svc/start', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'services') return res.status(403).json({ error: 'Token services requis' });
+  const { svc } = req.params;
+  if (!assertSvc(svc, res)) return;
+  try {
+    await addLog(req.user.username, 'SVC_START', `Service « ${svc} » démarré`, 'ok');
+    res.json({ ok: true });
+    setImmediate(() => execFileAsync('/usr/bin/systemctl', ['start', svc], { timeout: 30000 }).catch(() => {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/bypass/services/:svc/stop
+router.post('/services/:svc/stop', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'services') return res.status(403).json({ error: 'Token services requis' });
+  const { svc } = req.params;
+  if (!assertSvc(svc, res)) return;
+  try {
+    await addLog(req.user.username, 'SVC_STOP', `Service « ${svc} » arrêté`, 'danger');
+    res.json({ ok: true });
+    setImmediate(() => execFileAsync('/usr/bin/systemctl', ['stop', svc], { timeout: 30000 }).catch(() => {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/bypass/services/:svc/restart
+router.post('/services/:svc/restart', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'services') return res.status(403).json({ error: 'Token services requis' });
+  const { svc } = req.params;
+  if (!assertSvc(svc, res)) return;
+  try {
+    await addLog(req.user.username, 'SVC_RESTART', `Service « ${svc} » redémarré`, 'warn');
+    res.json({ ok: true });
+    setImmediate(() => {
+      if (svc === 'ipam') { process.exit(0); }
+      else { execFileAsync('/usr/bin/systemctl', ['restart', svc], { timeout: 30000 }).catch(() => {}); }
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/bypass/services/:svc/reload
+router.post('/services/:svc/reload', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'services') return res.status(403).json({ error: 'Token services requis' });
+  const { svc } = req.params;
+  if (!assertSvc(svc, res)) return;
+  if (!RELOAD_ONLY_BYPASS.has(svc)) return res.status(400).json({ error: `Le service « ${svc} » ne supporte pas reload` });
+  try {
+    await addLog(req.user.username, 'SVC_RELOAD', `Service « ${svc} » rechargé`, 'info');
+    res.json({ ok: true });
+    setImmediate(() => execFileAsync('/usr/bin/systemctl', ['reload', svc], { timeout: 30000 }).catch(() => {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/bypass/cert/info
@@ -273,7 +345,7 @@ router.post('/cert/install', requireAuth, async (req, res) => {
 
     res.json({ ok: true, keyInstalled });
     setImmediate(() => {
-      execFileAsync('/usr/bin/sudo', ['/usr/bin/systemctl', 'reload', 'httpd'], { timeout: 30000 }).catch(() => {});
+      execFileAsync('/usr/bin/systemctl', ['reload', 'httpd'], { timeout: 30000 }).catch(() => {});
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

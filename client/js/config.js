@@ -10,6 +10,12 @@ import {
 } from './api.js';
 
 // ---------------------------------------------------------------------------
+// Token bypass services (utilisateurs P/X) — permet d'utiliser les routes
+// /api/bypass/services/* avec le token élevé dans handleServiceAction.
+// ---------------------------------------------------------------------------
+let _bypassServicesToken = null;
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -369,6 +375,8 @@ function renderServiceCards(services, readonly = false) {
 }
 
 async function handleServiceAction(action, svc) {
+  const isBypass = !!_bypassServicesToken;
+
   if (action === 'logs') {
     const logEl = document.getElementById(`logs-${svc}`);
     if (!logEl.classList.contains('hidden')) {
@@ -378,7 +386,16 @@ async function handleServiceAction(action, svc) {
     logEl.classList.remove('hidden');
     logEl.textContent = 'Chargement des logs…';
     try {
-      const { logs } = await get(`/api/config/services/${svc}/logs`);
+      let logs;
+      if (isBypass) {
+        const resp = await fetch(`/api/bypass/services/${svc}/logs`, {
+          headers: { Authorization: `Bearer ${_bypassServicesToken}` },
+        });
+        if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erreur'); }
+        ({ logs } = await resp.json());
+      } else {
+        ({ logs } = await get(`/api/config/services/${svc}/logs`));
+      }
       logEl.textContent = logs || '(aucun log)';
       logEl.scrollTop   = logEl.scrollHeight;
     } catch (e) {
@@ -400,11 +417,23 @@ async function handleServiceAction(action, svc) {
   if (!await showConfirm({ title: l.title, message: l.msg, confirmText: l.confirm, danger: l.danger })) return;
 
   try {
-    await post(`/api/config/services/${svc}/${action}`);
+    if (isBypass) {
+      const resp = await fetch(`/api/bypass/services/${svc}/${action}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_bypassServicesToken}` },
+      });
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erreur'); }
+    } else {
+      await post(`/api/config/services/${svc}/${action}`);
+    }
     const msgs = { start: `Service « ${svc} » démarré`, restart: `Service « ${svc} » redémarré`, stop: `Service « ${svc} » arrêté`, reload: 'Apache rechargé' };
     showToast(msgs[action] || 'OK', 'success');
-    // Re-vérifier le statut après 2s (3s pour stop/restart car le service met du temps)
-    setTimeout(loadServices, action === 'start' ? 1500 : 3000);
+    const delay = action === 'start' ? 1500 : 3000;
+    if (isBypass) {
+      setTimeout(() => loadServicesForUser(_bypassServicesToken).catch(() => {}), delay);
+    } else {
+      setTimeout(loadServices, delay);
+    }
   } catch (e) {
     showToast(`Erreur : ${e.message}`, 'error');
   }
@@ -1728,10 +1757,14 @@ function showServicesPane() {
     }
     banner.textContent = `⏱ Accès Services actif — expire dans ${mins} min`;
   }
-  if (access?.token) loadServicesForUser(access.token).catch(err => showToast(err.message, 'error'));
+  if (access?.token) {
+    loadServicesForUser(access.token).catch(err => showToast(err.message, 'error'));
+    setInterval(() => loadServicesForUser(access.token).catch(() => {}), 10_000);
+  }
 }
 
 async function loadServicesForUser(token) {
+  _bypassServicesToken = token;
   const grid = document.getElementById('services-grid');
   if (grid) grid.innerHTML = '<p style="color:var(--tx-3);font-size:13px">Chargement…</p>';
 
@@ -1743,7 +1776,7 @@ async function loadServicesForUser(token) {
     throw new Error(err.error || 'Erreur chargement services');
   }
   const { services } = await resp.json();
-  renderServiceCards(services, true);
+  renderServiceCards(services, false);
 }
 
 async function loadSysInfoForUser() {
