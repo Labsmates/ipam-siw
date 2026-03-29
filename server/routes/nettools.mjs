@@ -5,7 +5,6 @@
 
 import { Router } from 'express';
 import { spawn  } from 'child_process';
-import os        from 'os';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 import { validateAndUseBypassKey } from '../redis.mjs';
 
@@ -135,17 +134,22 @@ router.post('/nc', requireAuth, async (req, res) => {
 });
 
 // ── GET /api/nettools/interfaces ──────────────────────────────────────────────
-router.get('/interfaces', requireAuth, requireAdmin, (req, res) => {
+router.get('/interfaces', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const ifaces = os.networkInterfaces();
-    const result = Object.entries(ifaces)
-      .filter(([name]) => name !== 'lo')
-      .map(([name, addrs]) => ({
-        name,
-        ips: (addrs || []).filter(a => !a.internal).map(a => a.address),
-      }))
-      .filter(i => i.ips.length);
-    res.json({ interfaces: result });
+    // os.networkInterfaces() crashe sur certains kernels (EAFNOSUPPORT) — on parse ip(8)
+    const { output } = await run('ip', ['-o', '-4', 'addr'], 5_000);
+    const map = {};
+    for (const line of output.split('\n')) {
+      // ex: "2: eth0    inet 192.168.1.50/24 brd ... scope global eth0"
+      const m = line.match(/^\s*\d+:\s+([\w@.\-]+)\s+inet\s+([\d.]+)/);
+      if (!m) continue;
+      const name = m[1].split('@')[0]; // veth@eth0 → veth
+      if (name === 'lo') continue;
+      if (!map[name]) map[name] = [];
+      map[name].push(m[2]);
+    }
+    const interfaces = Object.entries(map).map(([name, ips]) => ({ name, ips }));
+    res.json({ interfaces });
   } catch (e) {
     console.error('[interfaces]', e);
     res.status(500).json({ error: e.message });
