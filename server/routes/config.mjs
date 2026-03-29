@@ -283,11 +283,11 @@ router.post('/services/:name/restart', async (req, res) => {
     res.json({ ok: true });
     setImmediate(() => {
       if (name === 'ipam') {
-        // Auto-restart via systemd (Restart=always) — pas besoin de droits root
-        process.exit(0);
+        process.exit(0); // systemd Restart=always relance le process
+      } else {
+        execFileAsync('/usr/bin/systemctl', ['restart', name], { timeout: 30000 })
+          .catch(() => {});
       }
-      execFileAsync('/usr/bin/systemctl', ['restart', name], { timeout: 30000 })
-        .catch(() => {});
     });
   } catch (e) {
     res.status(500).json({ error: e.stderr || e.message });
