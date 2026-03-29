@@ -136,15 +136,20 @@ router.post('/nc', requireAuth, async (req, res) => {
 
 // ── GET /api/nettools/interfaces ──────────────────────────────────────────────
 router.get('/interfaces', requireAuth, requireAdmin, (req, res) => {
-  const ifaces = os.networkInterfaces();
-  const result = Object.entries(ifaces)
-    .filter(([name]) => name !== 'lo')
-    .map(([name, addrs]) => ({
-      name,
-      ips: (addrs || []).filter(a => !a.internal).map(a => a.address),
-    }))
-    .filter(i => i.ips.length);
-  res.json({ interfaces: result });
+  try {
+    const ifaces = os.networkInterfaces();
+    const result = Object.entries(ifaces)
+      .filter(([name]) => name !== 'lo')
+      .map(([name, addrs]) => ({
+        name,
+        ips: (addrs || []).filter(a => !a.internal).map(a => a.address),
+      }))
+      .filter(i => i.ips.length);
+    res.json({ interfaces: result });
+  } catch (e) {
+    console.error('[interfaces]', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── POST /api/nettools/tcpdump ────────────────────────────────────────────────
