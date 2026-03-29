@@ -734,15 +734,12 @@ function setupAdminSectionToggle() {
   const icon       = document.getElementById('btn-nav-admin-toggle-icon');
   if (!toggleBtn || !linksDiv) return;
 
-  // Afficher le bouton uniquement si au moins un lien admin/config est visible
-  const observer = new MutationObserver(() => {
-    const anyVisible = (adminLink && !adminLink.classList.contains('hidden')) ||
-                       (configLink && !configLink.classList.contains('hidden'));
-    toggleBtn.classList.toggle('hidden', !anyVisible);
-  });
-  [adminLink, configLink].filter(Boolean).forEach(el =>
-    observer.observe(el, { attributes: true, attributeFilter: ['class'] })
-  );
+  // setupElevationMode() a déjà retiré .hidden — vérifier l'état immédiatement
+  const anyVisible = (adminLink && !adminLink.classList.contains('hidden')) ||
+                     (configLink && !configLink.classList.contains('hidden'));
+  if (!anyVisible) return; // viewer/user sans lien admin : rien à faire
+
+  toggleBtn.classList.remove('hidden');
 
   // Restaurer l'état depuis localStorage
   const collapsed = localStorage.getItem('ipam_nav_admin_collapsed') === '1';
