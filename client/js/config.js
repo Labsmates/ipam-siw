@@ -373,6 +373,45 @@ function renderServiceCards(services, readonly = false) {
   }
 }
 
+// Affiche un overlay "redémarrage en cours" et recharge la page dès que
+// /api/maintenance/status répond (route publique, toujours accessible).
+function waitForReconnect() {
+  // Empêcher toute interaction pendant le redémarrage
+  let overlay = document.getElementById('reconnect-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'reconnect-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg-1,#0d1117);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px';
+    overlay.innerHTML = `
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="1.5" style="animation:spin 1.2s linear infinite">
+        <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/>
+      </svg>
+      <div style="font-size:16px;font-weight:600;color:var(--tx-1,#e6edf3)">Service IPAM en cours de redémarrage…</div>
+      <div id="reconnect-msg" style="font-size:13px;color:var(--tx-3,#8b949e)">Reconnexion automatique dans quelques secondes</div>
+    `;
+    if (!document.getElementById('reconnect-spin-style')) {
+      const s = document.createElement('style');
+      s.id = 'reconnect-spin-style';
+      s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(s);
+    }
+    document.body.appendChild(overlay);
+  }
+
+  let attempts = 0;
+  function poll() {
+    attempts++;
+    fetch('/api/maintenance/status', { cache: 'no-store' })
+      .then(r => { if (r.ok) { window.location.reload(); } else { setTimeout(poll, 1500); } })
+      .catch(() => {
+        const msg = document.getElementById('reconnect-msg');
+        if (msg) msg.textContent = `Tentative ${attempts}… serveur en cours de démarrage`;
+        setTimeout(poll, 1500);
+      });
+  }
+  setTimeout(poll, 2500); // laisser Node.js le temps de s'arrêter
+}
+
 async function handleServiceAction(action, svc) {
   // Mode utilisateur : s'assurer que le bypass est validé avant toute action
   if (_isUserMode && !_bypassServicesToken) {
@@ -436,6 +475,8 @@ async function handleServiceAction(action, svc) {
     } else {
       await post(`/api/config/services/${svc}/${action}`);
     }
+    // Redémarrage d'IPAM : le process va s'arrêter — afficher overlay de reconnexion
+    if (svc === 'ipam' && action === 'restart') { waitForReconnect(); return; }
     const msgs = { start: `Service « ${svc} » démarré`, restart: `Service « ${svc} » redémarré`, stop: `Service « ${svc} » arrêté`, reload: 'Apache rechargé' };
     showToast(msgs[action] || 'OK', 'success');
     const delay = action === 'start' ? 1500 : 3000;
@@ -445,6 +486,8 @@ async function handleServiceAction(action, svc) {
       setTimeout(loadServices, delay);
     }
   } catch (e) {
+    // Si la connexion est coupée pendant le restart IPAM, afficher l'overlay
+    if (svc === 'ipam' && action === 'restart') { waitForReconnect(); return; }
     showToast(`Erreur : ${e.message}`, 'error');
   }
 }
