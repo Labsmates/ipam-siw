@@ -485,8 +485,8 @@ export function setupElevationMode() {
     document.getElementById('nav-ipcalc-link')?.classList.add('hidden');
   }
 
-  // Mode SA : admin P/X uniquement
-  const showSA = originalRole === 'admin' && isPorX && !isSuperAdmin && !elev;
+  // Mode SA : tous les admins (sauf ADMIN)
+  const showSA = originalRole === 'admin' && !isSuperAdmin && !elev;
   if (!showSA && !elev) return;
 
   // Style identique aux liens nav (Administration, Configuration système…)

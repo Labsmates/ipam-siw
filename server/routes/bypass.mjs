@@ -47,13 +47,10 @@ function cidrToNetmask(prefix) {
 }
 
 // POST /api/bypass/elevate
-// type = 'sa' → admin (P/X) → super admin pendant 1h
+// type = 'sa' → admin → super admin pendant 1h
 router.post('/elevate', requireAuth, async (req, res) => {
   const { key } = req.body;
   const { username, role } = req.user;
-
-  if (!PX_RE.test(username))
-    return res.status(403).json({ error: 'Élévation réservée aux identifiants P ou X' });
 
   if (role !== 'admin')
     return res.status(403).json({ error: 'Mode SA réservé aux administrateurs' });
