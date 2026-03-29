@@ -556,7 +556,7 @@ export function setupElevationMode() {
   function openElevModal(type) {
     const label = 'Mode SA — Super Admin';
     const color = '#8957e5';
-    const desc  = 'Élève vos droits en super administrateur pendant 1 heure.';
+    const desc  = 'Élève vos droits en super administrateur pendant 1 heure. Confirmez avec votre mot de passe.';
 
     let modal = document.getElementById('modal-elevation');
     if (!modal) {
@@ -573,10 +573,9 @@ export function setupElevationMode() {
           </div>
           <h3 style="font-size:15px;font-weight:700;margin:0;color:var(--tx-1)">${label}</h3>
         </div>
-        <p style="color:var(--tx-3);font-size:13px;margin:0 0 18px">${desc} Saisissez la clé de bypass fournie par votre administrateur.</p>
+        <p style="color:var(--tx-3);font-size:13px;margin:0 0 18px">${desc}</p>
         <div style="margin-bottom:14px">
-          <input id="elev-key-input" class="inp" type="text" placeholder="XXXX-XXXX-XXXX" autocomplete="off"
-            style="font-family:'JetBrains Mono','Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-align:center">
+          <input id="elev-key-input" class="inp" type="password" placeholder="Votre mot de passe" autocomplete="current-password">
         </div>
         <div id="elev-key-error" style="display:none;background:#f8514918;border:1px solid #f8514940;border-radius:7px;padding:8px 12px;font-size:12px;color:#f85149;margin-bottom:14px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -590,19 +589,18 @@ export function setupElevationMode() {
     const btnOk    = modal.querySelector('#btn-elev-confirm');
     const btnCancel= modal.querySelector('#btn-elev-cancel');
 
-    keyInput.addEventListener('input', () => { keyInput.value = keyInput.value.toUpperCase(); });
     keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnOk.click(); });
     btnCancel.addEventListener('click', () => { modal.remove(); });
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     setTimeout(() => keyInput.focus(), 50);
 
     btnOk.addEventListener('click', async () => {
-      const key = keyInput.value.trim();
-      if (!key) { errBox.textContent = 'Saisissez la clé de bypass.'; errBox.style.display = 'block'; return; }
+      const password = keyInput.value;
+      if (!password) { errBox.textContent = 'Saisissez votre mot de passe.'; errBox.style.display = 'block'; return; }
       errBox.style.display = 'none';
       btnOk.disabled = true; btnOk.textContent = 'Vérification…';
       try {
-        const data = await post('/api/bypass/elevate', { key });
+        const data = await post('/api/bypass/elevate', { password });
         // Sauvegarder la session originale et remplacer par le token élevé
         const backup = { token: data.token, user: data.user, type, expires: new Date(data.expires_at).getTime(),
           backup_token: getToken(), backup_user: sessionStorage.getItem(USER_KEY) };
@@ -612,7 +610,8 @@ export function setupElevationMode() {
       } catch (e) {
         errBox.textContent = e.message;
         errBox.style.display = 'block';
-        keyInput.select();
+        keyInput.value = '';
+        keyInput.focus();
         btnOk.disabled = false; btnOk.textContent = 'Activer';
       }
     });

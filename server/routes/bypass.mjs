@@ -1,6 +1,6 @@
 // =============================================================================
-// IPAM SIW — bypass.mjs  (Élévation temporaire en super admin via clé de bypass)
-// POST /api/bypass/elevate  — accessible aux administrateurs authentifiés P/X
+// IPAM SIW — bypass.mjs  (Élévation temporaire en super admin via mot de passe)
+// POST /api/bypass/elevate  — accessible à tous les administrateurs authentifiés
 // =============================================================================
 
 import { Router }   from 'express';
@@ -9,8 +9,9 @@ import { execFile }  from 'child_process';
 import { promisify } from 'util';
 import fs            from 'fs';
 import os            from 'os';
-import { requireAuth }                                          from '../middleware/auth.mjs';
-import { redis, getJwtSecret, validateAndUseBypassKey, addLog } from '../redis.mjs';
+import { requireAuth }                                                       from '../middleware/auth.mjs';
+import { redis, getJwtSecret, validateAndUseBypassKey, addLog, getUserByUsername } from '../redis.mjs';
+import { sha256 } from '../utils.mjs';
 
 const execFileAsync  = promisify(execFile);
 const SVC_ALLOWED    = ['ipam', 'httpd', 'redis'];
@@ -47,9 +48,9 @@ function cidrToNetmask(prefix) {
 }
 
 // POST /api/bypass/elevate
-// type = 'sa' → admin → super admin pendant 1h
+// admin → super admin pendant 1h (authentification par mot de passe)
 router.post('/elevate', requireAuth, async (req, res) => {
-  const { key } = req.body;
+  const { password } = req.body;
   const { username, role } = req.user;
 
   if (role !== 'admin')
@@ -57,11 +58,11 @@ router.post('/elevate', requireAuth, async (req, res) => {
   if (username === 'ADMIN')
     return res.status(400).json({ error: 'Le super-admin n\'a pas besoin de Mode SA' });
 
-  try {
-    await validateAndUseBypassKey(key, username, 'sa');
-  } catch (e) {
-    await addLog(username, 'BYPASS_KEY_FAIL', `Tentative élévation SA échouée : ${e.message}`, 'warn');
-    return res.status(403).json({ error: e.message });
+  // Vérification du mot de passe de l'administrateur
+  const user = await getUserByUsername(username);
+  if (!user || user.pw_hash !== sha256(password || '')) {
+    await addLog(username, 'ELEVATE_SA_FAIL', 'Tentative élévation SA — mot de passe incorrect', 'warn');
+    return res.status(403).json({ error: 'Mot de passe incorrect' });
   }
 
   const secret = await getJwtSecret();
