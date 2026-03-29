@@ -11,30 +11,30 @@
   --bg-4:    #21262d;   /* fond subtil / bord  */
   --bg-hover:#2d333b;   /* survol              */
   --brd:     #30363d;   /* bordure principale  */
-  --tx-1:    #e6edf3;   /* texte principal     */
-  --tx-2:    #c9d1d9;   /* texte secondaire    */
-  --tx-3:    #8b949e;   /* texte atténué       */
-  --tx-4:    #6e7681;   /* texte discret       */
-  --tx-5:    #484f58;   /* texte très discret  */
+  --tx-1:    #c8d3dd;   /* texte principal     */
+  --tx-2:    #adbac7;   /* texte secondaire    */
+  --tx-3:    #7c8b97;   /* texte atténué       */
+  --tx-4:    #5e6e7c;   /* texte discret       */
+  --tx-5:    #47545f;   /* texte très discret  */
   --shadow:  rgba(0,0,0,.6);
   --overlay: rgba(0,0,0,.7);
 }
 
 /* ── Gris Platine — Mode Clair ─────────────────────────────────────────────── */
 html.light {
-  --bg-1:    #cdd5de;   /* fond principal      */
-  --bg-2:    #bcc6d1;   /* surface principale  */
-  --bg-3:    #aab5c3;   /* surface élevée      */
-  --bg-4:    #98a5b5;   /* fond subtil / bord  */
-  --bg-hover:#8896a8;   /* survol              */
-  --brd:     #6b7c8f;   /* bordure principale  */
-  --tx-1:    #000000;   /* texte principal     */
-  --tx-2:    #0a0e13;   /* texte secondaire    */
-  --tx-3:    #1a2530;   /* texte atténué       */
-  --tx-4:    #263240;   /* texte discret       */
-  --tx-5:    #374555;   /* texte très discret  */
-  --shadow:  rgba(0,0,0,.28);
-  --overlay: rgba(0,0,0,.45);
+  --bg-1:    #dce3ec;   /* fond principal      */
+  --bg-2:    #cdd5e0;   /* surface principale  */
+  --bg-3:    #bec9d5;   /* surface élevée      */
+  --bg-4:    #afbbca;   /* fond subtil / bord  */
+  --bg-hover:#a0aebb;   /* survol              */
+  --brd:     #8a9bac;   /* bordure principale  */
+  --tx-1:    #1e2a35;   /* texte principal     */
+  --tx-2:    #2e3d4c;   /* texte secondaire    */
+  --tx-3:    #4e606f;   /* texte atténué       */
+  --tx-4:    #697a87;   /* texte discret       */
+  --tx-5:    #8898a5;   /* texte très discret  */
+  --shadow:  rgba(0,0,0,.22);
+  --overlay: rgba(0,0,0,.40);
 }
 
 /* ── Sélection de texte dans les champs ───────────────────────────────────── */
@@ -96,14 +96,61 @@ html.light span[style*="background:#0d2a1a"] {
   border-color: #2da44e !important;
 }
 
-/* Status badge Utilisé (rouge) */
-html.light span[style*="background:#f8514918"] { background: #fff1f0 !important; }
+/* Status badges colorés (fonds sombres hardcodés → remplacés par tons clairs) */
+/* Vert libre */
+html.light [style*="background:#0d2e1a"],
+html.light [style*="background:#0d2a1a"] {
+  background: #d4f5e0 !important;
+  border-color: #4db870 !important;
+}
+html.light [style*="background:#0d2e1a"] *,
+html.light [style*="background:#0d2a1a"] * { color: #1a6b35 !important; }
+
+/* Rouge occupé */
+html.light [style*="background:#2e0d0d"] {
+  background: #fde8e8 !important;
+  border-color: #e07070 !important;
+}
+html.light [style*="background:#2e0d0d"] * { color: #b91c1c !important; }
+
+/* Jaune réservé */
+html.light [style*="background:#2d2208"],
+html.light [style*="background:#2d220840"] {
+  background: #fef3c7 !important;
+  border-color: #d4a017 !important;
+}
+html.light [style*="background:#2d2208"] * { color: #92600a !important; }
+
+/* Violet SA */
+html.light [style*="background:#8957e518"],
+html.light [style*="background:#8957e540"] {
+  background: #ede9fe !important;
+  border-color: #a78bfa !important;
+}
+
+/* Rouge erreur inline */
+html.light [style*="background:#f8514918"] {
+  background: #fde8e8 !important;
+  border-color: #f8a5a5 !important;
+}
+html.light [style*="background:#f8514918"] * { color: #b91c1c !important; }
+
+/* Lien bleu #58a6ff → bleu foncé lisible sur fond clair */
+html.light [style*="color:#58a6ff"] { color: #1a65c8 !important; }
+/* Vert #3fb950 → vert foncé */
+html.light [style*="color:#3fb950"] { color: #1a6b35 !important; }
+/* Rouge #f85149 → rouge foncé */
+html.light [style*="color:#f85149"] { color: #b91c1c !important; }
+/* Jaune #d29922 → ambre foncé */
+html.light [style*="color:#d29922"] { color: #92600a !important; }
+/* Violet #8957e5 → violet foncé */
+html.light [style*="color:#8957e5"] { color: #6d3ec8 !important; }
 
 /* Onglet VLAN actif */
 html.light .vlan-tab.on {
-  background: #ddf4ff !important;
-  color: #0969da !important;
-  border-bottom-color: #0969da !important;
+  background: #dbeafe !important;
+  color: #1a65c8 !important;
+  border-bottom-color: #1a65c8 !important;
 }
 
 /* ── Bandeau gradient sombre (ipcalc) ─────────────────────────────────────── */
@@ -112,16 +159,16 @@ html.light #ipcalc-banner {
   background:          linear-gradient(135deg, #c8e6ff, #d8eeff) !important;
   border-color: #79b8ff !important;
 }
-html.light #ipcalc-cidr-label  { color: #0969da !important; }
+html.light #ipcalc-cidr-label  { color: #1a65c8 !important; }
 html.light #ipcalc-mask-label  { color: #0550ae !important; }
-html.light #ipcalc-hosts-label { color: #1a7f37 !important; }
+html.light #ipcalc-hosts-label { color: #1a6b35 !important; }
 
 /* ── Bandeau gradient cert info (config.html) ─────────────────────────────── */
 html.light #cert-info-banner {
   background: -webkit-linear-gradient(135deg, #c8e6ff, #d8eeff) !important;
   background:          linear-gradient(135deg, #c8e6ff, #d8eeff) !important;
   border-color: #79b8ff !important;
-  color: #0969da !important;
+  color: #1a65c8 !important;
 }
 html.light #cert-info-banner * { color: #0550ae !important; }
 
@@ -134,15 +181,21 @@ html.light [style*="background:#161b22"] {
   border-color: var(--brd) !important;
 }
 html.light [style*="background:#1c2128"] { background: var(--bg-3) !important; }
+html.light [style*="background:#21262d"] { background: var(--bg-4) !important; }
 html.light [style*="border:1px solid #30363d"],
 html.light [style*="border-bottom:1px solid #30363d"],
 html.light [style*="border-top:1px solid #30363d"] {
   border-color: var(--brd) !important;
 }
 
-/* Textes hardcodés dans archive/export */
-html.light [style*="color:#e6edf3"] { color: var(--tx-1) !important; }
-html.light [style*="color:#8b949e"]  { color: var(--tx-3) !important; }
+/* Textes hardcodés */
+html.light [style*="color:#e6edf3"],
+html.light [style*="color:#c9d1d9"],
+html.light [style*="color:#c8d3dd"],
+html.light [style*="color:#adbac7"] { color: var(--tx-1) !important; }
+html.light [style*="color:#8b949e"],
+html.light [style*="color:#7c8b97"]  { color: var(--tx-3) !important; }
+html.light [style*="color:#6e7681"],
 html.light [style*="color:#484f58"]  { color: var(--tx-4) !important; }
 
 /* Ligne de tableau alternée (archive.js) */
