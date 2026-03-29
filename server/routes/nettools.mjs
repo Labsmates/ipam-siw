@@ -136,8 +136,13 @@ router.post('/nc', requireAuth, async (req, res) => {
 // ── GET /api/nettools/interfaces ──────────────────────────────────────────────
 router.get('/interfaces', requireAuth, requireAdmin, async (req, res) => {
   try {
-    // os.networkInterfaces() crashe sur certains kernels (EAFNOSUPPORT) — on parse ip(8)
-    const { output } = await run('ip', ['-o', '-4', 'addr'], 5_000);
+    // Essayer plusieurs chemins pour ip(8) — /usr/sbin absent du PATH systemd sur RHEL
+    const IP_BINS = ['/usr/sbin/ip', '/sbin/ip', '/usr/bin/ip', '/bin/ip', 'ip'];
+    let output = '';
+    for (const bin of IP_BINS) {
+      const r = await run(bin, ['-o', '-4', 'addr'], 5_000);
+      if (r.code === 0 && r.output.trim()) { output = r.output; break; }
+    }
     const map = {};
     for (const line of output.split('\n')) {
       // ex: "2: eth0    inet 192.168.1.50/24 brd ... scope global eth0"
