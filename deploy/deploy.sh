@@ -1,14 +1,13 @@
 #!/bin/bash
 # ==============================================================================
 # IPAM SIW v2 — Script de déploiement pour Rocky Linux 10
-# Serveur : 218.16.185.50
-# Backend : Node.js + Redis (SQLite supprimé)
+# Backend : Node.js + Redis
 #
 # Lancer en tant que root : bash deploy/deploy.sh
 #
 # Prérequis (machine dev, avant transfert) :
-#   bash vendor/download-vendor.sh    # Tailwind + SheetJS
-#   npm install                        # node_modules/ (dont ioredis)
+#   bash vendor/download-vendor.sh    # Tailwind + SheetJS + polices
+#   (node_modules/ copié depuis la machine dev ou npm install sur le serveur)
 # ==============================================================================
 
 set -e
@@ -25,7 +24,13 @@ info "Déploiement IPAM SIW v2 sur Rocky Linux 10"
 APP_DIR="/var/www/ipam"
 DATA_DIR="${APP_DIR}/data"
 SERVICE_USER="ipam"
-SERVER_IP="218.16.185.50"
+
+# Auto-détection de l'IP principale (première IP non-loopback)
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [[ -z "${SERVER_IP}" ]]; then
+  read -rp "IP du serveur (ex: 192.168.1.10) : " SERVER_IP
+fi
+info "IP détectée : ${SERVER_IP}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(dirname "${SCRIPT_DIR}")"
@@ -53,7 +58,7 @@ else
   dnf install -y redis || warn "Redis non trouvé dans les dépôts — ajoutez redis*.rpm dans offline-rpms/"
 fi
 
-# Build tools (pour ioredis natif si nécessaire)
+# Build tools (python3 requis pour vendor/download-vendor.sh)
 dnf install -y python3 gcc gcc-c++ make 2>/dev/null || true
 
 success "Node.js $(node --version 2>/dev/null || echo '?') | Apache | Redis"
@@ -173,8 +178,16 @@ fi
 # ── 9. Apache ─────────────────────────────────────────────────────────────────
 info "9/11 — Configuration Apache…"
 cp "${SCRIPT_DIR}/ipam.conf" /etc/httpd/conf.d/ipam.conf
-[[ -f /etc/httpd/conf.d/welcome.conf ]] && \
-  mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.disabled 2>/dev/null || true
+
+# Injecter l'IP détectée dans ipam.conf
+sed -i "s/218\.16\.185\.[0-9]*/$(echo "${SERVER_IP}" | sed 's/\./\\./g')/g" /etc/httpd/conf.d/ipam.conf
+
+# Désactiver les VirtualHosts parasites qui peuvent intercepter le port 443
+for f in welcome.conf ssl.conf; do
+  [[ -f "/etc/httpd/conf.d/${f}" ]] && \
+    mv "/etc/httpd/conf.d/${f}" "/etc/httpd/conf.d/${f}.disabled" 2>/dev/null && \
+    info "${f} désactivé (renommé en ${f}.disabled)" || true
+done
 grep -q "ServerTokens Prod" /etc/httpd/conf/httpd.conf || \
   echo -e "\nServerTokens Prod\nServerSignature Off" >> /etc/httpd/conf/httpd.conf
 
@@ -244,5 +257,6 @@ echo    "  2. Remplacez le certificat SSL auto-signé"
 echo    "  3. Logs Node.js : journalctl -u ipam -f"
 echo    "  4. Logs Redis   : journalctl -u redis -f"
 echo    "  5. Sauvegarde Redis : redis-cli BGSAVE"
-echo    "  6. Page Configuration système accessible via Administration → Configuration"
+echo    "  6. Page Configuration système accessible depuis la sidebar"
+echo    "  7. En cas de conflit VirtualHost : vérifiez /etc/httpd/conf.d/ et désactivez ssl.conf si présent"
 echo ""

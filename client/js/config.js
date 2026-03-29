@@ -87,6 +87,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupApisTab();
   setupSharepointTab();
   setupMaintenanceTab();
+  setupTerminalTab();
+  setupApacheConfigTab();
 
   // Rafraîchissement auto des services toutes les 10 secondes
   setInterval(loadServices, 10_000);
@@ -1193,6 +1195,380 @@ function getServicesAccess() {
   } catch { return null; }
 }
 
+// =============================================================================
+// TERMINAL
+// =============================================================================
+function setupTerminalTab() {
+  const outputEl = document.getElementById('term-output');
+  const cmdEl    = document.getElementById('term-cmd');
+
+  // Historique commandes (flèches haut/bas)
+  const history = []; let histIdx = -1;
+  cmdEl?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); execCmd(); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); if (histIdx < history.length - 1) { histIdx++; cmdEl.value = history[histIdx]; } return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (histIdx > 0) { histIdx--; cmdEl.value = history[histIdx]; } else { histIdx = -1; cmdEl.value = ''; } }
+  });
+
+  document.getElementById('btn-term-exec')?.addEventListener('click', execCmd);
+  document.getElementById('btn-term-clear')?.addEventListener('click', () => { if (outputEl) outputEl.textContent = ''; });
+
+  async function execCmd() {
+    const cmd = cmdEl?.value.trim();
+    if (!cmd || !outputEl) return;
+    history.unshift(cmd); histIdx = -1;
+    const btn = document.getElementById('btn-term-exec');
+    btn.disabled = true;
+    const sep = outputEl.textContent ? '\n' : '';
+    outputEl.textContent += `${sep}$ ${cmd}\n`;
+    outputEl.scrollTop = outputEl.scrollHeight;
+    try {
+      const d = await post('/api/config/terminal/exec', { command: cmd });
+      if (d.stdout) outputEl.textContent += d.stdout;
+      if (d.stderr) outputEl.textContent += d.stderr;
+    } catch (e) {
+      outputEl.textContent += `[Erreur] ${e.message}\n`;
+    } finally {
+      btn.disabled = false;
+      outputEl.scrollTop = outputEl.scrollHeight;
+      cmdEl.value = '';
+      cmdEl.focus();
+    }
+  }
+
+  // ── Upload ──────────────────────────────────────────────────────────────────
+  const fileInput = document.getElementById('term-upload-file');
+  const uploadBar = document.getElementById('term-upload-bar');
+
+  document.getElementById('btn-term-pick')?.addEventListener('click', () => fileInput?.click());
+
+  fileInput?.addEventListener('change', () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    document.getElementById('term-pick-name').textContent = f.name;
+    const cur = document.getElementById('term-upload-path').value;
+    // Ne remplace que si vide ou si c'était un chemin auto-généré précédent
+    if (!cur || cur.startsWith('/tmp/')) {
+      document.getElementById('term-upload-path').value = `/tmp/${f.name}`;
+    } else {
+      // Remplace juste le nom de fichier à la fin du chemin existant
+      document.getElementById('term-upload-path').value = cur.replace(/\/[^/]*$/, '') + '/' + f.name;
+    }
+    document.getElementById('term-upload-status').textContent = '';
+    uploadBar.style.display = 'flex';
+  });
+
+  // Parcourir pour choisir le dossier de destination (disponible avant ou après le choix du fichier)
+  document.getElementById('btn-term-upload-browse')?.addEventListener('click', () => {
+    openFileBrowserForDir(dir => {
+      const f = fileInput?.files[0];
+      const filename = f ? f.name : (document.getElementById('term-upload-path').value.split('/').pop() || 'fichier');
+      document.getElementById('term-upload-path').value = dir.replace(/\/$/, '') + '/' + filename;
+      document.getElementById('term-upload-status').textContent = '';
+      if (f) uploadBar.style.display = 'flex';
+    });
+  });
+
+  document.getElementById('btn-term-upload-cancel')?.addEventListener('click', () => {
+    uploadBar.style.display = 'none';
+    fileInput.value = '';
+    document.getElementById('term-pick-name').textContent = 'Aucun fichier sélectionné';
+  });
+
+  document.getElementById('btn-term-upload')?.addEventListener('click', async () => {
+    const f    = fileInput?.files[0];
+    const dest = document.getElementById('term-upload-path').value.trim();
+    const statusEl = document.getElementById('term-upload-status');
+    if (!f || !dest) return;
+    const btn = document.getElementById('btn-term-upload');
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const b64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(f);
+      });
+      const data = await post('/api/config/terminal/upload', { file_path: dest, content_b64: b64 });
+      statusEl.style.color = '#3fb950';
+      statusEl.textContent = `✓ ${data.size} o`;
+      showToast(`Fichier uploadé → ${dest}`, 'success');
+      setTimeout(() => { uploadBar.style.display = 'none'; fileInput.value = ''; }, 1500);
+    } catch (e) {
+      statusEl.style.color = '#f85149';
+      statusEl.textContent = `Erreur`;
+      showToast(e.message, 'error');
+    } finally { btn.disabled = false; btn.textContent = 'Envoyer'; }
+  });
+
+  // ── Explorateur / Téléchargement ────────────────────────────────────────────
+  document.getElementById('btn-term-browse')?.addEventListener('click', () => openFileBrowser());
+
+  async function downloadFile(p) {
+    try {
+      const res = await fetch(`/api/config/terminal/download?path=${encodeURIComponent(p)}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Erreur ${res.status}`); }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = p.split('/').pop() || 'fichier';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // Explorateur générique — mode 'download' (sélectionner un fichier) ou 'dir' (sélectionner un dossier)
+  function _openFileBrowser({ mode = 'download', startPath = '/', onSelect = null } = {}) {
+    const modal      = document.getElementById('modal-filebrowser');
+    const listEl     = document.getElementById('fb-list');
+    const pathInput  = document.getElementById('fb-path-input');
+    const selectedEl = document.getElementById('fb-selected-path');
+    const dlBtn      = document.getElementById('fb-btn-download');
+    const upBtn      = document.getElementById('fb-btn-up');
+    const goBtn      = document.getElementById('fb-btn-go');
+
+    let currentPath = startPath;
+
+    // Réinitialiser l'état du modal (évite pollution entre ouvertures)
+    selectedEl.value = mode === 'dir' ? startPath : '';
+    dlBtn.disabled   = mode === 'dir' ? false : true;
+    dlBtn.innerHTML  = mode === 'dir'
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Choisir ce dossier'
+      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Télécharger';
+
+    // Remplacer les handlers par onclick (pas d'accumulation de listeners)
+    goBtn.onclick  = () => { const p = pathInput.value.trim(); if (p) browse(p); };
+    pathInput.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); const p = pathInput.value.trim(); if (p) browse(p); } };
+    upBtn.onclick  = () => { const parent = currentPath.replace(/\/?[^/]+\/?$/, '') || '/'; if (parent !== currentPath) browse(parent); };
+    dlBtn.onclick  = async () => {
+      if (mode === 'dir') {
+        modal.classList.add('hidden');
+        onSelect?.(currentPath);
+      } else {
+        const p = selectedEl.value;
+        if (!p) return;
+        modal.classList.add('hidden');
+        await downloadFile(p);
+      }
+    };
+
+    modal.classList.remove('hidden');
+    browse(startPath);
+
+    async function browse(p) {
+      currentPath = p;
+      pathInput.value = p;
+      if (mode === 'dir') { selectedEl.value = p; dlBtn.disabled = false; }
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx-3);font-size:13px">Chargement…</div>';
+      try {
+        const data = await get(`/api/config/terminal/ls?path=${encodeURIComponent(p)}`);
+        const items = mode === 'dir' ? data.items.filter(i => i.type === 'dir') : data.items;
+        if (!items.length) {
+          listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--tx-3);font-size:13px;font-style:italic">${mode === 'dir' ? 'Aucun sous-dossier' : 'Répertoire vide'}</div>`;
+          return;
+        }
+        listEl.innerHTML = items.map(item => {
+          const isDir = item.type === 'dir';
+          const icon = isDir
+            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
+            : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--tx-3)" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>`;
+          const sizeStr = item.size != null ? `<span style="font-size:11px;color:var(--tx-4)">${fmtSize(item.size)}</span>` : '';
+          return `<div class="fb-entry" data-name="${esc2(item.name)}" data-type="${item.type}"
+            style="display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;border-bottom:1px solid var(--brd);font-size:13px;transition:background .1s"
+            onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background=''">
+            ${icon}
+            <span style="flex:1;color:${isDir ? 'var(--tx-1)' : 'var(--tx-2)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc2(item.name)}</span>
+            ${sizeStr}
+            ${mode === 'download' && !isDir ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2" style="flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>` : ''}
+          </div>`;
+        }).join('');
+        listEl.querySelectorAll('.fb-entry').forEach(el => {
+          el.addEventListener('click', () => {
+            const full = currentPath.replace(/\/+$/, '') + '/' + el.dataset.name;
+            if (el.dataset.type === 'dir') { browse(full); }
+            else if (mode === 'download') {
+              selectedEl.value = full; dlBtn.disabled = false;
+              listEl.querySelectorAll('.fb-entry').forEach(e => e.style.background = '');
+              el.style.background = '#58a6ff18';
+            }
+          });
+        });
+      } catch (e) { listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#f85149;font-size:13px">${e.message}</div>`; }
+    }
+  }
+
+  function openFileBrowser(startPath = '/') {
+    _openFileBrowser({ mode: 'download', startPath });
+  }
+
+  function openFileBrowserForDir(onSelect) {
+    _openFileBrowser({ mode: 'dir', startPath: '/', onSelect });
+  }
+
+  function fmtSize(b) { return b < 1024 ? `${b} o` : b < 1048576 ? `${(b/1024).toFixed(1)} Ko` : `${(b/1048576).toFixed(1)} Mo`; }
+  function esc2(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+}
+
+// =============================================================================
+// CONFIG APACHE
+// =============================================================================
+function setupApacheConfigTab() {
+  document.querySelector('[data-tab="apache"]')?.addEventListener('click', () => {
+    loadApacheConfig();
+    loadApacheConfs();
+    loadApacheServerIps();
+  });
+  document.getElementById('btn-apache-refresh')?.addEventListener('click', loadApacheConfig);
+  document.getElementById('btn-apache-save')?.addEventListener('click', saveApacheConfig);
+  document.getElementById('btn-apache-test')?.addEventListener('click', testApacheConfig);
+  document.getElementById('btn-apache-reload')?.addEventListener('click', reloadApache);
+  document.getElementById('btn-apache-confs-refresh')?.addEventListener('click', loadApacheConfs);
+  document.getElementById('btn-apache-ips-refresh')?.addEventListener('click', loadApacheServerIps);
+}
+
+async function loadApacheServerIps() {
+  const el = document.getElementById('apache-ips-list');
+  if (!el) return;
+  try {
+    const d = await get('/api/config/apache/server-ips');
+    if (!d.ips.length) { el.innerHTML = '<span style="color:var(--tx-3);font-style:italic">Aucune IP trouvée</span>'; return; }
+    el.innerHTML = d.ips.map(ip => `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--brd)">
+        <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${ip.internal ? 'var(--bg-3)' : '#58a6ff22'};color:${ip.internal ? 'var(--tx-3)' : '#58a6ff'};flex-shrink:0">${ip.internal ? 'lo' : ip.family}</span>
+        <code style="font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;color:${ip.internal ? 'var(--tx-3)' : 'var(--tx-1)'};flex:1">${esc(ip.cidr)}</code>
+        <span style="font-size:11px;color:var(--tx-3)">${esc(ip.iface)}</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = `<span style="color:#f85149">${esc(e.message)}</span>`;
+  }
+}
+
+async function loadApacheConfs() {
+  const el = document.getElementById('apache-confs-list');
+  if (!el) return;
+  el.innerHTML = '<span style="color:var(--tx-3);font-style:italic">Chargement…</span>';
+  try {
+    const d = await get('/api/config/apache/confs');
+    if (!d.files.length) { el.innerHTML = '<span style="color:var(--tx-3);font-style:italic">Aucun fichier trouvé dans ' + esc(d.conf_dir) + '</span>'; return; }
+    el.innerHTML = d.files.map(f => `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--brd)">
+        <span style="width:8px;height:8px;border-radius:50%;background:${f.enabled ? '#3fb950' : '#8b949e'};flex-shrink:0"></span>
+        <code style="font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;color:${f.enabled ? 'var(--tx-1)' : 'var(--tx-3)'};flex:1;text-decoration:${f.enabled ? 'none' : 'line-through'}">${esc(f.name)}</code>
+        <button class="btn btn-sm ${f.enabled ? 'btn-warn' : 'btn-g'}" data-conf-toggle="${esc(f.name)}" style="font-size:11px;min-width:80px">
+          ${f.enabled ? 'Désactiver' : 'Activer'}
+        </button>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-conf-toggle]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const filename = btn.dataset.confToggle;
+        const enabling = btn.textContent.trim() === 'Activer';
+        if (!await showConfirm({
+          title: enabling ? 'Activer le fichier' : 'Désactiver le fichier',
+          message: `${enabling ? 'Activer' : 'Désactiver'} "${filename}" dans conf.d ?\nPensez à recharger Apache ensuite.`,
+          confirmText: enabling ? 'Activer' : 'Désactiver',
+          danger: !enabling,
+        })) return;
+        btn.disabled = true; btn.textContent = '…';
+        try {
+          await post('/api/config/apache/confs/toggle', { filename });
+          showToast(`${filename} ${enabling ? 'activé' : 'désactivé'}`, 'success');
+          loadApacheConfs();
+        } catch (e) { showToast(e.message, 'error'); btn.disabled = false; }
+      });
+    });
+  } catch (e) {
+    el.innerHTML = `<span style="color:#f85149">${esc(e.message)}</span>`;
+  }
+}
+
+async function loadApacheConfig() {
+  const status = document.getElementById('apache-save-status');
+  if (status) { status.textContent = 'Chargement…'; status.style.color = 'var(--tx-3)'; }
+  try {
+    const d = await get('/api/config/apache');
+    document.getElementById('apache-conf-path').textContent = d.conf_path || '';
+    document.getElementById('ap-server-name').value       = d.server_name       || '';
+    document.getElementById('ap-server-admin').value      = d.server_admin      || '';
+    document.getElementById('ap-listen').value            = d.listen             || '';
+    document.getElementById('ap-document-root').value     = d.document_root     || '';
+    document.getElementById('ap-error-log').value         = d.error_log         || '';
+    document.getElementById('ap-custom-log').value        = d.custom_log        || '';
+    document.getElementById('ap-timeout').value           = d.timeout           || '';
+    document.getElementById('ap-keep-alive').value        = d.keep_alive        || '';
+    document.getElementById('ap-keep-alive-timeout').value = d.keep_alive_timeout || '';
+    document.getElementById('ap-max-req-workers').value   = d.max_req_workers   || '';
+    document.getElementById('ap-directory-index').value   = d.directory_index   || '';
+    if (status) { status.textContent = `Apache : ${d.status}`; status.style.color = d.status === 'active' ? '#3fb950' : '#f85149'; }
+  } catch (e) {
+    if (status) { status.textContent = `Erreur : ${e.message}`; status.style.color = '#f85149'; }
+    showToast(e.message, 'error');
+  }
+}
+
+async function saveApacheConfig() {
+  const btn    = document.getElementById('btn-apache-save');
+  const status = document.getElementById('apache-save-status');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    await post('/api/config/apache', {
+      server_name:         document.getElementById('ap-server-name').value,
+      server_admin:        document.getElementById('ap-server-admin').value,
+      listen:              document.getElementById('ap-listen').value,
+      document_root:       document.getElementById('ap-document-root').value,
+      error_log:           document.getElementById('ap-error-log').value,
+      timeout:             document.getElementById('ap-timeout').value,
+      keep_alive:          document.getElementById('ap-keep-alive').value,
+      keep_alive_timeout:  document.getElementById('ap-keep-alive-timeout').value,
+      max_req_workers:     document.getElementById('ap-max-req-workers').value,
+      directory_index:     document.getElementById('ap-directory-index').value,
+    });
+    showToast('Configuration Apache enregistrée (backup .ipam.bak créé)', 'success');
+    if (status) { status.textContent = 'Enregistré'; status.style.color = '#3fb950'; }
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Enregistrer`;
+  }
+}
+
+async function testApacheConfig() {
+  const btn = document.getElementById('btn-apache-test');
+  const out = document.getElementById('apache-test-output');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const d = await post('/api/config/apache/test', {});
+    out.textContent = d.output || '(pas de sortie)';
+    out.classList.remove('hidden');
+    out.style.borderColor = d.ok ? '#3fb95055' : '#f8514955';
+    out.style.color = d.ok ? '#3fb950' : '#f85149';
+    showToast(d.ok ? 'Syntaxe OK' : 'Erreur de syntaxe', d.ok ? 'success' : 'error');
+  } catch (e) { showToast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Tester la config`; }
+}
+
+async function reloadApache() {
+  if (!await showConfirm({ title: 'Recharger Apache', message: 'Recharger la configuration Apache ? Le service sera brièvement indisponible.', confirmText: 'Recharger', danger: false })) return;
+  const btn = document.getElementById('btn-apache-reload');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const d = await post('/api/config/apache/reload', {});
+    showToast('Apache rechargé', 'success');
+    if (d.output) {
+      const out = document.getElementById('apache-test-output');
+      out.textContent = d.output;
+      out.classList.remove('hidden');
+      out.style.color = 'var(--tx-2)';
+      out.style.borderColor = 'var(--brd)';
+    }
+  } catch (e) { showToast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg> Recharger Apache`; }
+}
+
 function setupUserPXConfig(user) {
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
     if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
@@ -1201,7 +1577,7 @@ function setupUserPXConfig(user) {
   loadConfigSidebar();
 
   // Griser tous les onglets sauf Informations, Services et Certificat SSL
-  const LOCKED_TABS = new Set(['redis-config', 'backup', 'maintenance', 'databases', 'apis', 'sharepoint']);
+  const LOCKED_TABS = new Set(['redis-config', 'backup', 'maintenance', 'databases', 'apis', 'sharepoint', 'terminal', 'apache']);
   document.querySelectorAll('.admin-tab').forEach(tab => {
     if (LOCKED_TABS.has(tab.dataset.tab)) {
       tab.disabled = true;

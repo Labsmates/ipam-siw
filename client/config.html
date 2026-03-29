@@ -114,11 +114,11 @@ th{text-align:left}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
       Infos
     </a>
-    <a href="/admin.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+    <a id="nav-admin-link" href="/admin.html" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Administration
     </a>
-    <a href="/config.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;-webkit-box-sizing:border-box;box-sizing:border-box">
+    <a id="nav-config-link" href="/config.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;-webkit-box-sizing:border-box;box-sizing:border-box">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
       Configuration système
     </a>
@@ -171,6 +171,8 @@ th{text-align:left}
       <button class="admin-tab" data-tab="apis">APIs</button>
       <button class="admin-tab" data-tab="sharepoint">SharePoint</button>
       <button class="admin-tab" data-tab="maintenance">Maintenance</button>
+      <button class="admin-tab" data-tab="terminal">Terminal</button>
+      <button class="admin-tab" data-tab="apache">Config Apache</button>
     </div>
   </div>
 
@@ -566,6 +568,236 @@ th{text-align:left}
       </div>
     </div>
 
+    <!-- ══ ONGLET : Terminal ══ -->
+    <div id="pane-terminal" class="admin-pane hidden">
+      <div style="max-width:860px">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 16px">Terminal serveur</h3>
+
+        <!-- Saisie commande -->
+        <div class="svc-card" style="margin-bottom:16px">
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <div style="flex:1">
+              <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Commande</label>
+              <input id="term-cmd" class="inp" type="text" placeholder="ls -la /var/www/ipam" autocomplete="off" spellcheck="false"
+                style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px;width:100%">
+            </div>
+            <button id="btn-term-exec" class="btn btn-p">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Exécuter
+            </button>
+            <button id="btn-term-clear" class="btn btn-g">Effacer</button>
+          </div>
+        </div>
+
+        <!-- Sortie -->
+        <div class="svc-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;color:var(--tx-3)">Sortie</span>
+          </div>
+          <pre id="term-output" style="background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;padding:14px;min-height:300px;max-height:500px;overflow-y:auto;white-space:pre-wrap;color:var(--tx-2);margin:0;word-break:break-all"></pre>
+        </div>
+
+        <!-- Upload fichier -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Uploader un fichier</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <input id="term-upload-file" type="file" style="display:none">
+            <button id="btn-term-pick" class="btn btn-g btn-sm">Choisir un fichier</button>
+            <button id="btn-term-upload-browse" class="btn btn-g btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Dossier destination
+            </button>
+            <span id="term-pick-name" style="font-size:12px;color:var(--tx-3);font-style:italic">Aucun fichier sélectionné</span>
+          </div>
+          <div id="term-upload-bar" style="display:none;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input id="term-upload-path" class="inp" type="text" placeholder="/chemin/destination/fichier.txt"
+                style="flex:1;min-width:200px;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;padding:5px 10px">
+              <button id="btn-term-upload" class="btn btn-p btn-sm">Envoyer</button>
+              <button id="btn-term-upload-cancel" class="btn btn-g btn-sm">✕</button>
+              <span id="term-upload-status" style="font-size:12px"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Télécharger fichier -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Télécharger un fichier</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="btn-term-browse" class="btn btn-g btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Parcourir le serveur
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Config Apache ══ -->
+    <div id="pane-apache" class="admin-pane hidden">
+      <div style="max-width:700px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Configuration Apache</h3>
+          <div style="display:flex;gap:8px">
+            <button id="btn-apache-test" class="btn btn-g btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Tester la config
+            </button>
+            <button id="btn-apache-reload" class="btn btn-warn btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+              Recharger Apache
+            </button>
+          </div>
+        </div>
+        <p id="apache-conf-path" style="font-size:11px;color:var(--tx-3);margin:0 0 20px;font-family:'JetBrains Mono','Courier New',monospace">Chargement…</p>
+
+        <div id="apache-form" style="display:flex;flex-direction:column;gap:12px">
+          <!-- Serveur -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Identité du serveur</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">ServerName</label>
+                <input id="ap-server-name" class="inp" type="text" placeholder="ipam.mondomaine.local">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">ServerAdmin</label>
+                <input id="ap-server-admin" class="inp" type="text" placeholder="admin@example.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- Réseau -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Réseau &amp; Accès</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Listen (port)</label>
+                <input id="ap-listen" class="inp" type="text" placeholder="80">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">DocumentRoot</label>
+                <input id="ap-document-root" class="inp" type="text" placeholder="/var/www/html">
+              </div>
+            </div>
+          </div>
+
+          <!-- Logs -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Journaux</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">ErrorLog</label>
+                <input id="ap-error-log" class="inp" type="text" placeholder="logs/error_log">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">CustomLog</label>
+                <input id="ap-custom-log" class="inp" type="text" placeholder="logs/access_log combined">
+              </div>
+            </div>
+          </div>
+
+          <!-- Performances -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Performances &amp; Keep-Alive</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Timeout (s)</label>
+                <input id="ap-timeout" class="inp" type="text" placeholder="60">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">KeepAlive</label>
+                <select id="ap-keep-alive" class="inp">
+                  <option value="">—</option>
+                  <option value="On">On</option>
+                  <option value="Off">Off</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">KeepAliveTimeout (s)</label>
+                <input id="ap-keep-alive-timeout" class="inp" type="text" placeholder="5">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">MaxRequestWorkers</label>
+                <input id="ap-max-req-workers" class="inp" type="text" placeholder="256">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">DirectoryIndex</label>
+                <input id="ap-directory-index" class="inp" type="text" placeholder="index.html index.php">
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="btn-apache-save" class="btn btn-p">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Enregistrer
+            </button>
+            <button id="btn-apache-refresh" class="btn btn-g">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+              Rafraîchir
+            </button>
+            <span id="apache-save-status" style="font-size:12px;color:var(--tx-3)"></span>
+          </div>
+          <div id="apache-test-output" class="log-panel hidden" style="max-height:160px;font-size:11px"></div>
+        </div>
+
+        <!-- IPs du serveur -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1)">IPs du serveur</div>
+            <button id="btn-apache-ips-refresh" class="btn btn-g btn-sm" style="font-size:11px">Rafraîchir</button>
+          </div>
+          <div id="apache-ips-list" style="font-size:12px;color:var(--tx-3);font-style:italic">Chargement…</div>
+        </div>
+
+        <!-- Fichiers de configuration conf.d -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1)">Fichiers conf.d</div>
+            <button id="btn-apache-confs-refresh" class="btn btn-g btn-sm" style="font-size:11px">Rafraîchir</button>
+          </div>
+          <div id="apache-confs-list" style="font-size:12px;color:var(--tx-3);font-style:italic">Chargement…</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════ MODAL : Explorateur de fichiers serveur ══════════════════ -->
+<div id="modal-filebrowser" class="modal-overlay hidden">
+  <div class="modal-box" style="width:600px;max-width:96vw">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700">Explorateur serveur</div>
+      <button onclick="document.getElementById('modal-filebrowser').classList.add('hidden')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Breadcrumb / chemin courant -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:var(--bg-1);border:1px solid var(--brd);border-radius:7px;padding:6px 10px">
+      <button id="fb-btn-up" title="Répertoire parent" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:2px 4px;border-radius:4px;flex-shrink:0" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <input id="fb-path-input" type="text" value="/" spellcheck="false"
+        style="flex:1;background:none;border:none;outline:none;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;color:var(--tx-2);padding:0;min-width:0">
+      <button id="fb-btn-go" title="Aller" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:2px 4px;flex-shrink:0" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <!-- Liste des entrées -->
+    <div id="fb-list" style="max-height:340px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;background:var(--bg-1)">
+      <div style="padding:24px;text-align:center;color:var(--tx-3);font-size:13px">Chargement…</div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+      <input id="fb-selected-path" class="inp" type="text" style="flex:1;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px" placeholder="Sélectionnez un fichier ci-dessus" readonly>
+      <button id="fb-btn-download" class="btn btn-p" disabled>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Télécharger
+      </button>
+    </div>
   </div>
 </div>
 

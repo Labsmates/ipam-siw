@@ -129,7 +129,7 @@ router.post('/:id/vlans', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // POST /api/sites/:id/ips/import
-router.post('/:id/ips/import', requireAuth, async (req, res) => {
+router.post('/:id/ips/import', requireAuth, requireAdmin, async (req, res) => {
   try {
     const rows = req.body?.rows;
     if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune donnée' });

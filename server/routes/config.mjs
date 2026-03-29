@@ -3,19 +3,21 @@
 // Routes : /api/config/*
 // =============================================================================
 
-import express       from 'express';
-import { execFile }  from 'child_process';
-import { promisify } from 'util';
-import fs            from 'fs';
-import os            from 'os';
-import net           from 'net';
-import Redis         from 'ioredis';
+import express           from 'express';
+import { execFile, exec } from 'child_process';
+import { promisify }      from 'util';
+import fs                 from 'fs';
+import path               from 'path';
+import os                 from 'os';
+import net                from 'net';
+import Redis              from 'ioredis';
 import { redis, addLog, getBypassKey, generateBypassKey } from '../redis.mjs';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
 import { invalidateMaintenanceCache } from '../middleware/maintenance.mjs';
 import { uid } from '../utils.mjs';
 
 const execFileAsync = promisify(execFile);
+const execAsync     = promisify(exec);
 const router        = express.Router();
 
 // Guard : toutes les routes nécessitent auth + admin
@@ -1106,6 +1108,317 @@ router.post('/bypass-key/generate', async (req, res) => {
     await addLog(req.user.username, 'BYPASS_KEY_GEN', 'Nouvelle clé de bypass générée', 'info');
     res.json({ key });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// =============================================================================
+// TERMINAL — exécution de commandes serveur (admin uniquement)
+// =============================================================================
+
+// Validation chemin : interdit la sortie du filesystem via ..
+function safePath(p) {
+  if (!p || typeof p !== 'string') return null;
+  const normalized = path.normalize(p);
+  // Interdit si le chemin remonte au-dessus de la racine via ..
+  if (normalized.includes('..')) return null;
+  return normalized;
+}
+
+// POST /api/config/terminal/exec
+router.post('/terminal/exec', async (req, res) => {
+  const { command } = req.body || {};
+  if (!command || typeof command !== 'string' || !command.trim())
+    return res.status(400).json({ error: 'Commande manquante' });
+  const cmd = command.trim();
+  await addLog(req.user.username, 'TERMINAL_EXEC', cmd.slice(0, 500), 'info');
+  try {
+    const { stdout, stderr } = await execAsync(cmd, {
+      timeout: 30_000,
+      maxBuffer: 512 * 1024,
+      env: { ...process.env, TERM: 'xterm' },
+    });
+    res.json({ stdout: stdout || '', stderr: stderr || '' });
+  } catch (e) {
+    // execAsync rejects on non-zero exit — renvoie quand même stdout/stderr
+    res.json({ stdout: e.stdout || '', stderr: e.stderr || e.message, exit_code: e.code });
+  }
+});
+
+// POST /api/config/terminal/upload — contenu base64
+router.post('/terminal/upload', async (req, res) => {
+  const { file_path: fp, content_b64 } = req.body || {};
+  const safe = safePath(fp);
+  if (!safe) return res.status(400).json({ error: 'Chemin invalide' });
+  if (!content_b64 || typeof content_b64 !== 'string')
+    return res.status(400).json({ error: 'Contenu manquant' });
+  try {
+    const buf = Buffer.from(content_b64, 'base64');
+    // Créer le répertoire si nécessaire
+    await fs.promises.mkdir(path.dirname(safe), { recursive: true });
+    await fs.promises.writeFile(safe, buf);
+    await addLog(req.user.username, 'TERMINAL_UPLOAD', safe, 'info');
+    res.json({ ok: true, size: buf.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/config/terminal/ls?path= — liste d'un répertoire serveur
+router.get('/terminal/ls', async (req, res) => {
+  const safe = safePath(req.query.path || '/tmp');
+  if (!safe) return res.status(400).json({ error: 'Chemin invalide' });
+  try {
+    const entries = await fs.promises.readdir(safe, { withFileTypes: true });
+    const items = entries
+      .map(e => {
+        let size = null;
+        try { if (!e.isDirectory()) size = fs.statSync(`${safe}/${e.name}`).size; } catch { /* ignore */ }
+        return { name: e.name, type: e.isDirectory() ? 'dir' : 'file', size };
+      })
+      .sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+    res.json({ path: safe, items });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/config/terminal/download?path=
+router.get('/terminal/download', async (req, res) => {
+  const safe = safePath(req.query.path);
+  if (!safe) return res.status(400).json({ error: 'Chemin invalide' });
+  try {
+    await fs.promises.access(safe, fs.constants.R_OK);
+    const filename = path.basename(safe);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    await addLog(req.user.username, 'TERMINAL_DOWNLOAD', safe, 'info');
+    fs.createReadStream(safe).pipe(res);
+  } catch (e) { res.status(404).json({ error: `Fichier introuvable : ${e.message}` }); }
+});
+
+// =============================================================================
+// CONFIG APACHE — lecture et écriture de la configuration Apache
+// =============================================================================
+
+const APACHE_CONF_CANDIDATES = [
+  '/etc/httpd/conf/httpd.conf',       // RHEL / CentOS
+  '/etc/apache2/apache2.conf',        // Debian / Ubuntu
+  '/etc/apache2/httpd.conf',          // macOS / certains Debian
+];
+
+async function findApacheConf() {
+  for (const p of APACHE_CONF_CANDIDATES) {
+    try { await fs.promises.access(p, fs.constants.R_OK); return p; } catch { /* try next */ }
+  }
+  return null;
+}
+
+// Directive simple : valeur sur la même ligne
+function getDirective(text, name) {
+  const re = new RegExp(`^\\s*${name}\\s+(.+)$`, 'im');
+  const m = text.match(re);
+  return m ? m[1].trim() : '';
+}
+
+// Remplace ou ajoute une directive simple
+function setDirective(text, name, value) {
+  const re = new RegExp(`^(\\s*)${name}(\\s+.*)$`, 'im');
+  if (re.test(text)) {
+    return text.replace(re, `$1${name} ${value}`);
+  }
+  return text + `\n${name} ${value}`;
+}
+
+// GET /api/config/apache
+router.get('/apache', async (req, res) => {
+  try {
+    const confPath = await findApacheConf();
+    if (!confPath) return res.status(404).json({ error: 'Fichier de configuration Apache introuvable' });
+    const text = await fs.promises.readFile(confPath, 'utf8');
+
+    // Apache status
+    let status = 'unknown';
+    try {
+      await execAsync('systemctl is-active httpd || systemctl is-active apache2');
+      status = 'active';
+    } catch { status = 'inactive'; }
+
+    res.json({
+      conf_path:      confPath,
+      server_name:    getDirective(text, 'ServerName'),
+      server_admin:   getDirective(text, 'ServerAdmin'),
+      listen:         getDirective(text, 'Listen'),
+      document_root:  getDirective(text, 'DocumentRoot'),
+      error_log:      getDirective(text, 'ErrorLog'),
+      custom_log:     getDirective(text, 'CustomLog'),
+      timeout:        getDirective(text, 'Timeout'),
+      keep_alive:     getDirective(text, 'KeepAlive'),
+      keep_alive_timeout: getDirective(text, 'KeepAliveTimeout'),
+      max_req_workers:    getDirective(text, 'MaxRequestWorkers') || getDirective(text, 'MaxClients'),
+      directory_index:    getDirective(text, 'DirectoryIndex'),
+      status,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/config/apache — enregistrer les directives
+router.post('/apache', async (req, res) => {
+  try {
+    const confPath = await findApacheConf();
+    if (!confPath) return res.status(404).json({ error: 'Fichier de configuration Apache introuvable' });
+
+    let text = await fs.promises.readFile(confPath, 'utf8');
+
+    const EDITABLE = [
+      ['server_name',         'ServerName'],
+      ['server_admin',        'ServerAdmin'],
+      ['listen',              'Listen'],
+      ['document_root',       'DocumentRoot'],
+      ['error_log',           'ErrorLog'],
+      ['timeout',             'Timeout'],
+      ['keep_alive',          'KeepAlive'],
+      ['keep_alive_timeout',  'KeepAliveTimeout'],
+      ['max_req_workers',     'MaxRequestWorkers'],
+      ['directory_index',     'DirectoryIndex'],
+    ];
+
+    const body = req.body || {};
+    for (const [key, directive] of EDITABLE) {
+      if (body[key] !== undefined && String(body[key]).trim()) {
+        text = setDirective(text, directive, String(body[key]).trim());
+      }
+    }
+
+    // Backup + écriture
+    await fs.promises.copyFile(confPath, confPath + '.ipam.bak');
+    await fs.promises.writeFile(confPath, text, 'utf8');
+    await addLog(req.user.username, 'APACHE_CONFIG_SAVE', `Directives mises à jour dans ${confPath}`, 'info');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/config/apache/test — tester la configuration
+router.post('/apache/test', async (req, res) => {
+  try {
+    let out = '';
+    for (const bin of ['apachectl', 'apache2ctl', '/usr/sbin/apachectl', '/usr/sbin/apache2ctl']) {
+      try {
+        const { stdout, stderr } = await execAsync(`${bin} configtest 2>&1`);
+        out = stdout + stderr;
+        break;
+      } catch (e) { out = (e.stdout || '') + (e.stderr || e.message); break; }
+    }
+    const ok = /Syntax OK/i.test(out);
+    res.json({ ok, output: out.trim() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/config/apache/reload — recharger Apache
+router.post('/apache/reload', async (req, res) => {
+  try {
+    let out = '';
+    try {
+      const r = await execAsync('systemctl reload httpd 2>&1 || systemctl reload apache2 2>&1');
+      out = r.stdout + r.stderr;
+    } catch (e) { out = (e.stdout || '') + (e.stderr || e.message); }
+    await addLog(req.user.username, 'APACHE_RELOAD', 'Apache rechargé via config GUI', 'info');
+    res.json({ ok: true, output: out.trim() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/config/apache/confs — liste les fichiers de configuration dans conf.d/
+router.get('/apache/confs', async (req, res) => {
+  const CONF_DIRS = ['/etc/httpd/conf.d', '/etc/apache2/conf-enabled', '/etc/apache2/sites-enabled'];
+  let confDir = null;
+  for (const d of CONF_DIRS) {
+    try { await fs.promises.access(d, fs.constants.R_OK); confDir = d; break; } catch { /* essai suivant */ }
+  }
+  if (!confDir) return res.status(404).json({ error: 'Répertoire conf.d introuvable' });
+
+  try {
+    const entries = await fs.promises.readdir(confDir, { withFileTypes: true });
+    const files = entries
+      .filter(e => e.isFile() && (e.name.endsWith('.conf') || e.name.endsWith('.disabled')))
+      .map(e => ({
+        name:     e.name,
+        path:     path.join(confDir, e.name),
+        enabled:  e.name.endsWith('.conf'),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ conf_dir: confDir, files });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/config/apache/confs/toggle — activer ou désactiver un fichier conf
+router.post('/apache/confs/toggle', async (req, res) => {
+  const { filename } = req.body || {};
+  if (!filename || typeof filename !== 'string' || filename.includes('/') || filename.includes('..'))
+    return res.status(400).json({ error: 'Nom de fichier invalide' });
+
+  const CONF_DIRS = ['/etc/httpd/conf.d', '/etc/apache2/conf-enabled', '/etc/apache2/sites-enabled'];
+  let confDir = null;
+  for (const d of CONF_DIRS) {
+    try { await fs.promises.access(d, fs.constants.R_OK); confDir = d; break; } catch { /* essai suivant */ }
+  }
+  if (!confDir) return res.status(404).json({ error: 'Répertoire conf.d introuvable' });
+
+  const fullPath = path.join(confDir, filename);
+  // Vérifier que le fichier est bien dans confDir (protection traversal)
+  if (!fullPath.startsWith(confDir + path.sep)) return res.status(400).json({ error: 'Chemin invalide' });
+
+  try {
+    await fs.promises.access(fullPath, fs.constants.F_OK);
+    let newName, action;
+    if (filename.endsWith('.conf')) {
+      newName = filename + '.disabled';
+      action  = 'APACHE_CONF_DISABLE';
+    } else if (filename.endsWith('.disabled')) {
+      newName = filename.replace(/\.disabled$/, '');
+      action  = 'APACHE_CONF_ENABLE';
+    } else {
+      return res.status(400).json({ error: 'Extension non reconnue (.conf ou .disabled attendu)' });
+    }
+    const newPath = path.join(confDir, newName);
+    await fs.promises.rename(fullPath, newPath);
+    await addLog(req.user.username, action, `${filename} → ${newName}`, 'info');
+    res.json({ ok: true, new_name: newName, enabled: newName.endsWith('.conf') });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/config/apache/server-ips — IPs réseau du serveur
+// Plusieurs stratégies en cascade (netlink peut être indisponible en conteneur)
+router.get('/apache/server-ips', async (req, res) => {
+  // Stratégie 1 : hostname -I (pas de netlink, disponible partout)
+  try {
+    const { stdout } = await execAsync('hostname -I 2>/dev/null');
+    const ips = stdout.trim().split(/\s+/).filter(Boolean).map(addr => ({
+      address:  addr,
+      cidr:     addr,
+      family:   addr.includes(':') ? 'IPv6' : 'IPv4',
+      iface:    '',
+      internal: addr.startsWith('127.') || addr === '::1',
+    }));
+    if (ips.length) return res.json({ ips });
+  } catch { /* essai suivant */ }
+
+  // Stratégie 2 : lecture de /proc/net/fib_trie (IPv4 uniquement, sans netlink)
+  try {
+    const text  = await fs.promises.readFile('/proc/net/fib_trie', 'utf8');
+    const seen  = new Set();
+    const ips   = [];
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      // Les lignes "LOCAL" contiennent l'adresse réelle
+      if (/\bLOCAL\b/.test(lines[i])) {
+        const m = lines[i - 1]?.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m && !seen.has(m[1])) {
+          seen.add(m[1]);
+          ips.push({ address: m[1], cidr: m[1], family: 'IPv4', iface: '', internal: m[1].startsWith('127.') });
+        }
+      }
+    }
+    if (ips.length) return res.json({ ips });
+  } catch { /* essai suivant */ }
+
+  res.status(500).json({ error: 'Impossible de détecter les IPs (netlink et /proc/net/fib_trie indisponibles)' });
 });
 
 export default router;

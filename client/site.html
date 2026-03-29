@@ -334,7 +334,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Libérer une IP</div>
         <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Cette adresse sera marquée Libre</div>
       </div>
-      <button onclick="closeModal('modal-release')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+      <button onclick="const c=document.getElementById('release-comment');if(c)c.value='';closeModal('modal-release')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>

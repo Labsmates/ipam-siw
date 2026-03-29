@@ -425,7 +425,7 @@ export function setupGlobalIpSearch(inputId, dropdownId) {
 }
 
 // =============================================================================
-// Mode SA / Mode Adm — élévation temporaire via clé de bypass
+// Mode SA — élévation temporaire en super admin via clé de bypass (admins P/X)
 // =============================================================================
 const ELEV_KEY = 'ipam_elevation';
 
@@ -455,7 +455,7 @@ export function restoreElevationSession() {
   }
 }
 
-// Appelé après `const user = getUser()` — configure le bouton Mode SA / Mode Adm dans la sidebar.
+// Appelé après `const user = getUser()` — configure le bouton Mode SA dans la sidebar.
 export function setupElevationMode() {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
@@ -467,20 +467,23 @@ export function setupElevationMode() {
   const originalRole = backupUser?.role || getUser()?.role || 'user';
   const originalName = backupUser?.username || getUser()?.username || '';
 
-  // Mode Adm actif : afficher UNIQUEMENT le lien Configuration système (pas Administration)
-  if (elev?.type === 'adm') {
-    document.getElementById('nav-config-link')?.classList.remove('hidden');
-  }
-
   // Identifiants éligibles : commence par P ou X (insensible à la casse), hors ADMIN
   const isSuperAdmin = originalName === 'ADMIN';
   const isPorX       = /^[PX]/i.test(originalName);
 
-  // Mode SA  : admin P/X uniquement
-  // Mode Adm : utilisateur P/X uniquement
-  const showSA  = originalRole === 'admin' && isPorX && !isSuperAdmin && !elev;
-  const showAdm = originalRole === 'user'  && isPorX && !elev;
-  if (!showSA && !showAdm && !elev) return;
+  // Liens Administration et Configuration système : visibles pour tous les admins et le super-admin
+  if (isSuperAdmin || originalRole === 'admin') {
+    document.getElementById('nav-admin-link')?.classList.remove('hidden');
+    document.getElementById('nav-config-link')?.classList.remove('hidden');
+  }
+  // Configuration système : visible aussi pour les utilisateurs P/X (accès restreint)
+  if (originalRole === 'user' && isPorX) {
+    document.getElementById('nav-config-link')?.classList.remove('hidden');
+  }
+
+  // Mode SA : admin P/X uniquement
+  const showSA = originalRole === 'admin' && isPorX && !isSuperAdmin && !elev;
+  if (!showSA && !elev) return;
 
   // Style identique aux liens nav (Administration, Configuration système…)
   const NAV_STYLE = 'display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;margin-top:4px;box-sizing:border-box;transition:all .15s;text-align:left;-webkit-box-sizing:border-box;-webkit-transition:all .15s';
@@ -502,8 +505,8 @@ export function setupElevationMode() {
     const e = getElevation();
     if (e) {
       const mins  = Math.max(1, Math.round((e.expires - Date.now()) / 60000));
-      const label = e.type === 'sa' ? 'Mode SA' : 'Mode Adm';
-      const color = e.type === 'sa' ? '#8957e5' : '#d29922';
+      const label = 'Mode SA';
+      const color = '#8957e5';
       section.innerHTML = `
         <button id="btn-elev-deactivate" style="${NAV_STYLE};border-color:${color}50;color:${color}"
           onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
@@ -512,7 +515,13 @@ export function setupElevationMode() {
           <span id="elev-countdown" style="font-size:11px;color:var(--tx-3);margin-left:auto">${mins}min</span>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>`;
-      document.getElementById('btn-elev-deactivate').addEventListener('click', () => {
+      document.getElementById('btn-elev-deactivate').addEventListener('click', async () => {
+        if (!await showConfirm({
+          title:       'Quitter le mode Super Admin',
+          message:     'Voulez-vous désactiver le mode Super Admin ? Vous repasserez en mode Administrateur standard.',
+          confirmText: 'Quitter',
+          danger:      false,
+        })) return;
         _clearElevation(getElevation());
         clearInterval(countdownTimer);
         window.location.reload();
@@ -526,12 +535,10 @@ export function setupElevationMode() {
         if (el) el.textContent = `${m}min`;
       }, 30_000);
     } else {
-      const type  = showSA ? 'sa' : 'adm';
-      const label = showSA ? 'Mode SA' : 'Mode Adm';
-      const color = showSA ? '#8957e5' : '#d29922';
-      const icon  = showSA
-        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+      const type  = 'sa';
+      const label = 'Mode SA';
+      const color = '#8957e5';
+      const icon  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
       section.innerHTML = `
         <button id="btn-elevation-mode" style="${NAV_STYLE};border-color:${color}40;color:${color}"
           onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
@@ -543,11 +550,9 @@ export function setupElevationMode() {
   }
 
   function openElevModal(type) {
-    const label = type === 'sa' ? 'Mode SA — Super Admin' : 'Mode Adm — Accès Admin';
-    const color = type === 'sa' ? '#8957e5' : '#d29922';
-    const desc  = type === 'sa'
-      ? 'Élève vos droits en super administrateur pendant 1 heure.'
-      : 'Débloque les droits administrateur pendant 1 heure.';
+    const label = 'Mode SA — Super Admin';
+    const color = '#8957e5';
+    const desc  = 'Élève vos droits en super administrateur pendant 1 heure.';
 
     let modal = document.getElementById('modal-elevation');
     if (!modal) {
@@ -593,7 +598,7 @@ export function setupElevationMode() {
       errBox.style.display = 'none';
       btnOk.disabled = true; btnOk.textContent = 'Vérification…';
       try {
-        const data = await post('/api/bypass/elevate', { key, type });
+        const data = await post('/api/bypass/elevate', { key });
         // Sauvegarder la session originale et remplacer par le token élevé
         const backup = { token: data.token, user: data.user, type, expires: new Date(data.expires_at).getTime(),
           backup_token: getToken(), backup_user: sessionStorage.getItem(USER_KEY) };
@@ -610,4 +615,10 @@ export function setupElevationMode() {
   }
 
   renderBtn();
+
+  // Si en mode SA actif, forcer l'affichage "Super Administrateur" dans la sidebar
+  if (elev) {
+    const roleEl = document.getElementById('nav-role');
+    if (roleEl) roleEl.textContent = 'Super Administrateur';
+  }
 }

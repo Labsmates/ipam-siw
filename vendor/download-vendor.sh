@@ -132,6 +132,7 @@ PYEOF
   success "fonts.css généré"
 fi
 
+
 # ── Résumé ────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}vendor/ prêt pour le déploiement${NC}"

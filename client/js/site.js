@@ -461,6 +461,8 @@ function openReserveModal(ipObj) {
 function openReleaseModal(ipObj) {
   document.getElementById('release-ip-display').textContent = ipObj.ip_address;
   document.getElementById('release-ip-id').value = ipObj.id;
+  const c = document.getElementById('release-comment');
+  if (c) c.value = '';
   openModal('modal-release');
 }
 

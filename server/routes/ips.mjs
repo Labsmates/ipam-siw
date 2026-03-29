@@ -13,15 +13,22 @@ router.get('/search', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Middleware : interdit aux lecteurs (role viewer)
+function requireNonViewer(req, res, next) {
+  if (req.user?.role === 'viewer')
+    return res.status(403).json({ error: 'Accès refusé — les lecteurs ne peuvent pas modifier les données' });
+  next();
+}
+
 // PUT /api/ips/:id — modifier statut et/ou hostname
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
   try {
     const { status, hostname, comment } = req.body || {};
     if (status === undefined && hostname === undefined)
       return res.status(400).json({ error: 'Statut ou hostname requis' });
     const ip = await getIp(req.params.id);
     if (!ip) return res.status(404).json({ error: 'IP introuvable' });
-    await updateIp(req.params.id, { status, hostname });
+    await updateIp(req.params.id, { status, hostname: status === 'Libre' ? '' : hostname });
     const details = [
       status   !== undefined ? `statut → ${status}`            : null,
       hostname !== undefined ? `hostname → "${hostname || ''}"` : null,
@@ -41,7 +48,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/ips/:id — supprime définitivement une IP .255 (broadcast)
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, requireNonViewer, async (req, res) => {
   try {
     const ip = await getIp(req.params.id);
     if (!ip) return res.status(404).json({ error: 'IP introuvable' });

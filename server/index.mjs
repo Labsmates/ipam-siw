@@ -25,7 +25,7 @@ const BIND      = process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0
 const app = express();
 app.disable('x-powered-by');
 app.use(securityHeaders);
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '100mb' }));
 
 // ── Route publique : statut maintenance (pas d'auth, pas de maintenance block) ──
 app.get('/api/maintenance/status', async (_req, res) => {

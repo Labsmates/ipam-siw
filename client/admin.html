@@ -100,7 +100,7 @@ th{text-align:left}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
       Infos
     </a>
-    <a href="/admin.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;-webkit-box-sizing:border-box;box-sizing:border-box">
+    <a id="nav-admin-link" href="/admin.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;-webkit-box-sizing:border-box;box-sizing:border-box">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Administration
     </a>
@@ -478,8 +478,7 @@ th{text-align:left}
       <p style="color:var(--tx-3);font-size:13px;margin:0 0 12px">Cette clé est à usage unique et valable 24h. Elle permet :</p>
       <ul style="color:var(--tx-3);font-size:13px;margin:0 0 20px;padding-left:20px;line-height:2">
         <li><strong style="color:var(--tx-2)">Scan réseau</strong> — lancer un scan depuis le calculateur IP</li>
-        <li><strong style="color:var(--tx-2)">Mode SA</strong> — élever un administrateur en super admin (1h)</li>
-        <li><strong style="color:var(--tx-2)">Mode Adm</strong> — donner à un utilisateur un accès admin temporaire (1h)</li>
+        <li><strong style="color:var(--tx-2)">Mode SA</strong> — élever un administrateur (P/X) en super admin pendant 1h</li>
       </ul>
 
       <!-- Clé actuelle -->
@@ -559,6 +558,11 @@ th{text-align:left}
       <div style="margin-bottom:18px">
         <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Nouveau mot de passe <span style="color:#f85149">*</span></label>
         <input id="reset-pw-value" class="inp" type="password" minlength="8">
+      </div>
+      <div id="reset-pw-admin-code-section" class="hidden" style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Code de sécurité <span style="color:#f85149">*</span></label>
+        <input id="reset-pw-admin-code" class="inp" type="text" maxlength="10" placeholder="Code requis pour ce compte" autocomplete="off">
+        <div style="font-size:11px;color:var(--tx-4);margin-top:5px">Saisissez le code de sécurité pour réinitialiser le mot de passe de ce compte.</div>
       </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
         <button type="button" id="btn-cancel-reset-pw" class="btn btn-g">Annuler</button>

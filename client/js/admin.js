@@ -18,10 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const user = getUser();
   if (user?.role !== 'admin') { window.location.replace('/site.html'); return; }
 
-  document.getElementById('nav-config-link')?.classList.remove('hidden');
-
   document.getElementById('nav-username').textContent = user.username;
-  document.getElementById('nav-role').textContent = 'Administrateur';
+  document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : 'Administrateur';
   document.getElementById('btn-logout').addEventListener('click', async () => {
     if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
   });
@@ -96,7 +94,7 @@ const USERNAME_RE = /^[PX][A-Z]{3}\d{3}$/;
 
 function renderUsers() {
   const currentUser = getUser();
-  const isSuperAdmin = currentUser?.username?.toLowerCase() === 'admin';
+  const isSuperAdmin = currentUser?.username?.toLowerCase() === 'admin' || currentUser?.elevated === 'sa';
   const tbody = document.getElementById('users-tbody');
   if (!allUsers.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--tx-3);padding:32px;">Aucun utilisateur</td></tr>';
@@ -212,8 +210,14 @@ function setupUserModals() {
   document.getElementById('btn-cancel-reset-pw').addEventListener('click', () => closeModal('modal-reset-pw'));
   document.getElementById('form-reset-pw').addEventListener('submit', async e => {
     e.preventDefault();
-    const uid  = document.getElementById('reset-pw-uid').value;
+    const uidEl      = document.getElementById('reset-pw-uid');
+    const uid        = uidEl.value;
+    const targetName = uidEl.dataset.uname || '';
     const pass = document.getElementById('reset-pw-value').value;
+    if (targetName === 'admin') {
+      const code = document.getElementById('reset-pw-admin-code')?.value?.trim();
+      if (code !== '7780') { showToast('Code de sécurité incorrect', 'error'); return; }
+    }
     const btn  = e.target.querySelector('button[type=submit]');
     btn.disabled = true; btn.textContent = 'Mise à jour…';
     try {
@@ -227,7 +231,8 @@ function setupUserModals() {
 }
 
 function openChangeRoleModal(uid, uname, currentRole) {
-  const isSuperAdmin = getUser()?.username?.toLowerCase() === 'admin';
+  const u = getUser();
+  const isSuperAdmin = u?.username?.toLowerCase() === 'admin' || u?.elevated === 'sa';
   document.getElementById('change-role-uid').value = uid;
   const roleLabels = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
   document.getElementById('change-role-subtitle').textContent = `Utilisateur : ${uname} — rôle actuel : ${roleLabels[currentRole] || 'Utilisateur'}`;
@@ -248,10 +253,21 @@ function openChangeRoleModal(uid, uname, currentRole) {
 }
 
 function openResetPwModal(uid, uname) {
-  document.getElementById('reset-pw-uid').value = uid;
+  const uidEl = document.getElementById('reset-pw-uid');
+  uidEl.value = uid;
+  uidEl.dataset.uname = uname.toLowerCase();
   const sub = document.getElementById('reset-pw-subtitle');
   if (sub) sub.textContent = `Réinitialisation du mot de passe de « ${uname} »`;
   document.getElementById('reset-pw-value').value = '';
+  const codeSection = document.getElementById('reset-pw-admin-code-section');
+  const codeInput   = document.getElementById('reset-pw-admin-code');
+  if (uname.toLowerCase() === 'admin') {
+    codeSection?.classList.remove('hidden');
+    if (codeInput) codeInput.value = '';
+  } else {
+    codeSection?.classList.add('hidden');
+    if (codeInput) codeInput.value = '';
+  }
   openModal('modal-reset-pw');
 }
 
@@ -526,7 +542,8 @@ async function loadLogs() {
 
     // Bouton "Effacer" visible uniquement pour le super admin
     const clearBtn = document.getElementById('btn-clear-logs');
-    if (getUser()?.username?.toLowerCase() === 'admin') {
+    const cu = getUser();
+    if (cu?.username?.toLowerCase() === 'admin' || cu?.elevated === 'sa') {
       clearBtn.classList.remove('hidden');
       if (!clearBtn._listenerAttached) {
         clearBtn._listenerAttached = true;
@@ -577,7 +594,8 @@ function renderLogs() {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--tx-3);padding:32px;">Aucun résultat</td></tr>';
     return;
   }
-  const isSuperAdmin = getUser()?.username?.toLowerCase() === 'admin';
+  const _u = getUser();
+  const isSuperAdmin = _u?.username?.toLowerCase() === 'admin' || _u?.elevated === 'sa';
   tbody.innerHTML = filtered.map((l, i) => `
     <tr style="border-bottom:1px solid var(--bg-4);"
         onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
@@ -658,7 +676,7 @@ async function loadBypassKey() {
 
     if (data.used_at) {
       const usedDate = new Date(data.used_at);
-      const purposeLabel = { scan: 'Scan réseau', sa: 'Mode SA', adm: 'Mode Adm' }[data.used_for] || data.used_for;
+      const purposeLabel = { scan: 'Scan réseau', sa: 'Mode SA' }[data.used_for] || data.used_for;
       status.style.cssText = 'display:block;background:#0d2e1a;border:1px solid #238636;color:#3fb950;border-radius:7px;padding:7px 10px;font-size:12px;margin-top:10px';
       status.textContent   = `✓ Utilisée par ${data.used_by} le ${fmt(usedDate)} — ${purposeLabel}`;
     } else if (!data.expired && data.key) {
