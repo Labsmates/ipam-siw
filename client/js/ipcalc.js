@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   startInactivityTimer();
 
   const user = getUser();
+  if (user?.role === 'viewer') { window.location.replace('/site.html'); return; }
 
   document.getElementById('nav-username').textContent = user.username;
   document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';

@@ -480,6 +480,10 @@ export function setupElevationMode() {
   if (originalRole === 'user' && isPorX) {
     document.getElementById('nav-config-link')?.classList.remove('hidden');
   }
+  // Calculateur IP masqué pour les viewers
+  if (originalRole === 'viewer') {
+    document.getElementById('nav-ipcalc-link')?.classList.add('hidden');
+  }
 
   // Mode SA : admin P/X uniquement
   const showSA = originalRole === 'admin' && isPorX && !isSuperAdmin && !elev;
