@@ -1,4 +1,4 @@
-# IPAM SIW v2.4.0 — Guide de déploiement Rocky Linux 10
+# IPAM SIW v2.5.0 — Guide de déploiement Rocky Linux 10
 
 Application web multi-utilisateurs de gestion des adresses IP — **SIW Pole Serveurs**.
 Backend **Node.js + Redis** — déploiement 100 % hors-ligne, accessible depuis n'importe quel réseau.
@@ -25,6 +25,7 @@ Navigateur (LAN / WAN / Internet)
           ├── /api/vlans               → CRUD VLANs
           ├── /api/ips                 → réservation / libération
           ├── /api/logs                → journal d'activité
+          ├── /api/bypass              → actions utilisateurs (clé bypass 1h)
           └── Fichiers statiques  client/  +  vendor/
                     │
                Redis 127.0.0.1:6379  — base de données (mémoire + AOF)
@@ -73,6 +74,7 @@ IPAMBBD/
 │       ├── ips.mjs         ← Réservation / libération
 │       ├── logs.mjs        ← Journal d'activité
 │       ├── config.mjs      ← Configuration système (super admin — services, Redis, backup, DB)
+│       ├── bypass.mjs      ← Actions utilisateurs avec clé de bypass (services, serveur, scan)
 │       └── infos.mjs       ← Informations réseau (DNS DDI, route PSM, domaines, codes site)
 ├── vendor/
 │   ├── tailwind.min.js     ← Tailwind CSS (offline)
@@ -359,7 +361,7 @@ python3 import_redis.py --xlsx Me.xlsx --site BIOME --dry-run
 | Calculateur IP | `/ipcalc.html` | Auth | Calcul de sous-réseaux CIDR (plage, masque, broadcast, hosts) |
 | Informations réseau | `/info.html` | Auth | DNS DDI, domaines, route PSM, codes site (lecture tous / édition admin) |
 | Administration | `/admin.html` | Admin | Gestion utilisateurs, sites, journaux, changement MDP |
-| Configuration système | `/config.html` | **Super admin** | Services, config Redis, sauvegarde/restauration, bases de données, maintenance |
+| Configuration système | `/config.html` | **Super admin + Utilisateurs** | Services (tous), config Redis/sauvegarde/DB/maintenance (super admin) |
 | Maintenance | `/maintenance.html` | Public (no auth) | Page affichée automatiquement quand le mode maintenance est activé |
 
 ### Gestion des IPs
@@ -445,11 +447,21 @@ Les modifications sont journalisées dans le journal d'activité admin.
 
 ---
 
-## Configuration système (super admin)
+## Configuration système
 
-La page `/config.html` est réservée au compte **ADMIN** (super administrateur). Elle offre les onglets suivants :
+La page `/config.html` est accessible selon le rôle :
+
+| Rôle | Onglets accessibles |
+|---|---|
+| `ADMIN` (super admin) | Tous les onglets |
+| `admin` (administrateur) | Services uniquement |
+| `user` (utilisateur P/X) | Services + Sysinfo + Certificat SSL |
+| `user` (tous les autres) | Services uniquement |
 
 ### Services
+
+L'onglet Services est visible par **tous les utilisateurs authentifiés**.
+
 - Statut en temps réel (actif / inactif / échoué) pour `ipam`, `httpd`, `redis`
 - Boutons contextuels selon l'état du service :
   - **Démarrer** (vert) — visible si le service est inactif ou en erreur
@@ -459,10 +471,14 @@ La page `/config.html` est réservée au compte **ADMIN** (super administrateur)
 - Consultation des **100 dernières lignes de logs** via `journalctl` (panneau dépliable)
 - Rafraîchissement automatique toutes les 10 secondes
 
-**Zone Actions serveur** (en bas de l'onglet, accessible à tous les admins) :
-- **Redémarrer le serveur** — `shutdown -r +0`, confirmation obligatoire, indisponibilité ~1-2 min
-- **Arrêter le serveur** — `shutdown -h +0`, confirmation obligatoire, redémarrage manuel requis
+**Pour les utilisateurs (`role=user`)** : les actions de démarrage/arrêt/redémarrage et les actions serveur nécessitent une **clé de bypass** (voir section dédiée ci-dessous).
+
+**Zone Actions serveur** (en bas de l'onglet) :
+- **Redémarrer le serveur** — `systemctl reboot`, confirmation obligatoire, indisponibilité ~1-2 min
+- **Arrêter le serveur** — `systemctl poweroff`, confirmation obligatoire, redémarrage manuel requis
 - Les deux actions sont journalisées (`SERVER_REBOOT` / `SERVER_HALT`) dans le journal admin
+
+**Lors du redémarrage du service IPAM :** une overlay de reconnexion s'affiche automatiquement, interroge `/api/maintenance/status` toutes les 1,5 s et recharge la page dès que le service est de nouveau disponible.
 
 ### Configuration Redis
 - Lecture et modification en direct des paramètres Redis via `CONFIG_IPAM_ADMIN SET`
@@ -493,6 +509,23 @@ La page `/config.html` est réservée au compte **ADMIN** (super administrateur)
 - Personnaliser le message affiché aux utilisateurs
 - Définir une date/heure de fin prévue (compte à rebours sur la page maintenance)
 - Générer et régénérer une **clé de bypass** pour permettre aux admins d'accéder au site
+
+### Clé de bypass (actions utilisateurs)
+
+Les utilisateurs avec `role=user` peuvent effectuer des actions sur les services et le serveur à l'aide d'une **clé de bypass** générée par un administrateur depuis `/admin.html`.
+
+| Propriété | Valeur |
+|---|---|
+| Durée de validité | **1 heure** |
+| Usage | **Unique** (consommée à la première utilisation) |
+| Jeton JWT généré | Valide **15 minutes** (`elevated:'services'`) |
+
+**Actions autorisées avec clé de bypass :**
+- Scan réseau depuis le calculateur IP (`/ipcalc.html`)
+- Démarrer / Arrêter / Redémarrer / Recharger un service (ipam, httpd, redis)
+- Redémarrer ou arrêter le serveur
+
+La clé est générée depuis `/admin.html` → onglet **Clé bypass** → **Générer une clé**. Elle apparaît dans le journal d'activité avec l'action pour laquelle elle a été utilisée.
 
 ### Prérequis serveur
 
@@ -607,9 +640,9 @@ Le site redevient accessible immédiatement pour tous les utilisateurs (le cache
 
 | Protection | Détail |
 |---|---|
-| Triple guard | `requireAuth` + `requireAdmin` + `requireSuperAdmin` (username === `ADMIN`) |
+| Triple guard (config) | `requireAuth` + `requireAdmin` + `requireSuperAdmin` (username === `ADMIN`) |
+| Auth bypass (services) | Clé de bypass single-use 1h → JWT 15 min `elevated:'services'` |
 | Whitelist services | Seuls `ipam`, `httpd`, `redis` acceptés — injection shell impossible (`execFile`) |
-| Sudo restreint | Commandes exactes autorisées via `/etc/sudoers.d/ipam` (start/stop/restart/reload/status + journalctl + shutdown) |
 | Params Redis | Whitelist des clés modifiables — `bind` modifiable mais affiché avec avertissement |
 | Restauration RDB | Validation des magic bytes `REDIS` avant écriture |
 | Mots de passe DB | Jamais renvoyés au client dans les listings |
@@ -1068,26 +1101,74 @@ redis-cli SCARD sites
 | Config → Téléchargement RDB échoue | Permissions insuffisantes | `usermod -aG redis ipam && chmod 664 /var/lib/redis/ipam.rdb` puis `systemctl restart ipam` |
 | Config → Restauration échoue | ipam ne peut pas écrire le RDB | Même solution que ci-dessus |
 | Config → Sync échoue | Instance Redis cible injoignable | Vérifier l'hôte/port et utiliser d'abord "Tester" |
+| Services → "Aucune interface" (tcpdump) | `/usr/sbin/ip` absent du PATH systemd | Corrigé automatiquement depuis v2.5.0 — essaie plusieurs chemins |
+| Overlay de reconnexion bloquée | IPAM ne redémarre pas | Vérifier `systemctl status ipam` — doit être `Restart=always` dans le service |
+| Bypass → "Clé expirée" | Clé non utilisée dans l'heure | Générer une nouvelle clé depuis `/admin.html` |
 
 ---
 
 ## Gestion des droits
-Mettre à jour le fichier service (retire NoNewPrivileges=yes)
-cp /var/www/ipam/deploy/ipam.service /etc/systemd/system/ipam.service
 
+```bash
+# Mettre à jour le fichier service (retire les directives de sandboxing incompatibles)
+cp /var/www/ipam/deploy/ipam.service /etc/systemd/system/ipam.service
 systemctl daemon-reload
 
-
-Configurer sudo + permissions RDB (si pas encore fait)
-   
+# Configurer sudo + permissions RDB (si pas encore fait)
 bash /var/www/ipam/deploy/setup-config-permissions.sh
 
-Redémarrer
+# Redémarrer
 systemctl restart ipam
+```
 
 ---
 
 ## Changelog
+
+### v2.5.0 — 2026-03-29
+
+#### Onglet Services accessible à tous les utilisateurs
+
+- L'onglet **Services** de `/config.html` est désormais visible pour **tous les comptes `role=user`**, pas uniquement les administrateurs
+- Les utilisateurs P/X (username commençant par `P` ou `X`) ont également accès aux onglets **Sysinfo** et **Certificat SSL**
+- L'affichage des cartes service (boutons + logs + auto-refresh) est **identique** pour les utilisateurs et les administrateurs
+
+#### Clé de bypass pour actions services/serveur
+
+- Durée de la clé réduite de **24h → 1h** (usage unique)
+- Les utilisateurs doivent saisir une clé de bypass pour exécuter des actions : démarrer / arrêter / redémarrer / recharger un service, redémarrer ou arrêter le serveur
+- Le jeton JWT généré après validation de la clé est valide **15 minutes** (`elevated:'services'`)
+- La clé consommée est tracée dans le journal admin avec l'action et l'utilisateur
+
+#### Mode SA durée réduite
+
+- Durée du mode Super Administrateur réduite de **1h → 10 minutes**
+
+#### Overlay de reconnexion lors du redémarrage IPAM
+
+- Lors du redémarrage du service `ipam` depuis l'interface, une overlay s'affiche automatiquement
+- Interroge `/api/maintenance/status` (route publique) toutes les 1,5 s jusqu'à ce que Node.js réponde
+- Recharge la page automatiquement — plus de "Service Unavailable" visible
+
+#### Corrections
+
+- **Apache** : suppression de `ProxyErrorOverride On` + `ErrorDocument 502/503` — évitait la fausse page de maintenance lors d'un redémarrage service (502 transitoire intercepté par Apache)
+- **tcpdump** : détection des interfaces réseau corrigée — essaie `/usr/sbin/ip`, `/sbin/ip`, `/usr/bin/ip`, `/bin/ip`, `ip` (chemin `/usr/sbin` absent du PATH systemd sur RHEL 9)
+- **ipam.service** : retrait des directives `User=ipam`, `Group=ipam`, `PrivateTmp=yes`, `RestrictAddressFamilies` qui empêchaient les appels `systemctl` et l'accès aux sockets Redis ; `Restart=always` remplace `Restart=on-failure` pour relancer après `process.exit(0)`
+
+#### Structure mise à jour
+
+```
+server/routes/
+└── bypass.mjs      ← NOUVEAU — /api/bypass/* (services, serveur, scan, SA mode)
+deploy/
+├── ipam.service    ← Retrait directives sandboxing incompatibles, Restart=always
+└── ipam.conf       ← Suppression ProxyErrorOverride
+client/js/
+└── config.js       ← Onglet Services pour tous les users, overlay reconnexion
+```
+
+---
 
 ### v2.4.0 — 2026-03-26
 
