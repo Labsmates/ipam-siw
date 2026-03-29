@@ -15,13 +15,11 @@ After=network.target redis.service
 Wants=redis.service
 
 [Service]
-User=ipam
-Group=ipam
 WorkingDirectory=/var/www/ipam
 
 ExecStart=/usr/bin/node /var/www/ipam/server/index.mjs
 
-Restart=on-failure
+Restart=always
 RestartSec=10
 
 Environment=NODE_ENV=production
@@ -29,14 +27,12 @@ Environment=PORT=3000
 Environment=REDIS_URL=redis://127.0.0.1:6379
 
 # ── Sécurité ──────────────────────────────────────────────────────────────────
-# NoNewPrivileges=yes retiré : empêche les binaires setuid (sudo) de prendre
-# les droits root — incompatible avec l'appel sudo systemctl/journalctl
+# Le service tourne en root pour pouvoir appeler systemctl/journalctl/reboot
+# PrivateTmp retiré : isolait /tmp, bloquait l'explorateur de fichiers
+# RestrictAddressFamilies retiré : bloquait AF_NETLINK (ip addr) et AF_PACKET (tcpdump)
 ProtectSystem=full
 ReadWritePaths=/var/www/ipam/data /var/lib/redis
-ProtectHome=yes
-PrivateTmp=yes
 PrivateDevices=yes
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes

@@ -556,7 +556,7 @@ export function setupElevationMode() {
   function openElevModal(type) {
     const label = 'Mode SA — Super Admin';
     const color = '#8957e5';
-    const desc  = 'Élève vos droits en super administrateur pendant 1 heure. Confirmez avec votre mot de passe.';
+    const desc  = 'Élève vos droits en super administrateur pendant 10 minutes. Confirmez avec votre mot de passe.';
 
     let modal = document.getElementById('modal-elevation');
     if (!modal) {

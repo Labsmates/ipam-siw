@@ -48,7 +48,7 @@ function cidrToNetmask(prefix) {
 }
 
 // POST /api/bypass/elevate
-// admin → super admin pendant 1h (authentification par mot de passe)
+// admin → super admin pendant 10 min (authentification par mot de passe)
 router.post('/elevate', requireAuth, async (req, res) => {
   try {
     const { password } = req.body || {};
@@ -70,10 +70,10 @@ router.post('/elevate', requireAuth, async (req, res) => {
 
     const secret = await getJwtSecret();
     const elevatedUser = { userId: req.user.userId, username, role: 'admin', elevated: 'sa' };
-    const token      = jwt.sign(elevatedUser, secret, { expiresIn: '1h' });
-    const expires_at = new Date(Date.now() + 3600_000).toISOString();
+    const token      = jwt.sign(elevatedUser, secret, { expiresIn: '10m' });
+    const expires_at = new Date(Date.now() + 600_000).toISOString();
 
-    await addLog(username, 'ELEVATE_SA', 'Élévation Super Admin activée (1h)', 'info');
+    await addLog(username, 'ELEVATE_SA', 'Élévation Super Admin activée (10 min)', 'info');
     res.json({ token, user: elevatedUser, expires_at });
   } catch (e) {
     console.error('[ELEVATE_SA]', e);
