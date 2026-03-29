@@ -221,7 +221,7 @@ router.post('/services/:svc/restart', requireAuth, async (req, res) => {
     await addLog(req.user.username, 'SVC_RESTART', `Service « ${svc} » redémarré`, 'warn');
     res.json({ ok: true });
     setImmediate(() => {
-      if (svc === 'ipam') { process.exit(0); }
+      if (svc === 'ipam') { process.exit(1); } // code ≠ 0 → redémarrage garanti avec Restart=on-failure ET Restart=always
       else { execFileAsync('/usr/bin/systemctl', ['restart', svc], { timeout: 30000 }).catch(() => {}); }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

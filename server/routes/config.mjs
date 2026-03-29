@@ -283,7 +283,7 @@ router.post('/services/:name/restart', async (req, res) => {
     res.json({ ok: true });
     setImmediate(() => {
       if (name === 'ipam') {
-        process.exit(0); // systemd Restart=always relance le process
+        process.exit(1); // code ≠ 0 → redémarrage garanti avec Restart=on-failure ET Restart=always
       } else {
         execFileAsync('/usr/bin/systemctl', ['restart', name], { timeout: 30000 })
           .catch(() => {});
