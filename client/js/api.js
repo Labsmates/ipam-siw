@@ -601,6 +601,7 @@ export function setupElevationMode() {
       btnOk.disabled = true; btnOk.textContent = 'Vérification…';
       try {
         const data = await post('/api/bypass/elevate', { password });
+        if (!data?.token) throw new Error('Réponse serveur invalide');
         // Sauvegarder la session originale et remplacer par le token élevé
         const backup = { token: data.token, user: data.user, type, expires: new Date(data.expires_at).getTime(),
           backup_token: getToken(), backup_user: sessionStorage.getItem(USER_KEY) };

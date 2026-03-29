@@ -50,28 +50,35 @@ function cidrToNetmask(prefix) {
 // POST /api/bypass/elevate
 // admin → super admin pendant 1h (authentification par mot de passe)
 router.post('/elevate', requireAuth, async (req, res) => {
-  const { password } = req.body;
-  const { username, role } = req.user;
+  try {
+    const { password } = req.body || {};
+    const { username, role } = req.user;
 
-  if (role !== 'admin')
-    return res.status(403).json({ error: 'Mode SA réservé aux administrateurs' });
-  if (username === 'ADMIN')
-    return res.status(400).json({ error: 'Le super-admin n\'a pas besoin de Mode SA' });
+    if (role !== 'admin')
+      return res.status(403).json({ error: 'Mode SA réservé aux administrateurs' });
+    if (username === 'ADMIN')
+      return res.status(400).json({ error: 'Le super-admin n\'a pas besoin de Mode SA' });
+    if (!password)
+      return res.status(400).json({ error: 'Mot de passe requis' });
 
-  // Vérification du mot de passe de l'administrateur
-  const user = await getUserByUsername(username);
-  if (!user || user.pw_hash !== sha256(password || '')) {
-    await addLog(username, 'ELEVATE_SA_FAIL', 'Tentative élévation SA — mot de passe incorrect', 'warn');
-    return res.status(403).json({ error: 'Mot de passe incorrect' });
+    // Vérification du mot de passe de l'administrateur
+    const user = await getUserByUsername(username);
+    if (!user || user.pw_hash !== sha256(password)) {
+      await addLog(username, 'ELEVATE_SA_FAIL', 'Tentative élévation SA — mot de passe incorrect', 'warn');
+      return res.status(403).json({ error: 'Mot de passe incorrect' });
+    }
+
+    const secret = await getJwtSecret();
+    const elevatedUser = { userId: req.user.userId, username, role: 'admin', elevated: 'sa' };
+    const token      = jwt.sign(elevatedUser, secret, { expiresIn: '1h' });
+    const expires_at = new Date(Date.now() + 3600_000).toISOString();
+
+    await addLog(username, 'ELEVATE_SA', 'Élévation Super Admin activée (1h)', 'info');
+    res.json({ token, user: elevatedUser, expires_at });
+  } catch (e) {
+    console.error('[ELEVATE_SA]', e);
+    res.status(500).json({ error: 'Erreur serveur : ' + e.message });
   }
-
-  const secret = await getJwtSecret();
-  const elevatedUser = { id: req.user.id, username, role: 'admin', elevated: 'sa' };
-  const token      = jwt.sign(elevatedUser, secret, { expiresIn: '1h' });
-  const expires_at = new Date(Date.now() + 3600_000).toISOString();
-
-  await addLog(username, 'ELEVATE_SA', 'Élévation Super Admin activée (1h)', 'info');
-  res.json({ token, user: elevatedUser, expires_at });
 });
 
 // POST /api/bypass/services-access
