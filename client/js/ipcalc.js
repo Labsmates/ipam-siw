@@ -182,13 +182,27 @@ window._showToast = showToast;
 // Outils réseau — Ping / Traceroute / Scan
 // =============================================================================
 
+// Token bypass nettools (nmap + tcpdump) — valide 15 min après validation de la clé
+let _bypassNetToken = null;
+
+// Fetch POST avec un token Bearer spécifique (bypass)
+async function postWithToken(url, body, token) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw Object.assign(new Error(data.error || 'Erreur serveur'), { status: resp.status });
+  return data;
+}
+
 function setupNetTools() {
   // ── Tabs ──────────────────────────────────────────────────────────────────
   const user = getUser();
-  const isAdmin = user?.username === 'ADMIN' || user?.role === 'admin' || user?.elevated === 'sa';
   const tabs   = ['ping', 'traceroute', 'scan', 'nmap', 'nc', 'tcpdump'];
-  // Afficher le tab tcpdump uniquement pour les admins
-  if (isAdmin) document.getElementById('nt-tab-tcpdump')?.classList.remove('hidden');
+  // tcpdump visible pour tous les utilisateurs authentifiés
+  document.getElementById('nt-tab-tcpdump')?.classList.remove('hidden');
   const tabEls = tabs.map(t => document.getElementById(`nt-tab-${t}`));
   const panels = tabs.map(t => document.getElementById(`nt-panel-${t}`));
 
@@ -362,23 +376,74 @@ function setupNetTools() {
     else showToast(`/${pfx} hors plage /22–/30 pour le scan`, 'warn');
   });
 
+  // ── Modal clé bypass Nettools (nmap + tcpdump) ───────────────────────────
+  const ntModal      = document.getElementById('modal-nettools-key');
+  const ntKeyInput   = document.getElementById('nettools-key-input');
+  const ntKeyError   = document.getElementById('nettools-key-error');
+  const ntBtnConfirm = document.getElementById('btn-nettools-confirm');
+  const ntBtnCancel  = document.getElementById('btn-nettools-cancel');
+  let _ntOnSuccess   = null;
+
+  function openNetToolsModal(onSuccess) {
+    _ntOnSuccess = onSuccess;
+    ntKeyInput.value = '';
+    ntKeyError.style.display = 'none';
+    ntModal.style.display = 'flex';
+    setTimeout(() => ntKeyInput.focus(), 50);
+  }
+  function closeNetToolsModal() {
+    ntModal.style.display = 'none';
+    _ntOnSuccess = null;
+  }
+  ntBtnCancel.addEventListener('click', closeNetToolsModal);
+  ntModal.addEventListener('click', e => { if (e.target === ntModal) closeNetToolsModal(); });
+  ntKeyInput.addEventListener('input', () => { ntKeyInput.value = ntKeyInput.value.toUpperCase(); });
+
+  ntBtnConfirm.addEventListener('click', async () => {
+    const key = ntKeyInput.value.trim();
+    if (!key) { ntKeyError.textContent = 'Veuillez saisir la clé de bypass.'; ntKeyError.style.display = 'block'; return; }
+    ntKeyError.style.display = 'none';
+    ntBtnConfirm.disabled = true; ntBtnConfirm.textContent = 'Vérification…';
+    try {
+      const data = await post('/api/bypass/nettools-access', { key });
+      _bypassNetToken = data.token;
+      closeNetToolsModal();
+      if (_ntOnSuccess) _ntOnSuccess();
+    } catch (e) {
+      ntKeyError.textContent = e.message;
+      ntKeyError.style.display = 'block';
+      ntKeyInput.select();
+    } finally {
+      ntBtnConfirm.disabled = false; ntBtnConfirm.textContent = 'Valider';
+    }
+  });
+  ntKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') ntBtnConfirm.click(); });
+
   // ── Nmap ──────────────────────────────────────────────────────────────────
   const nmapIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M8 11h6M11 8v6"/></svg> Nmap`;
-  document.getElementById('nt-btn-nmap').addEventListener('click', async () => {
+
+  async function runNmap() {
     const target = document.getElementById('nt-nmap-target').value.trim();
     const ports  = document.getElementById('nt-nmap-ports').value.trim();
     if (!checkTarget(target, 'Nmap')) return;
+    if (!_bypassNetToken) { openNetToolsModal(runNmap); return; }
     setLoading('nt-btn-nmap', 'nt-nmap-output', true);
     try {
-      const data = await post('/api/nettools/nmap', { target, ports });
+      const data = await postWithToken('/api/nettools/nmap', { target, ports }, _bypassNetToken);
       showOutput('nt-nmap-output', data.output, data.success);
     } catch (e) {
-      showOutput('nt-nmap-output', `Erreur : ${e.message}`, false);
+      if (e.status === 403) {
+        _bypassNetToken = null;
+        openNetToolsModal(runNmap);
+      } else {
+        showOutput('nt-nmap-output', `Erreur : ${e.message}`, false);
+      }
     }
     setLoading('nt-btn-nmap', 'nt-nmap-output', false, nmapIcon);
-  });
+  }
+  document.getElementById('nt-btn-nmap').addEventListener('click', runNmap);
   document.getElementById('nt-nmap-target').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('nt-btn-nmap').click();
+    if (e.key === 'Enter') runNmap();
   });
 
   // ── Netcat ────────────────────────────────────────────────────────────────
@@ -401,40 +466,46 @@ function setupNetTools() {
     if (e.key === 'Enter') document.getElementById('nt-btn-nc').click();
   });
 
-  // ── tcpdump (admin uniquement) ────────────────────────────────────────────
-  if (isAdmin) {
-    // Charger les interfaces réseau disponibles
-    const ifaceSelect = document.getElementById('nt-tcpdump-iface');
-    get('/api/nettools/interfaces').then(d => {
-      ifaceSelect.innerHTML = '';
-      (d.interfaces || []).forEach(i => {
-        const opt = document.createElement('option');
-        opt.value = i.name;
-        opt.textContent = `${i.name}${i.ips.length ? '  (' + i.ips[0] + ')' : ''}`;
-        ifaceSelect.appendChild(opt);
-      });
-      if (!d.interfaces?.length) {
-        ifaceSelect.innerHTML = '<option value="">Aucune interface détectée</option>';
-      }
-    }).catch(() => {
-      ifaceSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+  // ── tcpdump ───────────────────────────────────────────────────────────────
+  // Charger les interfaces réseau disponibles (tous les utilisateurs authentifiés)
+  const ifaceSelect = document.getElementById('nt-tcpdump-iface');
+  get('/api/nettools/interfaces').then(d => {
+    ifaceSelect.innerHTML = '';
+    (d.interfaces || []).forEach(i => {
+      const opt = document.createElement('option');
+      opt.value = i.name;
+      opt.textContent = `${i.name}${i.ips.length ? '  (' + i.ips[0] + ')' : ''}`;
+      ifaceSelect.appendChild(opt);
     });
+    if (!d.interfaces?.length) {
+      ifaceSelect.innerHTML = '<option value="">Aucune interface détectée</option>';
+    }
+  }).catch(() => {
+    ifaceSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+  });
 
-    const tcpIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Capturer`;
-    document.getElementById('nt-btn-tcpdump').addEventListener('click', async () => {
-      const iface  = ifaceSelect.value.trim();
-      const filter = (document.getElementById('nt-tcpdump-filter').value || '').trim();
-      const count  = parseInt(document.getElementById('nt-tcpdump-count').value || '20', 10);
-      if (!iface) { showToast('Sélectionner une interface', 'warn'); return; }
-      setLoading('nt-btn-tcpdump', 'nt-tcpdump-output', true);
-      try {
-        const data = await post('/api/nettools/tcpdump', { iface, filter, count });
-        showOutput('nt-tcpdump-output', data.output, data.success);
-      } catch (e) {
+  const tcpIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Capturer`;
+
+  async function runTcpdump() {
+    const iface  = ifaceSelect.value.trim();
+    const filter = (document.getElementById('nt-tcpdump-filter').value || '').trim();
+    const count  = parseInt(document.getElementById('nt-tcpdump-count').value || '20', 10);
+    if (!iface) { showToast('Sélectionner une interface', 'warn'); return; }
+    if (!_bypassNetToken) { openNetToolsModal(runTcpdump); return; }
+    setLoading('nt-btn-tcpdump', 'nt-tcpdump-output', true);
+    try {
+      const data = await postWithToken('/api/nettools/tcpdump', { iface, filter, count }, _bypassNetToken);
+      showOutput('nt-tcpdump-output', data.output, data.success);
+    } catch (e) {
+      if (e.status === 403) {
+        _bypassNetToken = null;
+        openNetToolsModal(runTcpdump);
+      } else {
         showOutput('nt-tcpdump-output', `Erreur : ${e.message}`, false);
       }
-      setLoading('nt-btn-tcpdump', 'nt-tcpdump-output', false, tcpIcon);
-    });
+    }
+    setLoading('nt-btn-tcpdump', 'nt-tcpdump-output', false, tcpIcon);
   }
+  document.getElementById('nt-btn-tcpdump').addEventListener('click', runTcpdump);
 }
 

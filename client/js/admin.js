@@ -725,7 +725,7 @@ async function loadBypassKey() {
 
     if (data.used_at) {
       const usedDate = new Date(data.used_at);
-      const purposeLabel = { scan: 'Scan réseau', services: 'Services', cert: 'Certificat SSL' }[data.used_for] || data.used_for;
+      const purposeLabel = { scan: 'Scan réseau', services: 'Services', cert: 'Certificat SSL', nettools: 'Nmap / tcpdump' }[data.used_for] || data.used_for;
       status.style.cssText = 'display:block;background:#0d2e1a;border:1px solid #238636;color:#3fb950;border-radius:7px;padding:7px 10px;font-size:12px;margin-top:10px';
       status.textContent   = `✓ Utilisée par ${data.used_by} le ${fmt(usedDate)} — ${purposeLabel}`;
     } else if (!data.expired && data.key) {

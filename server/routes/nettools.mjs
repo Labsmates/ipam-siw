@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import { spawn  } from 'child_process';
-import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
+import { requireAuth } from '../middleware/auth.mjs';
 import { validateAndUseBypassKey } from '../redis.mjs';
 
 const router = Router();
@@ -107,8 +107,10 @@ router.post('/scan', requireAuth, async (req, res) => {
 });
 
 // ── POST /api/nettools/nmap ───────────────────────────────────────────────────
-// Ports : liste/plage de ports (ex: 22,80,443 ou 1-1024) — facultatif
+// Requiert une clé de bypass validée (token elevated:'nettools', 15 min)
 router.post('/nmap', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'nettools')
+    return res.status(403).json({ error: 'Token nettools requis (clé de bypass)' });
   const { target, ports } = req.body;
   if (!isValidTarget(target)) return res.status(400).json({ error: 'IP ou FQDN invalide' });
   const portsStr = (ports || '').trim();
@@ -134,7 +136,8 @@ router.post('/nc', requireAuth, async (req, res) => {
 });
 
 // ── GET /api/nettools/interfaces ──────────────────────────────────────────────
-router.get('/interfaces', requireAuth, requireAdmin, async (req, res) => {
+// Lecture seule — accessible à tous les utilisateurs authentifiés
+router.get('/interfaces', requireAuth, async (req, res) => {
   try {
     // Essayer plusieurs chemins pour ip(8) — /usr/sbin absent du PATH systemd sur RHEL
     const IP_BINS = ['/usr/sbin/ip', '/sbin/ip', '/usr/bin/ip', '/bin/ip', 'ip'];
@@ -162,11 +165,13 @@ router.get('/interfaces', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ── POST /api/nettools/tcpdump ────────────────────────────────────────────────
-// Admin / super admin uniquement — capture réseau limitée
+// Requiert une clé de bypass validée (token elevated:'nettools', 15 min)
 const IFACE_RE  = /^[a-zA-Z0-9][\w.\-]{0,15}$/;
 const FILTER_RE = /^[a-zA-Z0-9.:/ \-]{0,120}$/;
 
-router.post('/tcpdump', requireAuth, requireAdmin, async (req, res) => {
+router.post('/tcpdump', requireAuth, async (req, res) => {
+  if (req.user.elevated !== 'nettools')
+    return res.status(403).json({ error: 'Token nettools requis (clé de bypass)' });
   const { iface = 'any', filter = '', count = 20 } = req.body || {};
   if (!IFACE_RE.test(iface))
     return res.status(400).json({ error: 'Interface invalide (ex : eth0, ens3, any)' });

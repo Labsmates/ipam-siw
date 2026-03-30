@@ -135,6 +135,28 @@ router.post('/cert-access', requireAuth, async (req, res) => {
   res.json({ ok: true, token, expires_at });
 });
 
+// POST /api/bypass/nettools-access
+// Tous les utilisateurs authentifiés → accès nmap + tcpdump pendant 15 min (clé usage unique)
+router.post('/nettools-access', requireAuth, async (req, res) => {
+  const { key } = req.body;
+  const { username, role } = req.user;
+
+  try {
+    await validateAndUseBypassKey(key, username, 'nettools');
+  } catch (e) {
+    await addLog(username, 'BYPASS_KEY_FAIL', `Tentative accès Nettools échouée : ${e.message}`, 'warn');
+    return res.status(403).json({ error: e.message });
+  }
+
+  const secret = await getJwtSecret();
+  const netlUser = { id: req.user.id, username, role, elevated: 'nettools' };
+  const token      = jwt.sign(netlUser, secret, { expiresIn: '15m' });
+  const expires_at = new Date(Date.now() + 15 * 60_000).toISOString();
+
+  await addLog(username, 'NETTOOLS_ACCESS', 'Accès Nmap/tcpdump activé (15 min)', 'info');
+  res.json({ ok: true, token, expires_at });
+});
+
 const RELOAD_ONLY_BYPASS = new Set(['httpd']);
 
 function assertSvc(svc, res) {
