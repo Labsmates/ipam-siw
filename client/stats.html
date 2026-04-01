@@ -170,6 +170,17 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 
       <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:24px;">
         <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="width:34px;height:34px;background:#1a1a2e;border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a371f7" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </div>
+          <span style="font-size:13px;font-weight:600;color:var(--tx-3);">Nutanix HDC</span>
+        </div>
+        <div id="count-nutanix" style="font-size:36px;font-weight:700;color:#a371f7;letter-spacing:-.03em;">—</div>
+        <div style="font-size:12px;color:var(--tx-5);margin-top:4px;">Nœuds SPHY</div>
+      </div>
+
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 200px;flex:1 1 200px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:24px;">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;margin-bottom:12px;">
           <div style="width:34px;height:34px;background:var(--bg-4);border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tx-3)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
@@ -211,6 +222,30 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
       <div id="roles-grid-lin" style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:0;"></div>
     </div>
 
+    <!-- ═══ SERVEURS XMB / FLR ═══ -->
+    <div style="margin-top:8px;margin-bottom:8px;padding-bottom:12px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      <h2 style="color:var(--tx-1);font-size:18px;font-weight:700;margin:0;letter-spacing:-.02em;">Serveurs XMB &amp; FLR</h2>
+    </div>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:16px;-ms-flex-wrap:wrap;flex-wrap:wrap;margin-top:20px;margin-bottom:28px;">
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 300px;flex:1 1 300px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
+          <span style="font-size:12px;font-weight:700;color:#d29922;background:#2e2000;border:1px solid #5c4200;padding:2px 8px;border-radius:4px;">XMB</span>
+          <span style="font-size:14px;font-weight:600;color:var(--tx-1);">Serveurs XMB</span>
+          <span id="count-xmb" style="margin-left:auto;font-size:20px;font-weight:700;color:#d29922;">—</span>
+        </div>
+        <div id="list-xmb" style="padding:14px 20px;"></div>
+      </div>
+      <div style="-webkit-box-flex:1;-ms-flex:1 1 300px;flex:1 1 300px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
+          <span style="font-size:12px;font-weight:700;color:#79c0ff;background:#0d2240;border:1px solid #1f4080;padding:2px 8px;border-radius:4px;">FLR</span>
+          <span style="font-size:14px;font-weight:600;color:var(--tx-1);">Serveurs FLR</span>
+          <span id="count-flr" style="margin-left:auto;font-size:20px;font-weight:700;color:#79c0ff;">—</span>
+        </div>
+        <div id="list-flr" style="padding:14px 20px;"></div>
+      </div>
+    </div>
+
     <!-- ═══ IP STATISTICS ═══ -->
     <div style="margin-top:40px;margin-bottom:8px;padding-bottom:12px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -249,30 +284,6 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
       </div>
     </div>
     <div id="ip-sites-grid"></div>
-
-    <!-- ═══ SERVEURS XMB / FLR ═══ -->
-    <div style="margin-top:40px;margin-bottom:8px;padding-bottom:12px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-      <h2 style="color:var(--tx-1);font-size:18px;font-weight:700;margin:0;letter-spacing:-.02em;">Serveurs XMB &amp; FLR</h2>
-    </div>
-    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:16px;-ms-flex-wrap:wrap;flex-wrap:wrap;margin-top:20px;">
-      <div style="-webkit-box-flex:1;-ms-flex:1 1 300px;flex:1 1 300px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;overflow:hidden;">
-        <div style="padding:14px 20px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
-          <span style="font-size:12px;font-weight:700;color:#d29922;background:#2e2000;border:1px solid #5c4200;padding:2px 8px;border-radius:4px;">XMB</span>
-          <span style="font-size:14px;font-weight:600;color:var(--tx-1);">Serveurs XMB</span>
-          <span id="count-xmb" style="margin-left:auto;font-size:20px;font-weight:700;color:#d29922;">—</span>
-        </div>
-        <div id="list-xmb" style="padding:14px 20px;"></div>
-      </div>
-      <div style="-webkit-box-flex:1;-ms-flex:1 1 300px;flex:1 1 300px;background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;overflow:hidden;">
-        <div style="padding:14px 20px;border-bottom:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;">
-          <span style="font-size:12px;font-weight:700;color:#79c0ff;background:#0d2240;border:1px solid #1f4080;padding:2px 8px;border-radius:4px;">FLR</span>
-          <span style="font-size:14px;font-weight:600;color:var(--tx-1);">Serveurs FLR</span>
-          <span id="count-flr" style="margin-left:auto;font-size:20px;font-weight:700;color:#79c0ff;">—</span>
-        </div>
-        <div id="list-flr" style="padding:14px 20px;"></div>
-      </div>
-    </div>
 
   </div>
 

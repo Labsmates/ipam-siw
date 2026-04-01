@@ -30,11 +30,9 @@ const WIN_ROLES = [
   { code: 'IDRAC', label: 'IDRAC / iLO' },
 ];
 
-// Linux roles — only CFT, XD and Nutanix are tracked
+// Linux roles — CFT only (XG + XD fusionnés) ; SPHY compté séparément (Nutanix HDC)
 const LIN_ROLES = [
-  { code: 'XG',   label: 'Serveurs CFT' },
-  { code: 'XD',   label: 'Serveurs XD' },
-  { code: 'SPHY', label: 'Serveurs Nutanix' },
+  { code: 'XG', label: 'Serveurs CFT' },
 ];
 
 // Domain suffixes are the source of truth for OS classification
@@ -66,9 +64,9 @@ function classifyHostname(raw) {
   if (!isWindows && !isLinux) return null;
 
   if (isLinux) {
-    if (/^SP/i.test(label)) return { type: 'linux', role: 'SPHY' };
+    if (/^SP/i.test(label)) return { type: 'nutanix', role: 'SPHY' };
     if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
-    if (label.match(/^[A-Z]{2}XD\d+$/i)) return { type: 'linux', role: 'XD' };
+    if (label.match(/^[A-Z]{2}XD\d+$/i)) return { type: 'linux', role: 'XG' }; // XD = CFT
     return null;
   }
 
@@ -185,12 +183,14 @@ async function loadStats() {
     );
 
     // Classify all hostnames — deduplicate: count each hostname only once
-    let winTotal  = 0;
-    let linTotal  = 0;
+    let winTotal    = 0;
+    let linTotal    = 0;
+    let sphyTotal   = 0;
     const winRoleCounts    = {};
     const linRoleCounts    = {};
     const winRoleHostnames = {};
     const linRoleHostnames = {};
+    const sphyHostnames    = [];
     WIN_ROLES.forEach(r => { winRoleCounts[r.code] = 0; winRoleHostnames[r.code] = []; });
     LIN_ROLES.forEach(r => { linRoleCounts[r.code] = 0; linRoleHostnames[r.code] = []; });
     const seen = new Set();
@@ -204,7 +204,10 @@ async function loadStats() {
         seen.add(key);
         const result = classifyHostname(ip.hostname);
         if (!result) continue;
-        if (result.type === 'linux') {
+        if (result.type === 'nutanix') {
+          sphyTotal++;
+          sphyHostnames.push(ip.hostname);
+        } else if (result.type === 'linux') {
           linTotal++;
           linRoleCounts[result.role] = (linRoleCounts[result.role] || 0) + 1;
           if (!linRoleHostnames[result.role]) linRoleHostnames[result.role] = [];
@@ -220,8 +223,9 @@ async function loadStats() {
     // Sort hostname lists alphabetically
     Object.values(winRoleHostnames).forEach(arr => arr.sort());
     Object.values(linRoleHostnames).forEach(arr => arr.sort());
+    sphyHostnames.sort();
 
-    const total = winTotal + linTotal;
+    const total = winTotal + linTotal + sphyTotal;
 
     // Update subtitle
     document.getElementById('stats-subtitle').textContent =
@@ -230,19 +234,10 @@ async function loadStats() {
     // Update counters
     document.getElementById('count-windows').textContent = winTotal.toLocaleString('fr');
     document.getElementById('count-linux').textContent   = linTotal.toLocaleString('fr');
+    document.getElementById('count-nutanix').textContent = sphyTotal.toLocaleString('fr');
     document.getElementById('count-total').textContent   = total.toLocaleString('fr');
 
-    // Store for re-render on search change
-    _statsData = { sites, details, winRoleCounts, winTotal, linRoleCounts, linTotal, winRoleHostnames, linRoleHostnames };
-
-    // Render roles grids (apply current search filters in case of refresh)
-    renderRoles('roles-grid-win', winRoleCounts, winTotal, '#58a6ff', '#1f6feb', _searchRoleWin, winRoleHostnames);
-    renderRoles('roles-grid-lin', linRoleCounts, linTotal, '#3fb950', '#26a641', _searchRoleLin, linRoleHostnames);
-
-    // Render IP statistics
-    renderIpStats(sites, details, _searchIpSite);
-
-    // Collect and render XMB / FLR servers
+    // Collect XMB / FLR servers
     const xmbList = [], flrList = [], seenRlb = new Set();
     for (const site of details) {
       for (const ip of (site.ips || [])) {
@@ -255,8 +250,20 @@ async function loadStats() {
       }
     }
     xmbList.sort(); flrList.sort();
+
+    // Store for re-render on search change
+    _statsData = { sites, details, winRoleCounts, winTotal, linRoleCounts, linTotal, winRoleHostnames, linRoleHostnames, sphyTotal, sphyHostnames, xmbList, flrList };
+
+    // Render roles grids (apply current search filters in case of refresh)
+    renderRoles('roles-grid-win', winRoleCounts, winTotal, '#58a6ff', '#1f6feb', _searchRoleWin, winRoleHostnames);
+    renderRoles('roles-grid-lin', linRoleCounts, linTotal, '#3fb950', '#26a641', _searchRoleLin, linRoleHostnames);
+
+    // Render XMB / FLR (juste après Linux par rôle)
     renderRlbList('xmb', xmbList, '#d29922');
     renderRlbList('flr', flrList, '#79c0ff');
+
+    // Render IP statistics
+    renderIpStats(sites, details, _searchIpSite);
 
     // Show content
     loadingEl.style.display = 'none';
