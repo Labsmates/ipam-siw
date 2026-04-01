@@ -245,8 +245,9 @@ async function loadStats() {
         const label = ip.hostname.split('.')[0].toUpperCase();
         if (seenRlb.has(label)) continue;
         seenRlb.add(label);
-        if (label.includes('XMB')) xmbList.push(ip.hostname);
-        else if (label.includes('FLR')) flrList.push(ip.hostname);
+        const upper = ip.hostname.toUpperCase();
+        if (upper.includes('XMB')) xmbList.push(ip.hostname);
+        else if (upper.includes('FLR')) flrList.push(ip.hostname);
       }
     }
     xmbList.sort(); flrList.sort();
