@@ -119,6 +119,7 @@ router.post('/:id/vlans', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { vlan_id, network, mask, gateway, ips = [] } = req.body || {};
     if (!vlan_id) return res.status(400).json({ error: 'VLAN ID requis' });
+    if (!/^\d+$/.test(String(vlan_id))) return res.status(400).json({ error: 'VLAN ID doit être un nombre entier' });
     const site = await getSite(req.params.id);
     if (!site) return res.status(404).json({ error: 'Site introuvable' });
     const result = await createVlan(req.params.id, String(vlan_id), network, mask, gateway, ips);

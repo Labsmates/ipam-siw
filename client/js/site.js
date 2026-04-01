@@ -612,6 +612,7 @@ function setupModals(user) {
       const gateway = document.getElementById('req-vlan-gateway').value.trim();
       const mask    = document.getElementById('req-vlan-mask').value.trim();
       if (!vlanId || !network) { showToast('VLAN ID et réseau CIDR requis', 'warn'); return; }
+      if (!/^\d+$/.test(vlanId)) { showToast('VLAN ID doit être un nombre entier (chiffres uniquement)', 'warn'); return; }
       const btn = e.target.querySelector('button[type=submit]');
       btn.disabled = true; btn.textContent = 'Envoi…';
       try {
@@ -692,6 +693,7 @@ function setupModals(user) {
       const btn = e.target.querySelector('button[type=submit]');
 
       if (!vlanId || !network) { showToast('VLAN ID et réseau CIDR requis', 'warn'); return; }
+      if (!/^\d+$/.test(vlanId)) { showToast('VLAN ID doit être un nombre entier (chiffres uniquement)', 'warn'); return; }
 
       let ipList = [];
       if (network.includes('/')) {
