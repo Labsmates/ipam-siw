@@ -242,6 +242,22 @@ async function loadStats() {
     // Render IP statistics
     renderIpStats(sites, details, _searchIpSite);
 
+    // Collect and render XMB / FLR servers
+    const xmbList = [], flrList = [], seenRlb = new Set();
+    for (const site of details) {
+      for (const ip of (site.ips || [])) {
+        if (!ip.hostname || ip.status === 'Libre') continue;
+        const label = ip.hostname.split('.')[0].toUpperCase();
+        if (seenRlb.has(label)) continue;
+        seenRlb.add(label);
+        if (label.includes('XMB')) xmbList.push(ip.hostname);
+        else if (label.includes('FLR')) flrList.push(ip.hostname);
+      }
+    }
+    xmbList.sort(); flrList.sort();
+    renderRlbList('xmb', xmbList, '#d29922');
+    renderRlbList('flr', flrList, '#79c0ff');
+
     // Show content
     loadingEl.style.display = 'none';
     contentEl.classList.remove('hidden');
@@ -469,6 +485,22 @@ function renderIpStats(sites, details, siteFilter = '') {
         </table>
       </div>`;
   }).join('');
+}
+
+function renderRlbList(prefix, hostnames, color) {
+  const countEl = document.getElementById(`count-${prefix}`);
+  const listEl  = document.getElementById(`list-${prefix}`);
+  if (!countEl || !listEl) return;
+  countEl.textContent = hostnames.length.toLocaleString('fr');
+  if (!hostnames.length) {
+    listEl.innerHTML = `<div style="font-size:12px;color:var(--tx-5);font-style:italic;">Aucun serveur trouvé</div>`;
+    return;
+  }
+  listEl.innerHTML = `<div style="display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:6px;">${
+    hostnames.map(h =>
+      `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx-2);background:var(--bg-4);border:1px solid var(--brd);border-radius:4px;padding:2px 8px;white-space:nowrap;">${esc(h)}</span>`
+    ).join('')
+  }</div>`;
 }
 
 function esc(s) {
