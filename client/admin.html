@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <title>IPAM SIW — Administration</title>
 <link rel="stylesheet" href="/vendor/fonts.css">
 <link rel="stylesheet" href="/css/theme.css">
@@ -166,6 +167,7 @@ th{text-align:left}
       <button class="admin-tab" data-tab="export">Export Excel</button>
       <button class="admin-tab" data-tab="password">Mon mot de passe</button>
       <button class="admin-tab" data-tab="bypass-key">🔑 Clé de bypass</button>
+      <button id="tab-site-stats" class="admin-tab hidden" data-tab="site-stats">📊 Stat du site</button>
     </div>
   </div>
 
@@ -187,8 +189,8 @@ th{text-align:left}
               <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Nom &amp; Prénom</th>
               <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Rôle</th>
               <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Créé le</th>
-              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center">Connexions</th>
-              <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Dernière connexion</th>
+              <th id="th-login-count" class="hidden" style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center">Connexions</th>
+              <th id="th-last-login" class="hidden" style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">Dernière connexion</th>
               <th style="padding:10px 16px;color:var(--tx-3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -472,6 +474,15 @@ th{text-align:left}
             Enregistrer
           </button>
         </form>
+      </div>
+    </div>
+
+    <!-- ══ Stat du site ══ -->
+    <div id="pane-site-stats" class="admin-pane hidden" style="max-width:700px">
+      <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 6px">Statistiques de connexion</h3>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 20px">Activité globale sur la plateforme IPAM.</p>
+      <div id="site-stats-content">
+        <p style="color:var(--tx-3);font-size:13px;">Chargement…</p>
       </div>
     </div>
 

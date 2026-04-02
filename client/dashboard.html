@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IPAM SIW — Tableau de bord</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>IPAM SIW — Tableau de bord</title>
   <link rel="stylesheet" href="/vendor/fonts.css">
   <link rel="stylesheet" href="/css/theme.css">
   <script src="/js/protect.js"></script>
@@ -154,15 +155,12 @@
         <h2 style="color:var(--tx-1);font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;">Sites réseau</h2>
         <p id="site-count" style="color:var(--tx-3);font-size:13px;margin:4px 0 0;"></p>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="search-site" class="inp" type="search" placeholder="Rechercher un site…" style="width:220px;">
-        <div class="ip-search-wrap">
-          <div style="position:relative">
-            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input id="search-ip-global" class="inp" type="search" placeholder="Rechercher une IP…" style="width:220px;padding-left:30px;">
-          </div>
-          <div id="ip-global-dropdown" class="ip-search-dropdown" style="display:none"></div>
+      <div class="ip-search-wrap">
+        <div style="position:relative">
+          <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="search-unified" class="inp" type="search" placeholder="Rechercher un site, une IP ou un hostname…" style="width:340px;padding-left:30px;">
         </div>
+        <div id="ip-global-dropdown" class="ip-search-dropdown" style="display:none"></div>
       </div>
     </div>
 

@@ -43,6 +43,7 @@ router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     if (e.message === 'Statut invalide') return res.status(400).json({ error: e.message });
+    if (e.code === 'CONFLICT') return res.status(409).json({ error: e.message });
     res.status(500).json({ error: e.message });
   }
 });

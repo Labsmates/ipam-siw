@@ -4,10 +4,27 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, patch, del, showToast, sortIPs, sortSites, statusBadge, fmtDate,
+  get, post, put, patch, del, showToast, showAlert, sortIPs, sortSites, statusBadge, fmtDate,
   openModal, closeModal, cidrToIPs, showConfirm, initTheme, setupGlobalIpSearch,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function _normalizeNetwork(net) {
+  if (!net) return '';
+  const s = net.trim();
+  if (!s.includes('/')) return s.toLowerCase();
+  const [addr, bits] = s.split('/');
+  const prefix = parseInt(bits, 10);
+  if (isNaN(prefix) || prefix < 0 || prefix > 32) return s.toLowerCase();
+  const parts = addr.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return s.toLowerCase();
+  const mask32 = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+  const base   = (((parts[0]<<24)|(parts[1]<<16)|(parts[2]<<8)|parts[3]) >>> 0) & mask32;
+  return `${(base>>>24)&0xFF}.${(base>>>16)&0xFF}.${(base>>>8)&0xFF}.${base&0xFF}/${prefix}`;
+}
 
 // ---------------------------------------------------------------------------
 // State
@@ -538,7 +555,7 @@ function setupModals(user) {
       document.getElementById('form-reserve').reset();
       await loadSite();
     } catch (err) {
-      showToast(err.message, 'error');
+      await showAlert({ title: 'Conflit détecté', message: err.message });
     } finally {
       triggerBtn.disabled = false;
       triggerBtn.textContent = status === 'Réservée' ? 'Réserver' : 'Utiliser';
@@ -568,7 +585,7 @@ function setupModals(user) {
       e.target.reset();
       await loadSite();
     } catch (err) {
-      showToast(err.message, 'error');
+      await showAlert({ title: 'Conflit détecté', message: err.message });
     } finally {
       btn.disabled = false; btn.textContent = 'Enregistrer';
     }
@@ -612,7 +629,25 @@ function setupModals(user) {
       const gateway = document.getElementById('req-vlan-gateway').value.trim();
       const mask    = document.getElementById('req-vlan-mask').value.trim();
       if (!vlanId || !network) { showToast('VLAN ID et réseau CIDR requis', 'warn'); return; }
-      if (!/^\d+$/.test(vlanId)) { showToast('VLAN ID doit être un nombre entier (chiffres uniquement)', 'warn'); return; }
+      if (!/^\d+$/.test(vlanId)) { await showAlert({ title: 'VLAN ID invalide', message: 'VLAN ID doit être un nombre entier (chiffres uniquement).' }); return; }
+
+      // Vérification doublon VLAN ID côté client
+      const dupVlan = (siteData?.vlans || []).find(v => String(v.vlan_id) === String(vlanId));
+      if (dupVlan) {
+        await showAlert({ title: 'VLAN déjà existant', message: `Le VLAN ID ${vlanId} existe déjà dans ce site${dupVlan.network ? ` (réseau : ${dupVlan.network})` : ''}. Votre demande ne peut pas être soumise.` });
+        return;
+      }
+
+      // Vérification doublon réseau côté client
+      if (network) {
+        const normNew = _normalizeNetwork(network);
+        const dupNet = normNew && (siteData?.vlans || []).find(v => v.network && _normalizeNetwork(v.network) === normNew);
+        if (dupNet) {
+          await showAlert({ title: 'Réseau déjà existant', message: `Le réseau ${normNew} est déjà utilisé par le VLAN ${dupNet.vlan_id} dans ce site. Votre demande ne peut pas être soumise.` });
+          return;
+        }
+      }
+
       const btn = e.target.querySelector('button[type=submit]');
       btn.disabled = true; btn.textContent = 'Envoi…';
       try {
@@ -621,7 +656,7 @@ function setupModals(user) {
         closeModal('modal-request-vlan');
         e.target.reset();
       } catch (err) {
-        showToast(err.message, 'error');
+        await showAlert({ title: 'Erreur', message: err.message });
       } finally {
         btn.disabled = false; btn.textContent = 'Envoyer la demande';
       }
@@ -693,7 +728,24 @@ function setupModals(user) {
       const btn = e.target.querySelector('button[type=submit]');
 
       if (!vlanId || !network) { showToast('VLAN ID et réseau CIDR requis', 'warn'); return; }
-      if (!/^\d+$/.test(vlanId)) { showToast('VLAN ID doit être un nombre entier (chiffres uniquement)', 'warn'); return; }
+      if (!/^\d+$/.test(vlanId)) { await showAlert({ title: 'VLAN ID invalide', message: 'VLAN ID doit être un nombre entier (chiffres uniquement).' }); return; }
+
+      // Vérification doublon VLAN ID côté client
+      const dupVlan = (siteData?.vlans || []).find(v => String(v.vlan_id) === String(vlanId));
+      if (dupVlan) {
+        await showAlert({ title: 'VLAN déjà existant', message: `Le VLAN ID ${vlanId} existe déjà dans ce site${dupVlan.network ? ` (réseau : ${dupVlan.network})` : ''}.` });
+        return;
+      }
+
+      // Vérification doublon réseau côté client
+      if (network) {
+        const normNew = _normalizeNetwork(network);
+        const dupNet = normNew && (siteData?.vlans || []).find(v => v.network && _normalizeNetwork(v.network) === normNew);
+        if (dupNet) {
+          await showAlert({ title: 'Réseau déjà existant', message: `Le réseau ${normNew} est déjà utilisé par le VLAN ${dupNet.vlan_id} dans ce site.` });
+          return;
+        }
+      }
 
       let ipList = [];
       if (network.includes('/')) {
@@ -711,7 +763,7 @@ function setupModals(user) {
         e.target.reset();
         await loadSite();
       } catch (err) {
-        showToast(err.message, 'error');
+        await showAlert({ title: 'Conflit détecté', message: err.message });
       } finally {
         btn.disabled = false; btn.textContent = 'Créer le VLAN';
       }

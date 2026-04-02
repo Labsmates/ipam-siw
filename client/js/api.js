@@ -46,6 +46,7 @@ export function getUser()   {
 export function setSession(token, user) {
   sessionStorage.setItem(TOKEN_KEY, token);
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  sessionStorage.setItem('ipam_login_ts', Date.now().toString());
 }
 export function clearSession() {
   sessionStorage.removeItem(TOKEN_KEY);
@@ -60,6 +61,17 @@ export function requireAuth() {
   return true;
 }
 export function logout() {
+  const loginTs  = parseInt(sessionStorage.getItem('ipam_login_ts') || '0');
+  const duration = loginTs ? Math.round((Date.now() - loginTs) / 1000) : 0;
+  const token    = getToken();
+  if (duration > 5 && token) {
+    fetch('/api/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ duration }),
+      keepalive: true,
+    }).catch(() => {});
+  }
   clearSession();
   window.location.replace(LOGIN_PAGE);
 }
@@ -322,6 +334,34 @@ export function openModal(id) { document.getElementById(id)?.classList.remove('h
 export function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
 
 // ---------------------------------------------------------------------------
+// Alert dialog (informational — single OK button)
+// ---------------------------------------------------------------------------
+export function showAlert({ title = 'Erreur', message = '', confirmText = 'OK' } = {}) {
+  return new Promise(resolve => {
+    const _e = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (!document.querySelector('#confirm-keyframes')) {
+      const style = document.createElement('style');
+      style.id = 'confirm-keyframes';
+      style.textContent = '@-webkit-keyframes cfade{from{opacity:0;-webkit-transform:scale(.93) translateY(10px);transform:scale(.93) translateY(10px)}to{opacity:1;-webkit-transform:none;transform:none}}@keyframes cfade{from{opacity:0;transform:scale(.93) translateY(10px)}to{opacity:1;transform:none}}';
+      document.head.appendChild(style);
+    }
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9997;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px;';
+    overlay.innerHTML = `
+      <div style="background:#21262d;border:1px solid #f8514940;border-radius:12px;padding:28px;width:420px;max-width:95vw;-webkit-box-shadow:0 20px 60px rgba(0,0,0,.6);box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:cfade .18s cubic-bezier(.34,1.56,.64,1);animation:cfade .18s cubic-bezier(.34,1.56,.64,1);">
+        <h3 style="margin:0 0 10px;font-size:16px;font-weight:700;color:#f85149;letter-spacing:-0.01em;">${_e(title)}</h3>
+        <p style="margin:0 0 24px;font-size:14px;color:#8b949e;line-height:1.55;">${_e(message)}</p>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
+          <button id="_sa-ok" style="background:#58a6ff;color:#0d1117;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;" onmouseenter="this.style.background='#79b8ff'" onmouseleave="this.style.background='#58a6ff'">${_e(confirmText)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    function cleanup() { overlay.remove(); resolve(); }
+    overlay.querySelector('#_sa-ok').addEventListener('click', cleanup);
+    overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(); });
+  });
+}
+
 // Confirm dialog (replaces browser confirm())
 // ---------------------------------------------------------------------------
 export function showConfirm({ title = 'Confirmation', message = '', confirmText = 'Confirmer', cancelText = 'Annuler', danger = false } = {}) {
@@ -468,7 +508,7 @@ export function setupElevationMode() {
   const originalName = backupUser?.username || getUser()?.username || '';
 
   // Identifiants éligibles : commence par P ou X (insensible à la casse), hors ADMIN
-  const isSuperAdmin = originalName === 'ADMIN';
+  const isSuperAdmin = originalName.toUpperCase() === 'ADMIN';
   const isPorX       = /^[PX]/i.test(originalName);
 
   // Liens Administration et Configuration système : visibles pour tous les admins et le super-admin
@@ -575,7 +615,7 @@ export function setupElevationMode() {
         </div>
         <p style="color:var(--tx-3);font-size:13px;margin:0 0 18px">${desc}</p>
         <div style="margin-bottom:14px">
-          <input id="elev-key-input" class="inp" type="password" placeholder="Votre mot de passe" autocomplete="current-password">
+          <input id="elev-key-input" class="inp" type="password" placeholder="Votre mot de passe" autocomplete="new-password">
         </div>
         <div id="elev-key-error" style="display:none;background:#f8514918;border:1px solid #f8514940;border-radius:7px;padding:8px 12px;font-size:12px;color:#f85149;margin-bottom:14px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end">

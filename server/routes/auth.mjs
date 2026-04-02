@@ -25,6 +25,7 @@ router.post('/login', loginRateLimit, async (req, res) => {
     // Succès : réinitialise le compteur de tentatives pour cette IP
     res.locals.resetLoginRate?.();
     incrementLoginCount(user.id).catch(() => {});
+    addLog(user.username, 'LOGIN', JSON.stringify({ role: user.role }), 'info').catch(() => {});
     const secret = await getJwtSecret();
     const token  = jwt.sign(
       { userId: user.id, username: user.username, role: user.role },
@@ -33,6 +34,18 @@ router.post('/login', loginRateLimit, async (req, res) => {
     );
     res.json({ token, user: { id: user.id, username: user.username, role: user.role, created_at: user.created_at } });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/logout — enregistre la durée de session
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    const duration = parseInt(req.body?.duration) || 0;
+    if (duration > 0) {
+      await addLog(req.user.username, 'LOGOUT',
+        JSON.stringify({ duration_s: duration, role: req.user.role }), 'info');
+    }
+    res.json({ ok: true });
+  } catch { res.json({ ok: true }); }
 });
 
 // GET /api/me

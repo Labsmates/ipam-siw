@@ -45,7 +45,10 @@ router.post('/:id/approve', requireAuth, requireAdmin, async (req, res) => {
     await addLog(req.user.username, 'APPROVE_VLAN',
       `VLAN ${r.vlan_id} approuvé sur « ${r.site_name} » (demandé par ${r.username}, ${result.added} IPs)`, 'ok');
     res.json({ ok: true, ...result });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    if (e.code === 'CONFLICT') return res.status(409).json({ error: e.message });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // DELETE /api/vlan_requests/:id — admin rejects

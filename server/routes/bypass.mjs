@@ -52,7 +52,8 @@ function cidrToNetmask(prefix) {
 router.post('/elevate', requireAuth, async (req, res) => {
   try {
     const { password } = req.body || {};
-    const { username, role } = req.user;
+    const { username: rawUsername, role } = req.user;
+    const username = rawUsername?.trim().toUpperCase() || '';
 
     if (role !== 'admin')
       return res.status(403).json({ error: 'Mode SA réservé aux administrateurs' });
@@ -63,7 +64,12 @@ router.post('/elevate', requireAuth, async (req, res) => {
 
     // Vérification du mot de passe de l'administrateur
     const user = await getUserByUsername(username);
-    if (!user || user.pw_hash !== sha256(password)) {
+    if (!user) {
+      console.error(`[ELEVATE_SA] Utilisateur introuvable dans Redis : "${username}"`);
+      await addLog(rawUsername, 'ELEVATE_SA_FAIL', `Utilisateur introuvable : ${username}`, 'warn');
+      return res.status(403).json({ error: 'Mot de passe incorrect' });
+    }
+    if (user.pw_hash !== sha256(password)) {
       await addLog(username, 'ELEVATE_SA_FAIL', 'Tentative élévation SA — mot de passe incorrect', 'warn');
       return res.status(403).json({ error: 'Mot de passe incorrect' });
     }

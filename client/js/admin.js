@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, delBody, patch, showToast, fmtDate, openModal, closeModal, sortSites, showConfirm, initTheme,
+  get, post, put, del, delBody, patch, showToast, showAlert, fmtDate, openModal, closeModal, sortSites, showConfirm, initTheme,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
 
@@ -86,6 +86,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupBypassKey();
   setupExport();
 
+  // Onglet "Stat du site" — super admin uniquement
+  const isSA = user?.username?.toLowerCase() === 'admin' || user?.elevated === 'sa';
+  if (isSA) {
+    document.getElementById('tab-site-stats')?.classList.remove('hidden');
+  }
+
   // Refresh on tab click
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -93,6 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'vlans') loadVlans();
       if (tab.dataset.tab === 'account-requests') loadAccountRequests();
       if (tab.dataset.tab === 'bypass-key') loadBypassKey();
+      if (tab.dataset.tab === 'site-stats') loadSiteStats();
     });
   });
   document.getElementById('btn-refresh-vlan-requests')?.addEventListener('click', loadVlanRequests);
@@ -117,6 +124,9 @@ const USERNAME_RE = /^[PX][A-Z]{3}\d{3}$/;
 function renderUsers() {
   const currentUser = getUser();
   const isSuperAdmin = currentUser?.username?.toLowerCase() === 'admin' || currentUser?.elevated === 'sa';
+  // Colonnes connexion : visibles super admin uniquement
+  document.getElementById('th-login-count')?.classList.toggle('hidden', !isSuperAdmin);
+  document.getElementById('th-last-login')?.classList.toggle('hidden', !isSuperAdmin);
   const tbody = document.getElementById('users-tbody');
   if (!allUsers.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--tx-3);padding:32px;">Aucun utilisateur</td></tr>';
@@ -155,10 +165,10 @@ function renderUsers() {
         </span>
       </td>
       <td style="padding:12px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(u.created_at)}</td>
-      <td style="padding:12px 16px;text-align:center;">
+      ${isSuperAdmin ? `<td style="padding:12px 16px;text-align:center;">
         <span style="display:inline-block;background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${u.login_count || 0}</span>
       </td>
-      <td style="padding:12px 16px;color:var(--tx-4);font-size:12px;white-space:nowrap;">${u.last_login ? fmtDate(u.last_login) : '<span style="color:var(--tx-5)">—</span>'}</td>
+      <td style="padding:12px 16px;color:var(--tx-4);font-size:12px;white-space:nowrap;">${u.last_login ? fmtDate(u.last_login) : '<span style="color:var(--tx-5)">—</span>'}</td>` : ''}
       <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
         ${showReset ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-reset-pw"
           style="background:#2e2000;color:#d29922;border:1px solid #5c4200;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
@@ -556,7 +566,7 @@ function setupVlanModals() {
       showToast(`VLAN renommé en ${newVlanId}`, 'success');
       closeModal('modal-rename-vlan');
       await loadVlans();
-    } catch (err) { showToast(err.message, 'error'); }
+    } catch (err) { await showAlert({ title: 'Conflit détecté', message: err.message }); }
     finally { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Renommer'; }
   });
 }
@@ -871,7 +881,7 @@ function renderVlanRequests(requests) {
         await post(`/api/vlan_requests/${encodeURIComponent(btn.dataset.rid)}/approve`, {});
         showToast('VLAN créé avec succès', 'success');
         await loadVlanRequests();
-      } catch (err) { showToast(err.message, 'error'); }
+      } catch (err) { await showAlert({ title: 'Conflit détecté', message: err.message }); }
     });
   });
 
@@ -964,6 +974,116 @@ function renderAccountRequests(requests) {
       } catch (err) { showToast(err.message, 'error'); }
     });
   });
+}
+
+// =============================================================================
+// STAT DU SITE
+// =============================================================================
+async function loadSiteStats() {
+  const el = document.getElementById('site-stats-content');
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--tx-3);font-size:13px;">Chargement…</p>';
+  try {
+    const d = await get('/api/logs/site-stats');
+    const fmtDur = s => {
+      if (s === null || s === undefined) return '—';
+      if (s < 60)  return `${s}s`;
+      if (s < 3600) return `${Math.floor(s/60)}min ${s%60}s`;
+      return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}min`;
+    };
+    const stat = (label, value, color = '#58a6ff') => `
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:20px 24px;text-align:center;">
+        <div style="font-size:28px;font-weight:700;color:${color};letter-spacing:-0.02em;">${value}</div>
+        <div style="font-size:12px;color:var(--tx-3);margin-top:4px;font-weight:500;">${label}</div>
+      </div>`;
+
+    const ROLE_COLORS = { admin: '#58a6ff', user: '#3fb950', viewer: '#d29922' };
+    const ROLE_LABELS = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
+
+    function donutSvg(slices) {
+      const total = slices.reduce((s, r) => s + r.value, 0);
+      if (!total) return `<text x="60" y="65" text-anchor="middle" font-size="11" fill="#8b949e">Aucune donnée</text>`;
+      const R = 50, IR = 28, cx = 60, cy = 60;
+      // If only one slice has data, draw full rings instead of arc paths (arc 360° is degenerate)
+      const nonZero = slices.filter(s => s.value > 0);
+      if (nonZero.length === 1) {
+        const s = nonZero[0];
+        return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${s.color}"/>
+          <circle cx="${cx}" cy="${cy}" r="${IR}" fill="var(--bg-2)"/>
+          <text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="13" font-weight="700" fill="#e6edf3">${total.toLocaleString('fr')}</text>
+          <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="9" fill="#8b949e">total</text>`;
+      }
+      let angle = -Math.PI / 2;
+      const paths = slices.map(s => {
+        const pct = s.value / total;
+        if (pct === 0) return '';
+        const a0 = angle, a1 = angle + pct * 2 * Math.PI;
+        angle = a1;
+        const large = a1 - a0 > Math.PI ? 1 : 0;
+        const x1 = cx + R * Math.cos(a0), y1 = cy + R * Math.sin(a0);
+        const x2 = cx + R * Math.cos(a1), y2 = cy + R * Math.sin(a1);
+        const x3 = cx + IR * Math.cos(a1), y3 = cy + IR * Math.sin(a1);
+        const x4 = cx + IR * Math.cos(a0), y4 = cy + IR * Math.sin(a0);
+        const path = `M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${x3},${y3} A${IR},${IR} 0 ${large},0 ${x4},${y4}Z`;
+        return `<path d="${path}" fill="${s.color}"><title>${s.label} : ${Math.round(pct*100)}%</title></path>`;
+      }).join('');
+      const totalLabel = total.toLocaleString('fr');
+      return `${paths}<text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="13" font-weight="700" fill="#e6edf3">${totalLabel}</text><text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="9" fill="#8b949e">total</text>`;
+    }
+
+    function donutChart(title, slices) {
+      const total = slices.reduce((s, r) => s + r.value, 0);
+      const legend = slices.map(s => {
+        const pct = total ? Math.round(s.value / total * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bg-4);">
+          <div style="width:10px;height:10px;border-radius:3px;background:${s.color};flex-shrink:0"></div>
+          <span style="font-size:12px;color:var(--tx-2);flex:1">${s.label}</span>
+          <span style="font-size:12px;font-weight:700;color:${s.color}">${pct}%</span>
+          <span style="font-size:11px;color:var(--tx-4);min-width:40px;text-align:right">${s.sub}</span>
+        </div>`;
+      }).join('');
+      return `
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px 24px;">
+          <div style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:16px;">${title}</div>
+          <div style="display:flex;align-items:center;gap:20px;">
+            <svg width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0">${donutSvg(slices)}</svg>
+            <div style="flex:1;min-width:0">${legend}</div>
+          </div>
+        </div>`;
+    }
+
+    const br = d.by_role || {};
+    const roles = ['admin', 'user', 'viewer'];
+
+    const loginSlices = roles.map(r => ({
+      label: ROLE_LABELS[r], color: ROLE_COLORS[r],
+      value: br[r]?.logins || 0,
+      sub:   `${(br[r]?.logins || 0).toLocaleString('fr')} cnx`,
+    }));
+
+    const durSlices = roles.map(r => ({
+      label: ROLE_LABELS[r], color: ROLE_COLORS[r],
+      value: br[r]?.avg_duration_s || 0,
+      sub:   fmtDur(br[r]?.avg_duration_s),
+    }));
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+        ${stat('Connexions cette semaine', d.week.toLocaleString('fr'))}
+        ${stat('Connexions ce mois', d.month.toLocaleString('fr'))}
+        ${stat('Connexions cette année', d.year.toLocaleString('fr'))}
+        ${stat('Durée moy. de session', fmtDur(d.avg_duration_s), '#a371f7')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        ${donutChart('Connexions par rôle', loginSlices)}
+        ${donutChart('Durée moy. par rôle', durSlices)}
+      </div>
+      <p style="color:var(--tx-4);font-size:12px;margin:0;">
+        Durée calculée sur ${d.sample} session${d.sample !== 1 ? 's' : ''} tracée${d.sample !== 1 ? 's' : ''}.
+      </p>`;
+  } catch (err) {
+    el.innerHTML = `<p style="color:#f85149;font-size:13px;">${err.message}</p>`;
+  }
 }
 
 // =============================================================================

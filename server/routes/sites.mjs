@@ -126,7 +126,10 @@ router.post('/:id/vlans', requireAuth, requireAdmin, async (req, res) => {
     await addLog(req.user.username, 'ADD_VLAN',
       `VLAN ${vlan_id} ajouté sur « ${site.name} » (${network || '—'}, ${result.added} IPs)`, 'ok');
     res.json({ ok: true, ...result });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    if (e.code === 'CONFLICT') return res.status(409).json({ error: e.message });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // POST /api/sites/:id/ips/import

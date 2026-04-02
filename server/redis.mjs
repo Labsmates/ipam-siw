@@ -367,34 +367,64 @@ export async function deleteSite(id) {
 // =============================================================================
 // VLANS
 // =============================================================================
+function normalizeNetwork(net) {
+  if (!net) return '';
+  const s = net.trim();
+  if (!s.includes('/')) return s.toLowerCase();
+  const [addr, bits] = s.split('/');
+  const prefix = parseInt(bits, 10);
+  if (isNaN(prefix) || prefix < 0 || prefix > 32) return s.toLowerCase();
+  const parts = addr.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return s.toLowerCase();
+  const mask32 = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+  const base   = (((parts[0]<<24)|(parts[1]<<16)|(parts[2]<<8)|parts[3]) >>> 0) & mask32;
+  return `${(base>>>24)&0xFF}.${(base>>>16)&0xFF}.${(base>>>8)&0xFF}.${base&0xFF}/${prefix}`;
+}
+
 export async function createVlan(siteId, vlanIdStr, network, mask, gateway, ipList = []) {
   const site = await redis.hgetall(`site:${siteId}`);
   if (!site?.name) throw new Error('Site introuvable');
 
-  let vlanDbId = await redis.hget(`site:${siteId}:vlans:idx`, vlanIdStr);
-  if (!vlanDbId) {
-    vlanDbId = String(await redis.incr('seq:vlans'));
-    const pipe = redis.pipeline();
-    pipe.hset(`vlan:${vlanDbId}`, {
-      site_id:     String(siteId),
-      vlan_id:     vlanIdStr,
-      network:     network  || '',
-      mask:        mask     || '',
-      gateway:     gateway  || '',
-      created_at:  now(),
-      description: getVlanAutoDesc(vlanIdStr),
-    });
-    pipe.hset(`site:${siteId}:vlans:idx`, vlanIdStr, vlanDbId);
-    pipe.sadd(`site:${siteId}:vlans`, vlanDbId);
-    await pipe.exec();
-  } else {
-    // Update metadata if vlan already exists
-    await redis.hset(`vlan:${vlanDbId}`, {
-      network: network || '',
-      mask:    mask    || '',
-      gateway: gateway || '',
-    });
+  const existing = await redis.hget(`site:${siteId}:vlans:idx`, vlanIdStr);
+  if (existing) throw Object.assign(new Error(`VLAN ID ${vlanIdStr} existe déjà dans ce site`), { code: 'CONFLICT' });
+
+  // Vérifier unicité du réseau dans le site (si réseau fourni)
+  if (network) {
+    const normNew = normalizeNetwork(network);
+    if (normNew) {
+      const vlanDbIds = await redis.smembers(`site:${siteId}:vlans`);
+      if (vlanDbIds.length) {
+        const pipe0 = redis.pipeline();
+        vlanDbIds.forEach(vid => pipe0.hget(`vlan:${vid}`, 'network'));
+        const nets = await pipe0.exec();
+        for (let i = 0; i < vlanDbIds.length; i++) {
+          const existing_net = normalizeNetwork(nets[i][1] || '');
+          if (existing_net && existing_net === normNew) {
+            const vlan = await redis.hget(`vlan:${vlanDbIds[i]}`, 'vlan_id');
+            throw Object.assign(
+              new Error(`Réseau ${normNew} déjà utilisé par le VLAN ${vlan} dans ce site`),
+              { code: 'CONFLICT' }
+            );
+          }
+        }
+      }
+    }
   }
+
+  const vlanDbId = String(await redis.incr('seq:vlans'));
+  const pipe = redis.pipeline();
+  pipe.hset(`vlan:${vlanDbId}`, {
+    site_id:     String(siteId),
+    vlan_id:     vlanIdStr,
+    network:     network  || '',
+    mask:        mask     || '',
+    gateway:     gateway  || '',
+    created_at:  now(),
+    description: getVlanAutoDesc(vlanIdStr),
+  });
+  pipe.hset(`site:${siteId}:vlans:idx`, vlanIdStr, vlanDbId);
+  pipe.sadd(`site:${siteId}:vlans`, vlanDbId);
+  await pipe.exec();
 
   // Insert IPs (INSERT OR IGNORE logic via EXISTS on idx)
   let added = 0;
@@ -542,40 +572,55 @@ export async function searchAllIPs(query) {
   });
   if (!allVlanIds.length) return [];
 
-  // 2. Données VLAN + index IP adresse→id
+  // 2. Données VLAN + tous les IP IDs
   const pipe2 = redis.pipeline();
-  allVlanIds.forEach(vid => { pipe2.hgetall(`vlan:${vid}`); pipe2.hgetall(`vlan:${vid}:ips:idx`); });
+  allVlanIds.forEach(vid => { pipe2.hgetall(`vlan:${vid}`); pipe2.smembers(`vlan:${vid}:ips`); });
   const r2 = await pipe2.exec();
 
-  const candidates = [];
+  const allEntries = [];
   for (let i = 0; i < allVlanIds.length; i++) {
     const vlan  = r2[i * 2][1];
-    const ipIdx = r2[i * 2 + 1][1];
-    if (!vlan || !ipIdx) continue;
+    const ipIds = r2[i * 2 + 1][1] || [];
+    if (!vlan) continue;
     const sid = vlanToSite[allVlanIds[i]];
-    for (const [ipAddr, ipId] of Object.entries(ipIdx)) {
-      if (ipAddr.includes(q)) {
-        candidates.push({ ip_db_id: ipId, ip_address: ipAddr,
-          site_id: parseInt(sid), site_name: siteNames[sid],
-          vlan_id: vlan.vlan_id, vlan_db_id: parseInt(allVlanIds[i]) });
-        if (candidates.length >= 100) break;
-      }
-    }
-    if (candidates.length >= 100) break;
+    ipIds.forEach(ipId => allEntries.push({
+      ipId,
+      site_id:    parseInt(sid),
+      site_name:  siteNames[sid],
+      vlan_id:    vlan.vlan_id,
+      vlan_db_id: parseInt(allVlanIds[i]),
+    }));
   }
-  if (!candidates.length) return [];
+  if (!allEntries.length) return [];
 
-  // 3. Hostname + statut pour les candidats
+  // 3. Récupérer ip_address, hostname, status pour chaque IP
   const pipe3 = redis.pipeline();
-  candidates.forEach(c => pipe3.hmget(`ip:${c.ip_db_id}`, 'hostname', 'status'));
+  allEntries.forEach(e => pipe3.hmget(`ip:${e.ipId}`, 'ip_address', 'hostname', 'status'));
   const r3 = await pipe3.exec();
-  candidates.forEach((c, i) => {
-    c.hostname = r3[i][1][0] || '';
-    c.status   = r3[i][1][1] || 'Libre';
-  });
+
+  const results = [];
+  for (let i = 0; i < allEntries.length; i++) {
+    const [ipAddr, hostname, status] = r3[i][1];
+    if (!ipAddr) continue;
+    const matchesIp       = ipAddr.includes(q);
+    const matchesHostname = hostname && hostname.toLowerCase().includes(q);
+    if (!matchesIp && !matchesHostname) continue;
+    const e = allEntries[i];
+    results.push({
+      ip_db_id:   parseInt(e.ipId),
+      ip_address: ipAddr,
+      hostname:   hostname || '',
+      status:     status || 'Libre',
+      site_id:    e.site_id,
+      site_name:  e.site_name,
+      vlan_id:    e.vlan_id,
+      vlan_db_id: e.vlan_db_id,
+    });
+    if (results.length >= 50) break;
+  }
 
   const toInt = ip => ip.split('.').reduce((a, n) => a * 256 + parseInt(n), 0);
-  return candidates.sort((a, b) => toInt(a.ip_address) - toInt(b.ip_address));
+  return results.sort((a, b) => toInt(a.ip_address) - toInt(b.ip_address));
 }
 
 export async function updateIpStatus(id, status) {
@@ -601,6 +646,24 @@ export async function updateIp(id, { status, hostname }) {
   const VALID = ['Libre', 'Utilisé', 'Réservée'];
   const ip = await redis.hgetall(`ip:${id}`);
   if (!ip?.ip_address) throw new Error('IP introuvable');
+
+  // Hostname uniqueness check within the same VLAN
+  if (hostname && hostname.trim()) {
+    const normalizedHost = hostname.trim().toLowerCase();
+    const vlanIpIds = await redis.smembers(`vlan:${ip.vlan_id}:ips`);
+    const pipe0 = redis.pipeline();
+    vlanIpIds.forEach(ipId => { pipe0.hget(`ip:${ipId}`, 'hostname'); pipe0.hget(`ip:${ipId}`, 'ip_address'); });
+    const r0 = await pipe0.exec();
+    for (let i = 0; i < vlanIpIds.length; i++) {
+      if (vlanIpIds[i] === String(id)) continue;
+      const existingHost = (r0[i * 2][1] || '').trim().toLowerCase();
+      if (existingHost && existingHost === normalizedHost) {
+        const conflictAddr = r0[i * 2 + 1][1] || vlanIpIds[i];
+        throw Object.assign(new Error(`Hostname déjà utilisé par ${conflictAddr}`), { code: 'CONFLICT' });
+      }
+    }
+  }
+
   const patch = { updated_at: now() };
   if (status !== undefined) {
     if (!VALID.includes(status)) throw new Error('Statut invalide');

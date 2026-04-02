@@ -51,8 +51,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     finally { btn.disabled = false; btn.textContent = 'Modifier'; }
   });
 
-  // Search box
-  const searchEl = document.getElementById('search-site');
+  // Unified search box
+  const searchEl = document.getElementById('search-unified');
   searchEl.addEventListener('input', () => renderSites(allSites));
 
   // Load sites
@@ -73,9 +73,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderSites(sites) {
-    const q = (searchEl.value || '').trim().toLowerCase();
+    const q = (searchEl?.value || '').trim().toLowerCase();
     const sorted = sortSites(sites);
-    const filtered = q ? sorted.filter(s => s.name.toLowerCase().includes(q)) : sorted;
+    // Ne pas filtrer le grid pour les requêtes IP/hostname (gérées par le dropdown) ;
+    // filtrer par nom et codes site pour les autres termes.
+    const isIpLike = q.length >= 3 && q.includes('.') && /\d/.test(q);
+    const filtered = (q && !isIpLike)
+      ? sorted.filter(s => [s.name, s.site_code, s.code_regate, s.code_pst]
+          .some(v => v && String(v).toLowerCase().includes(q)))
+      : sorted;
 
     document.getElementById('site-count').textContent = `${filtered.length} site${filtered.length !== 1 ? 's' : ''}`;
 
@@ -147,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   await loadSites();
-  setupGlobalIpSearch('search-ip-global', 'ip-global-dropdown');
+  setupGlobalIpSearch('search-unified', 'ip-global-dropdown');
 });
 
 async function loadSidebar() {
