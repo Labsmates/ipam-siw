@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <title>IPAM SIW — Configuration système</title>
 <link rel="stylesheet" href="/vendor/fonts.css">
 <link rel="stylesheet" href="/css/theme.css">
@@ -176,6 +177,7 @@ th{text-align:left}
       <button class="admin-tab" data-tab="maintenance">Maintenance</button>
       <button class="admin-tab" data-tab="terminal">Terminal</button>
       <button class="admin-tab" data-tab="apache">Config Apache</button>
+      <button class="admin-tab" data-tab="changelog">📋 Mises à jour</button>
     </div>
   </div>
 
@@ -783,6 +785,171 @@ th{text-align:left}
           </div>
           <div id="apache-confs-list" style="font-size:12px;color:var(--tx-3);font-style:italic">Chargement…</div>
         </div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Mises à jour ══ -->
+    <div id="pane-changelog" class="admin-pane hidden">
+      <div style="max-width:780px;width:100%;margin:0 auto">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Mises à jour</h3>
+        <p style="color:var(--tx-3);font-size:13px;margin:0 0 24px">Historique des versions et fonctionnalités à venir.</p>
+
+        <!-- ── Versions publiées ── -->
+        <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:32px">
+
+          <!-- v3.0 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#238636;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v3.0</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Statistiques avancées, validations &amp; intégrité des données</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <!-- CHANGELOG_INSERT -->
+              <li><code style="font-size:11px;color:var(--tx-3)">0c5c0d4</code> docs: guide haute disponibilité (HA.md) — Keepalived VRRP + Redis Master/Replica <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li>Stats super-admin : connexions semaine / mois / année avec durée moyenne de session</li>
+              <li>Camemberts SVG dynamiques — répartition des connexions et durées par rôle (admin / user / viewer)</li>
+              <li>Recherche unifiée dans le tableau de bord : site, IP et hostname dans un seul champ</li>
+              <li>Unicité du VLAN ID par site — doublon bloqué côté client et serveur avec popup d'alerte</li>
+              <li>Unicité du réseau CIDR par site — normalisation bitmask, protège même avec VLAN différent</li>
+              <li>Unicité du hostname par VLAN — impossible d'attribuer le même hostname à deux IPs</li>
+              <li>VLAN ID limité aux chiffres uniquement — validation client et serveur</li>
+              <li>Colonnes « connexions » et « dernière connexion » réservées au super-admin</li>
+              <li>Suivi de durée de session (stockage JWT + envoi keepalive au logout)</li>
+              <li>Statistiques serveurs : répartition Windows / Linux / Nutanix / IDRAC / XMB / FLR</li>
+              <li>Section XMB &amp; FLR fusionnée côte à côte dans les statistiques</li>
+              <li>Recherche hostname dans les statistiques sur le nom complet (pas uniquement le premier label DNS)</li>
+            </ul>
+          </div>
+
+          <!-- v2.5 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#1f6feb;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.5</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Outils réseau, maintenance &amp; élévation de privilèges</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Outils réseau : ping, traceroute, nslookup, nmap, netcat — avec clé bypass pour nmap / tcpdump</li>
+              <li>Terminal commandes dans Configuration système</li>
+              <li>Explorateur de fichiers serveur intégré</li>
+              <li>Gestion des fichiers conf.d Apache depuis l'interface</li>
+              <li>VirtualHost IP / FQDN modifiable depuis Configuration système</li>
+              <li>Page de maintenance indépendante avec accès bypass par clé</li>
+              <li>Services visibles pour tous les utilisateurs, actions réservées avec clé bypass</li>
+              <li>Mode SA (Super Admin temporaire) via mot de passe admin — élévation 1 h</li>
+              <li>Clé bypass single-use 24 h — gestion dans Administration</li>
+              <li>Désactivation / activation de comptes utilisateurs</li>
+              <li>Toggle sidebar admin avec bouton dédié</li>
+              <li>Onglets APIs et SharePoint dans Configuration système</li>
+              <li>Arrêt et redémarrage serveur avec confirmation et log</li>
+            </ul>
+          </div>
+
+          <!-- v2.4 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#1f6feb;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.4</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Codes site, page Infos réseau &amp; exports</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Code Régate / PST par site — affichage sur les cartes du tableau de bord</li>
+              <li>Champ Notes / infos libres par site</li>
+              <li>Recherche par code site dans le tableau de bord</li>
+              <li>Page Infos réseau (certificats, DNS, services)</li>
+              <li>Sidebar unifiée sur toutes les pages (dashboard, stats, archive, export, config)</li>
+              <li>Export CSV / impression des IPs par site</li>
+              <li>Libération d'IP avec commentaire obligatoire</li>
+              <li>Archive des libérations exportable et effaçable (super-admin)</li>
+            </ul>
+          </div>
+
+          <!-- v2.3 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#1f6feb;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.3</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Thème clair, statistiques &amp; auto-tag VLANs</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Basculement thème sombre / clair avec icône soleil/lune dans la sidebar</li>
+              <li>Auto-tag des VLANs par ID (METIER / ADMIN / IPMI / PROCEF / AUTRES)</li>
+              <li>Description de VLAN — éditable par les admins</li>
+              <li>Masquage automatique des adresses de broadcast (.255)</li>
+              <li>Statistiques IP par site et par VLAN</li>
+              <li>Recherche par rôle (Windows / Linux) et par site dans les statistiques</li>
+              <li>Filtrage des statistiques — catégories IDRAC/iLO, ZN, QN</li>
+              <li>Recherche par site dans l'onglet Administration → Sites</li>
+              <li>Suppression des IPs broadcast depuis l'interface admin</li>
+              <li>Compteur de connexions par utilisateur</li>
+              <li>Filtrage et tri des journaux par date, utilisateur et action</li>
+              <li>Suppression individuelle de logs (super-admin)</li>
+            </ul>
+          </div>
+
+          <!-- v2.2 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#6e40c9;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.2</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Configuration système &amp; calculateur IP</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Page Configuration système (super-admin puis tous les admins)</li>
+              <li>Onglet Informations système : hostname, CPU, RAM, disque, réseau, versions</li>
+              <li>Onglet Services : démarrer / arrêter / redémarrer httpd, redis, ipam</li>
+              <li>Onglet Certificat SSL : génération CSR, installation, auto-signé</li>
+              <li>Calculateur IP / sous-réseau intégré</li>
+              <li>Suffixes FQDN configurables par VLAN</li>
+              <li>Branding SIW Pôle Serveurs — thème clair platine</li>
+            </ul>
+          </div>
+
+          <!-- v2.1 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#6e40c9;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.1</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Rôles, demandes de VLAN &amp; multi-sites</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Rôles utilisateurs : admin / user / viewer (accès lecture seule)</li>
+              <li>Demandes de compte et demandes de VLAN par les utilisateurs</li>
+              <li>Popups de confirmation pour les actions critiques</li>
+              <li>Gestion des utilisateurs : création, suppression, changement de rôle</li>
+              <li>Promotion admin réservée au super-admin (compte ADMIN)</li>
+              <li>Journal d'actions complet avec niveaux info / ok / warn / danger</li>
+              <li>Rate limiting sur la route /login (protection brute-force)</li>
+            </ul>
+          </div>
+
+          <!-- v2.0 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#6e40c9;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.0</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Version initiale — IPAM SIW multi-sites</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Gestion multi-sites avec VLANs numérotés ou plages CIDR</li>
+              <li>Génération automatique des IPs depuis un CIDR</li>
+              <li>Statuts IP : Libre / Réservée / Utilisé — réservation avec hostname</li>
+              <li>Libération d'IP avec archivage dans le journal</li>
+              <li>Authentification JWT 24 h</li>
+              <li>Back-end Node.js / Express avec stockage Redis</li>
+              <li>Interface thème sombre natif, responsive</li>
+            </ul>
+          </div>
+
+        </div>
+
+        <!-- ── Fonctionnalités à venir ── -->
+        <h4 style="color:var(--tx-1);font-size:14px;font-weight:700;margin:0 0 12px;display:flex;align-items:center;gap:8px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Fonctionnalités prévues
+        </h4>
+        <div class="svc-card" style="border-color:#e3b34140">
+          <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.9">
+            <li>Scan réseau automatique (ping sweep) pour détecter les IPs actives</li>
+            <li>Notifications par e-mail lors d'une réservation ou libération</li>
+            <li>Support LDAP / Active Directory pour l'authentification</li>
+          </ul>
+        </div>
+
       </div>
     </div>
 
