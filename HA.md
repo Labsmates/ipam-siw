@@ -171,7 +171,56 @@ master_link_status:up
 
 ## Étape 4 — Installer et configurer Keepalived (VIP flottante)
 
-### 4.1 — Installation sur les deux serveurs
+### 4.0 — Installation hors ligne des RPMs (si les serveurs n'ont pas accès internet)
+
+Les RPMs sont disponibles dans `offline-rpms/keepalived-rhel9/` et `offline-rpms/redis-rhel9/`.
+
+#### Transfert vers les serveurs
+
+```bash
+# Depuis votre poste — copier les RPMs sur les deux serveurs
+scp offline-rpms/keepalived-rhel9/*.rpm root@218.16.185.50:/tmp/keepalived/
+scp offline-rpms/keepalived-rhel9/*.rpm root@218.14.14.50:/tmp/keepalived/
+
+scp offline-rpms/redis-rhel9/*.rpm root@218.16.185.50:/tmp/redis/
+scp offline-rpms/redis-rhel9/*.rpm root@218.14.14.50:/tmp/redis/
+```
+
+#### Installation de Redis 7.2 (avec Sentinel inclus)
+
+```bash
+# Sur Serveur 1 ET Serveur 2
+mkdir -p /tmp/redis
+# (après scp ci-dessus)
+dnf install -y /tmp/redis/redis-*.rpm
+
+# Vérifier
+redis-server --version   # → Redis server v=7.2.x
+redis-sentinel --version # → Redis sentinel v=7.2.x
+```
+
+#### Installation de Keepalived
+
+```bash
+# Sur Serveur 1 ET Serveur 2
+mkdir -p /tmp/keepalived
+# (après scp ci-dessus)
+dnf install -y \
+  /tmp/keepalived/ipset-libs-*.rpm \
+  /tmp/keepalived/ipset-*.rpm \
+  /tmp/keepalived/libnl3-3*.rpm \
+  /tmp/keepalived/libnl3-cli-*.rpm \
+  /tmp/keepalived/keepalived-*.rpm
+
+# Vérifier
+keepalived --version   # → Keepalived v2.2.8
+```
+
+> **Ordre important** : installer `ipset-libs` avant `ipset`, et `libnl3` avant `libnl3-cli`, pour éviter les erreurs de dépendances.
+
+---
+
+### 4.1 — Installation sur les deux serveurs (avec accès internet)
 
 ```bash
 # Sur Serveur 1 ET Serveur 2
