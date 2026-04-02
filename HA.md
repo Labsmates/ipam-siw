@@ -57,6 +57,75 @@ bash deploy/deploy.sh
 
 ---
 
+## Étape 1.5 — Synchroniser le certificat SSL sur le Serveur 2
+
+Le certificat SSL (`ipam.crt` + `ipam.key`) est émis pour `ipam-siw.intra.laposte.fr`.
+Dans le setup HA, **les deux serveurs répondent à ce même nom de domaine** — ils doivent donc avoir **exactement le même certificat**.
+
+### Pourquoi c'est obligatoire
+
+Le DNS `ipam-siw.intra.laposte.fr` pointe vers la **VIP** (`218.16.185.100`).
+Quand la VIP bascule du Serveur 1 vers le Serveur 2, c'est Apache du Serveur 2 qui répond.
+Si le certificat est absent ou différent sur Serveur 2, les navigateurs afficheront `NET::ERR_CERT_INVALID`.
+
+### 1.5.1 — Copier le certificat du Serveur 1 vers le Serveur 2
+
+```bash
+# Depuis Serveur 1 (ou depuis votre poste)
+scp /var/www/ipam/data/ipam.crt root@218.14.14.50:/var/www/ipam/data/ipam.crt
+scp /var/www/ipam/data/ipam.key root@218.14.14.50:/var/www/ipam/data/ipam.key
+```
+
+### 1.5.2 — Appliquer les bons droits sur Serveur 2
+
+```bash
+# Sur Serveur 2
+chown root:root /var/www/ipam/data/ipam.crt /var/www/ipam/data/ipam.key
+chmod 644 /var/www/ipam/data/ipam.crt
+chmod 600 /var/www/ipam/data/ipam.key
+
+# Vérifier que le certificat est valide et correspond bien au domaine
+openssl x509 -noout -subject -issuer -dates -in /var/www/ipam/data/ipam.crt
+# → subject=CN=ipam-siw.intra.laposte.fr
+```
+
+### 1.5.3 — Vérifier que la config Apache est identique sur Serveur 2
+
+La config Apache (`/etc/httpd/conf.d/ipam.conf`) doit être la même sur les deux serveurs et pointer vers :
+
+```apache
+SSLCertificateFile    /var/www/ipam/data/ipam.crt
+SSLCertificateKeyFile /var/www/ipam/data/ipam.key
+```
+
+```bash
+# Sur Serveur 2 — tester la config et recharger
+httpd -t && systemctl reload httpd
+```
+
+### 1.5.4 — DNS : pointer vers la VIP (pas les IPs des serveurs)
+
+Le DNS interne doit pointer `ipam-siw.intra.laposte.fr` vers la **VIP**, pas vers l'IP d'un serveur spécifique :
+
+```
+ipam-siw.intra.laposte.fr  →  218.16.185.100   ← VIP Keepalived
+```
+
+Si le DNS pointait vers `218.16.185.50` (Serveur 1), les clients perdront l'accès pendant un basculement. Avec la VIP, le basculement est **transparent** pour les utilisateurs.
+
+### 1.5.5 — Renouvellement de certificat
+
+À chaque renouvellement du certificat, répéter la copie sur les deux serveurs :
+
+```bash
+# Depuis Serveur 1 après renouvellement
+scp /var/www/ipam/data/ipam.crt root@218.14.14.50:/var/www/ipam/data/ipam.crt
+scp /var/www/ipam/data/ipam.key root@218.14.14.50:/var/www/ipam/data/ipam.key
+ssh root@218.14.14.50 "httpd -t && systemctl reload httpd"
+```
+
+---
+
 ## Étape 2 — Synchronisation des données Redis
 
 ### 2.1 — Exporter les données du Serveur 1
