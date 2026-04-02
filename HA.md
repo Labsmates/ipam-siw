@@ -558,3 +558,105 @@ systemctl enable --now redis-sentinel
 ```
 
 > Avec Sentinel, si le Serveur 1 tombe pendant plus de 5 secondes, le Serveur 2 est automatiquement promu en master sans intervention manuelle.
+
+---
+
+## Étape 9 — Installer l'agent Commvault (sauvegarde)
+
+L'agent Commvault doit être installé sur **les deux serveurs** pour assurer la sauvegarde des données même en cas de basculement.
+
+### 9.1 — Récupérer le package depuis votre CommCell
+
+Le package `.tar.gz` est lié à votre licence — il n'est pas téléchargeable publiquement.
+
+```bash
+# Option 1 — WebConsole CommCell
+# https://<votre-commcell>/webconsole
+# → Software Store → Unix/Linux → RHEL 9 x86_64 → Télécharger unix_pkg.tar.gz
+
+# Option 2 — URL directe
+curl -k -O "https://<votre-commcell>/downloads/UnixLinux/unix_pkg.tar.gz"
+
+# Option 3 — Depuis un serveur déjà protégé
+scp root@serveur-existant:/opt/commvault/Base/Packages/*.tar.gz /tmp/
+```
+
+Placer le fichier dans `offline-rpms/commvault-rhel9/unix_pkg.tar.gz`.
+
+### 9.2 — Transférer le package sur les deux serveurs
+
+```bash
+# Depuis votre poste
+scp offline-rpms/commvault-rhel9/unix_pkg.tar.gz root@218.16.185.50:/tmp/
+scp offline-rpms/commvault-rhel9/unix_pkg.tar.gz root@218.14.14.50:/tmp/
+scp offline-rpms/install-commvault-rhel9.sh root@218.16.185.50:/tmp/
+scp offline-rpms/install-commvault-rhel9.sh root@218.14.14.50:/tmp/
+```
+
+### 9.3 — Adapter le script d'installation
+
+Avant de lancer, éditer les variables en tête du script `install-commvault-rhel9.sh` :
+
+```bash
+COMMCELL_HOST="commvault.intra.laposte.fr"   # adresse de votre CommCell
+COMMCELL_PORT="8400"
+CLIENT_NAME="ipam-srv1"                       # nom dans CommCell (Serveur 1)
+```
+
+### 9.4 — Installer sur Serveur 1
+
+```bash
+ssh root@218.16.185.50
+chmod +x /tmp/install-commvault-rhel9.sh
+bash /tmp/install-commvault-rhel9.sh
+```
+
+### 9.5 — Installer sur Serveur 2
+
+```bash
+# Adapter le CLIENT_NAME avant de lancer sur Serveur 2
+ssh root@218.14.14.50
+# Editer CLIENT_NAME="ipam-srv2" dans le script
+bash /tmp/install-commvault-rhel9.sh
+```
+
+### 9.6 — Vérifier l'enregistrement dans CommCell
+
+```bash
+# Sur chaque serveur
+/opt/commvault/Base/cvd status
+# → cvd is running
+
+# Vérifier dans la WebConsole CommCell
+# https://<votre-commcell>/webconsole → Clients
+# → ipam-srv1 et ipam-srv2 doivent apparaître avec statut "Ready"
+```
+
+### 9.7 — Ouvrir les ports firewall Commvault
+
+```bash
+# Sur Serveur 1 ET Serveur 2 (déjà fait par le script, vérification)
+firewall-cmd --list-ports | grep -E "8400|8403"
+# → 8400/tcp 8403/tcp
+```
+
+### 9.8 — Configurer le plan de sauvegarde dans CommCell
+
+Dans la WebConsole CommCell :
+
+```
+1. Clients → ipam-srv1 → Ajouter sous-client
+   → File System Agent
+   → Chemins à sauvegarder :
+       /var/www/ipam/data/         ← certificats SSL + fichiers de données
+       /var/lib/redis/             ← dump Redis (ipam.rdb)
+       /etc/httpd/conf.d/          ← config Apache
+       /etc/redis/                 ← config Redis
+       /var/www/ipam/deploy/       ← config de déploiement
+
+2. Associer un Storage Policy (politique de rétention)
+
+3. Répéter pour ipam-srv2
+```
+
+> **Note** : le fichier Redis `.rdb` est écrasé en continu — pour avoir un snapshot cohérent, configurer un `Pre-Backup Script` qui lance `redis-cli BGSAVE` avant la sauvegarde Commvault.
