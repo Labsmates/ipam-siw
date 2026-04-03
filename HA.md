@@ -660,3 +660,151 @@ Dans la WebConsole CommCell :
 ```
 
 > **Note** : le fichier Redis `.rdb` est écrasé en continu — pour avoir un snapshot cohérent, configurer un `Pre-Backup Script` qui lance `redis-cli BGSAVE` avant la sauvegarde Commvault.
+
+---
+
+## Étape 10 — Tester Commvault (commandes de diagnostic)
+
+### 10.1 — État des services Commvault
+
+```bash
+# Sur chaque serveur
+
+# État du démon principal
+/opt/commvault/Base/cvd status
+
+# Tous les processus Commvault actifs
+ps aux | grep -E "cvd|GxFWD|clbackup|clrestore" | grep -v grep
+
+# Logs en temps réel
+tail -f /var/log/commvault/Log_Files/cvd.log
+tail -f /var/log/commvault/Log_Files/GxFWD.log
+```
+
+### 10.2 — Tester la connectivité vers le CommCell
+
+```bash
+# Test réseau TCP vers le CommCell (port 8400 = communication principale)
+nc -zv commvault.intra.laposte.fr 8400
+nc -zv commvault.intra.laposte.fr 8403
+
+# Test depuis CommCell vers le serveur (à lancer depuis le CommCell)
+nc -zv 218.16.185.50 8400
+nc -zv 218.14.14.50 8400
+
+# Ping basique
+ping -c 4 commvault.intra.laposte.fr
+```
+
+### 10.3 — Vérifier l'enregistrement du client
+
+```bash
+# Sur le serveur — afficher le nom et l'ID client enregistrés
+/opt/commvault/Base/qlist client
+
+# Afficher la config locale du client
+cat /etc/CommVaultRegistry/Galaxy/Instance001/CommServe/.properties
+# → csHost=commvault.intra.laposte.fr
+# → clientName=ipam-srv1
+
+# Vérifier la communication avec le CommCell
+/opt/commvault/Base/cvping -cs commvault.intra.laposte.fr
+# → Ping successful
+```
+
+### 10.4 — Lancer une sauvegarde manuelle (ligne de commande)
+
+```bash
+# Lancement d'une sauvegarde Full immédiate
+/opt/commvault/Base/qoperation execscript \
+  -sn "Immediate Backup" \
+  -si "Full" \
+  -clientName ipam-srv1 \
+  -appName "File System" \
+  -backupsetName defaultBackupSet \
+  -subclientName default
+
+# Alternative via qlogin + qoperation
+/opt/commvault/Base/qlogin -cs commvault.intra.laposte.fr -u admin
+
+/opt/commvault/Base/qoperation backup \
+  -clientName ipam-srv1 \
+  -appName "File System" \
+  -backupsetName defaultBackupSet \
+  -subclientName default \
+  -backupLevel Full
+```
+
+### 10.5 — Suivre l'état d'un job de sauvegarde
+
+```bash
+# Lister les jobs actifs (remplacer JOBID par l'ID retourné)
+/opt/commvault/Base/qlist job -jobid JOBID
+
+# Lister tous les jobs récents du client
+/opt/commvault/Base/qlist job \
+  -clientName ipam-srv1 \
+  -appName "File System" \
+  -n 10
+
+# Statuts possibles : Running, Completed, Failed, Pending, Waiting
+```
+
+### 10.6 — Vérifier les données sauvegardées
+
+```bash
+# Lister les fichiers sauvegardés dans le dernier job
+/opt/commvault/Base/qlist backupfiles \
+  -clientName ipam-srv1 \
+  -appName "File System" \
+  -backupsetName defaultBackupSet \
+  -subclientName default \
+  -path /var/www/ipam/data
+
+# Lister les points de restauration disponibles (cycles de sauvegarde)
+/opt/commvault/Base/qlist backupcycle \
+  -clientName ipam-srv1 \
+  -appName "File System"
+```
+
+### 10.7 — Tester une restauration (dry-run)
+
+```bash
+# Restauration d'un fichier spécifique vers un chemin alternatif (non destructif)
+/opt/commvault/Base/qoperation restore \
+  -clientName ipam-srv1 \
+  -appName "File System" \
+  -backupsetName defaultBackupSet \
+  -subclientName default \
+  -sourceItem /var/www/ipam/data/ipam.crt \
+  -destPath /tmp/restore_test/ \
+  -unconditionalOverwrite
+
+# Vérifier le fichier restauré
+ls -lh /tmp/restore_test/
+diff /tmp/restore_test/ipam.crt /var/www/ipam/data/ipam.crt && echo "Restauration OK"
+```
+
+### 10.8 — Diagnostic complet (rapport)
+
+```bash
+# Générer un rapport de diagnostic Commvault
+/opt/commvault/Base/cvpkgchk -detail
+
+# Vérifier la version de l'agent installée
+/opt/commvault/Base/cvpkgchk -version
+
+# Tester l'intégrité de l'installation
+/opt/commvault/Base/cvpkgchk -selftest
+```
+
+### 10.9 — Résumé des tests à valider
+
+| Test | Commande | Résultat attendu |
+|------|----------|-----------------|
+| Démon actif | `cvd status` | `cvd is running` |
+| Réseau CommCell | `nc -zv commcell 8400` | `Connection succeeded` |
+| Client enregistré | `qlist client` | Nom du serveur visible |
+| Ping CommCell | `cvping -cs commcell` | `Ping successful` |
+| Sauvegarde Full | `qoperation backup ... -backupLevel Full` | Job `Completed` |
+| Restauration test | `qoperation restore ... -destPath /tmp/` | Fichier identique |
