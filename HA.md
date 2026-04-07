@@ -205,16 +205,69 @@ redis-cli -a VotreMotDePasseRedisHA PING
 
 Répéter la même configuration sur le **Serveur 2**.
 
-### 3.3 — Déclarer le Serveur 2 comme Replica du Serveur 1
+### 3.3 — Configurer Redis sur Serveur 2 (Replica)
+
+Toutes les commandes suivantes sont à exécuter **sur Serveur 2 (`218.14.14.50`)**.
+
+#### 3.3.1 — Vérifier l'état actuel
 
 ```bash
-# Sur Serveur 2 uniquement
-redis-cli -a VotreMotDePasseRedisHA REPLICAOF 218.16.185.50 6379
+grep -E "^bind|^protected-mode|requirepass|user default" /etc/redis/redis.conf
+```
 
-# Configurer le mot de passe master dans redis.conf
-echo "masterauth VotreMotDePasseRedisHA" >> /etc/redis/redis.conf
+#### 3.3.2 — Appliquer la config HA
+
+```bash
+# Ouvrir Redis sur toutes les interfaces (pour recevoir la réplication depuis Serveur 1)
+sed -i 's/^bind 127.0.0.1/bind 0.0.0.0/' /etc/redis/redis.conf
+
+# Désactiver le mode protégé
+sed -i 's/^protected-mode yes/protected-mode no/' /etc/redis/redis.conf
+
+# Supprimer la ligne ACL qui écrase requirepass (si elle existe)
+sed -i '/^user default.*nopass/d' /etc/redis/redis.conf
+```
+
+#### 3.3.3 — Ajouter les paramètres de réplication
+
+```bash
+echo "requirepass Pl@tOn123" >> /etc/redis/redis.conf
+echo "masterauth Pl@tOn123"  >> /etc/redis/redis.conf
 echo "replicaof 218.16.185.50 6379" >> /etc/redis/redis.conf
+```
+
+#### 3.3.4 — Appliquer et vérifier
+
+```bash
 systemctl restart redis
+
+# Doit retourner PONG sans erreur AUTH
+redis-cli -a Pl@tOn123 PING
+
+# Vérifier la réplication
+redis-cli -a Pl@tOn123 INFO replication | grep -E "role|master_host|master_link_status|master_port"
+```
+
+Résultat attendu :
+```
+role:slave
+master_host:218.16.185.50
+master_port:6379
+master_link_status:up
+```
+
+#### 3.3.5 — Vérifier depuis Serveur 1 que le replica est connecté
+
+```bash
+# Sur Serveur 1
+redis-cli -a Pl@tOn123 INFO replication | grep -E "role|connected_slaves|slave0"
+```
+
+Résultat attendu :
+```
+role:master
+connected_slaves:1
+slave0:ip=218.14.14.50,port=6379,state=online,offset=...,lag=0
 ```
 
 ### 3.4 — Vérifier la réplication
