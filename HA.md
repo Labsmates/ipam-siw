@@ -190,6 +190,19 @@ systemctl restart redis
 redis-cli -a VotreMotDePasseRedisHA PING
 ```
 
+> **Problème connu — `AUTH failed` malgré `requirepass` configuré**
+>
+> Redis 6+ inclut un système ACL. Si `/etc/redis/redis.conf` contient une ligne `user default on nopass ...`, elle écrase `requirepass`.
+>
+> ```bash
+> # Vérifier
+> grep -n "user default" /etc/redis/redis.conf
+> # Si la ligne existe (ex: ligne 58) :
+> sed -i '/^user default.*nopass/d' /etc/redis/redis.conf
+> systemctl restart redis
+> redis-cli -a VotreMotDePasseRedisHA PING   # → PONG sans erreur
+> ```
+
 Répéter la même configuration sur le **Serveur 2**.
 
 ### 3.3 — Déclarer le Serveur 2 comme Replica du Serveur 1
