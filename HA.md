@@ -163,6 +163,8 @@ redis-cli SCARD users   # → même valeur
 
 ## Étape 3 — Configurer la réplication Redis
 
+> **Pas de mot de passe Redis** — la sécurité repose sur les règles firewall (port 6379 ouvert uniquement entre les deux serveurs). `requirepass` et `masterauth` ne sont pas utilisés.
+
 ### 3.1 — Ouvrir le port Redis entre les deux serveurs
 
 ```bash
@@ -172,38 +174,25 @@ firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="218
 firewall-cmd --reload
 ```
 
-### 3.2 — Sécuriser Redis avec un mot de passe
+### 3.2 — Configurer Redis sur Serveur 1 (Master)
 
 ```bash
-# Sur Serveur 1 — éditer /etc/redis/redis.conf (ou /var/www/ipam/deploy/redis.conf)
-# Ajouter / modifier :
-requirepass VotreMotDePasseRedisHA
-bind 0.0.0.0
-protected-mode no
-```
+# Sur Serveur 1 — éditer /etc/redis/redis.conf
+# Ouvrir Redis sur toutes les interfaces (pour accepter la connexion depuis Serveur 2)
+sed -i 's/^bind 127.0.0.1/bind 0.0.0.0/' /etc/redis/redis.conf
 
-```bash
+# Désactiver le mode protégé
+sed -i 's/^protected-mode yes/protected-mode no/' /etc/redis/redis.conf
+
+# S'assurer qu'aucun requirepass n'est configuré
+sed -i '/^requirepass/d' /etc/redis/redis.conf
+
 # Appliquer
 systemctl restart redis
 
 # Tester
-redis-cli -a VotreMotDePasseRedisHA PING
+redis-cli PING   # → PONG
 ```
-
-> **Problème connu — `AUTH failed` malgré `requirepass` configuré**
->
-> Redis 6+ inclut un système ACL. Si `/etc/redis/redis.conf` contient une ligne `user default on nopass ...`, elle écrase `requirepass`.
->
-> ```bash
-> # Vérifier
-> grep -n "user default" /etc/redis/redis.conf
-> # Si la ligne existe (ex: ligne 58) :
-> sed -i '/^user default.*nopass/d' /etc/redis/redis.conf
-> systemctl restart redis
-> redis-cli -a VotreMotDePasseRedisHA PING   # → PONG sans erreur
-> ```
-
-Répéter la même configuration sur le **Serveur 2**.
 
 ### 3.3 — Configurer Redis sur Serveur 2 (Replica)
 
@@ -212,7 +201,7 @@ Toutes les commandes suivantes sont à exécuter **sur Serveur 2 (`218.14.14.50`
 #### 3.3.1 — Vérifier l'état actuel
 
 ```bash
-grep -E "^bind|^protected-mode|requirepass|user default" /etc/redis/redis.conf
+grep -E "^bind|^protected-mode|requirepass|replicaof" /etc/redis/redis.conf
 ```
 
 #### 3.3.2 — Appliquer la config HA
@@ -224,15 +213,14 @@ sed -i 's/^bind 127.0.0.1/bind 0.0.0.0/' /etc/redis/redis.conf
 # Désactiver le mode protégé
 sed -i 's/^protected-mode yes/protected-mode no/' /etc/redis/redis.conf
 
-# Supprimer la ligne ACL qui écrase requirepass (si elle existe)
-sed -i '/^user default.*nopass/d' /etc/redis/redis.conf
+# S'assurer qu'aucun requirepass ni masterauth ne traîne
+sed -i '/^requirepass/d' /etc/redis/redis.conf
+sed -i '/^masterauth/d' /etc/redis/redis.conf
 ```
 
-#### 3.3.3 — Ajouter les paramètres de réplication
+#### 3.3.3 — Ajouter le paramètre de réplication
 
 ```bash
-echo "requirepass Pl@tOn123" >> /etc/redis/redis.conf
-echo "masterauth Pl@tOn123"  >> /etc/redis/redis.conf
 echo "replicaof 218.16.185.50 6379" >> /etc/redis/redis.conf
 ```
 
@@ -241,11 +229,11 @@ echo "replicaof 218.16.185.50 6379" >> /etc/redis/redis.conf
 ```bash
 systemctl restart redis
 
-# Doit retourner PONG sans erreur AUTH
-redis-cli -a Pl@tOn123 PING
+# Doit retourner PONG
+redis-cli PING
 
 # Vérifier la réplication
-redis-cli -a Pl@tOn123 INFO replication | grep -E "role|master_host|master_link_status|master_port"
+redis-cli INFO replication | grep -E "role|master_host|master_link_status|master_port"
 ```
 
 Résultat attendu :
@@ -260,7 +248,7 @@ master_link_status:up
 
 ```bash
 # Sur Serveur 1
-redis-cli -a Pl@tOn123 INFO replication | grep -E "role|connected_slaves|slave0"
+redis-cli INFO replication | grep -E "role|connected_slaves|slave0"
 ```
 
 Résultat attendu :
@@ -274,7 +262,7 @@ slave0:ip=218.14.14.50,port=6379,state=online,offset=...,lag=0
 
 ```bash
 # Sur Serveur 1
-redis-cli -a VotreMotDePasseRedisHA INFO replication
+redis-cli INFO replication
 ```
 
 Résultat attendu :
@@ -286,7 +274,7 @@ slave0:ip=218.14.14.50,port=6379,state=online,offset=...,lag=0
 
 ```bash
 # Sur Serveur 2
-redis-cli -a VotreMotDePasseRedisHA INFO replication
+redis-cli INFO replication
 ```
 
 Résultat attendu :
@@ -297,9 +285,9 @@ master_port:6379
 master_link_status:up
 ```
 
-> **Important** : mettre à jour la variable de connexion Redis dans `server/redis.mjs` si vous utilisez le mot de passe :
+> La connexion Redis dans `server/redis.mjs` reste simple, sans mot de passe :
 > ```js
-> const redis = new Redis({ host: '127.0.0.1', port: 6379, password: 'VotreMotDePasseRedisHA' });
+> const redis = new Redis({ host: '127.0.0.1', port: 6379 });
 > ```
 
 ---
@@ -527,10 +515,10 @@ Si le Serveur 1 est définitivement hors ligne et que vous voulez que le Serveur
 
 ```bash
 # Sur Serveur 2
-redis-cli -a VotreMotDePasseRedisHA REPLICAOF NO ONE
+redis-cli REPLICAOF NO ONE
 
 # Vérifier
-redis-cli -a VotreMotDePasseRedisHA INFO replication
+redis-cli INFO replication
 # → role:master
 ```
 
@@ -538,7 +526,6 @@ Puis mettre à jour la configuration dans `/etc/redis/redis.conf` du Serveur 2 :
 
 ```bash
 sed -i '/^replicaof/d' /etc/redis/redis.conf
-sed -i '/^masterauth/d' /etc/redis/redis.conf
 systemctl restart redis
 ```
 
@@ -614,7 +601,6 @@ dnf install -y redis-sentinel   # ou redis (sentinel inclus)
 cat > /etc/redis/sentinel.conf << 'EOF'
 port 26379
 sentinel monitor ipam-master 218.16.185.50 6379 1
-sentinel auth-pass ipam-master VotreMotDePasseRedisHA
 sentinel down-after-milliseconds ipam-master 5000
 sentinel failover-timeout ipam-master 60000
 sentinel parallel-syncs ipam-master 1
