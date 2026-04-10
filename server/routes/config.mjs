@@ -1061,13 +1061,18 @@ router.put('/maintenance', async (req, res) => {
 });
 
 // POST /api/config/maintenance/enable
+// Body optionnel : { durationMinutes: 60 }  →  auto-désactivation après N minutes
 router.post('/maintenance/enable', async (req, res) => {
   try {
     const m    = await loadMaintenance();
     m.enabled  = true;
+    if (req.body?.durationMinutes) {
+      const ms = parseInt(req.body.durationMinutes) * 60 * 1000;
+      m.plannedEnd = new Date(Date.now() + ms).toISOString();
+    }
     await saveMaintenance(m);
-    await addLog(req.user.username, 'MAINTENANCE_ENABLE', {});
-    res.json({ ok: true });
+    await addLog(req.user.username, 'MAINTENANCE_ENABLE', { plannedEnd: m.plannedEnd || null });
+    res.json({ ok: true, plannedEnd: m.plannedEnd || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

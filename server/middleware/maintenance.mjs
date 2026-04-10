@@ -2,6 +2,12 @@
 // IPAM SIW — middleware/maintenance.mjs
 // Intercepte toutes les requêtes quand le mode maintenance est actif.
 // Bypass : ?bypass=KEY  →  pose un cookie HttpOnly 8h  →  redirige sans param.
+//
+// Auto-désactivation : si plannedEnd est défini et dépassé, désactive
+//   automatiquement la maintenance dans Redis.
+//
+// Slave-only : si MAINTENANCE_SLAVE=true dans .env, ce serveur ignore
+//   toujours la maintenance (Serveur 2 reste accessible pendant la maintenance).
 // =============================================================================
 
 import path     from 'path';
@@ -11,6 +17,9 @@ import { redis } from '../redis.mjs';
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIR = path.join(__dirname, '../../client');
 const MAINT_KEY  = 'config:maintenance';
+
+// Si MAINTENANCE_SLAVE=true, ce serveur ignore complètement la maintenance
+const IS_SLAVE = process.env.MAINTENANCE_SLAVE === 'true';
 
 // Cache mémoire court (5 s) pour éviter un HGET Redis à chaque requête
 let _cache   = null;
@@ -22,7 +31,16 @@ async function getConfig() {
   if (_cache !== null && now - _cacheTs < CACHE_TTL) return _cache;
   try {
     const raw = await redis.get(MAINT_KEY);
-    _cache   = raw ? JSON.parse(raw) : { enabled: false };
+    let m = raw ? JSON.parse(raw) : { enabled: false };
+
+    // Auto-désactivation si plannedEnd est dépassé
+    if (m.enabled && m.plannedEnd && new Date(m.plannedEnd).getTime() < now) {
+      m.enabled = false;
+      await redis.set(MAINT_KEY, JSON.stringify(m));
+      console.log('[Maintenance] Auto-désactivation — plannedEnd dépassé');
+    }
+
+    _cache   = m;
     _cacheTs = now;
   } catch (_) {
     _cache = { enabled: false };
@@ -54,6 +72,9 @@ export async function maintenanceMiddleware(req, res, next) {
 
   // Toujours laisser passer : routes admin de configuration (pour activer/désactiver)
   if (req.path.startsWith('/api/config/maintenance')) return next();
+
+  // Serveur slave : jamais bloqué par la maintenance
+  if (IS_SLAVE) return next();
 
   const m = await getConfig();
   if (!m.enabled) return next();
