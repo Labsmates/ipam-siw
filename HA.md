@@ -376,16 +376,20 @@ vrrp_script chk_node {
 
 vrrp_instance VI_IPAM {
   state  MASTER
-  interface eth0            # ← adapter : ip link show pour trouver l'interface
+  interface ens3
   virtual_router_id 51
-  priority 110              # Serveur 1 a une priorité plus haute
+  priority 110
   advert_int 1
+  unicast_src_ip 218.16.185.50
+  unicast_peer {
+    218.14.14.50
+  }
   authentication {
     auth_type PASS
-    auth_pass ipam_ha_2024  # ← changer ce mot de passe
+    auth_pass ipam-siw_ha_2026
   }
   virtual_ipaddress {
-    218.16.185.100/24       # ← VIP à adapter à votre réseau
+    218.16.185.254/24
   }
   track_script {
     chk_httpd
@@ -421,16 +425,20 @@ vrrp_script chk_node {
 
 vrrp_instance VI_IPAM {
   state  BACKUP
-  interface eth0            # ← adapter
+  interface ens3
   virtual_router_id 51
-  priority 90               # Priorité plus basse → devient actif uniquement si Serveur 1 tombe
+  priority 90
   advert_int 1
+  unicast_src_ip 218.14.14.50
+  unicast_peer {
+    218.16.185.50
+  }
   authentication {
     auth_type PASS
-    auth_pass ipam_ha_2024  # ← même mot de passe que Serveur 1
+    auth_pass ipam-siw_ha_2026
   }
   virtual_ipaddress {
-    218.16.185.100/24       # ← même VIP
+    218.16.185.254/24
   }
   track_script {
     chk_httpd
@@ -452,23 +460,15 @@ systemctl status keepalived
 
 ```bash
 # Sur Serveur 1 — la VIP doit être visible
-ip addr show eth0 | grep 218.16.185.100
-# → inet 218.16.185.100/24
+ip addr show ens3 | grep 218.16.185.254
+# → inet 218.16.185.254/24
 
 # Sur Serveur 2 — la VIP ne doit PAS être visible (serveur passif)
-ip addr show eth0 | grep 218.16.185.100
+ip addr show ens3 | grep 218.16.185.254
 # → (aucun résultat)
 ```
 
----
-
-## Étape 5 — Autoriser VRRP dans le firewall
-
-```bash
-# Sur Serveur 1 ET Serveur 2
-firewall-cmd --permanent --add-protocol=vrrp
-firewall-cmd --reload
-```
+> **VPS / cloud** : le multicast VRRP est souvent bloqué au niveau de l'hyperviseur. Utiliser le mode **unicast** (déjà configuré ci-dessus avec `unicast_src_ip` / `unicast_peer`).
 
 ---
 
@@ -481,7 +481,7 @@ firewall-cmd --reload
 systemctl stop httpd
 
 # Sur votre poste — vérifier que la VIP répond encore (depuis Serveur 2)
-curl -k https://218.16.185.100
+curl -k https://218.16.185.254
 # → La page IPAM s'affiche depuis Serveur 2
 ```
 
@@ -492,7 +492,7 @@ curl -k https://218.16.185.100
 systemctl stop keepalived
 
 # Vérifier sur Serveur 2
-ip addr show eth0 | grep 218.16.185.100
+ip addr show ens3 | grep 218.16.185.254
 # → La VIP a migré sur Serveur 2
 ```
 
