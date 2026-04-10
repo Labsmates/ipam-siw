@@ -589,6 +589,77 @@ systemctl status keepalived  # Gestion VIP
 
 ---
 
+## Dépannage — Problèmes fréquents
+
+### Redis `master_link_status: down`
+
+Le replica ne peut pas joindre le master.
+
+**1. Tester la connectivité réseau depuis Serveur 2**
+```bash
+nc -zv 218.16.185.50 6379
+# → doit afficher "Connection to 218.16.185.50 6379 port [tcp] succeeded"
+```
+
+**2. Vérifier que Redis écoute sur 0.0.0.0 sur Serveur 1**
+```bash
+ss -tlnp | grep 6379
+# → doit afficher 0.0.0.0:6379, PAS 127.0.0.1:6379
+```
+Si Redis écoute sur `127.0.0.1` :
+```bash
+sed -i 's/^bind 127.0.0.1/bind 0.0.0.0/' /etc/redis/redis.conf
+systemctl restart redis
+```
+
+**3. Consulter les logs Redis sur Serveur 2**
+```bash
+journalctl -u redis -n 30 --no-pager | grep -i "master\|error\|connect"
+```
+
+---
+
+### Keepalived split-brain — VIP présente sur les deux serveurs
+
+Si `ip addr show ens3 | grep <VIP>` retourne un résultat sur les **deux** serveurs, c'est un split-brain : les deux se croient MASTER et ne se voient pas sur le réseau.
+
+**Vérifier que la config est cohérente entre les deux serveurs**
+```bash
+# Sur Serveur 1 ET Serveur 2
+grep -E "state|auth_pass|virtual_router_id" /etc/keepalived/keepalived.conf
+```
+
+Résultat attendu :
+```
+# Serveur 1
+state  MASTER
+auth_pass <votre_mot_de_passe>
+virtual_router_id 51
+
+# Serveur 2
+state  BACKUP          ← doit être BACKUP, pas MASTER
+auth_pass <identique>  ← même valeur que Serveur 1
+virtual_router_id 51   ← identique
+```
+
+> Le bloc `authentication { auth_type PASS; auth_pass ... }` dans Keepalived est indépendant de Redis — il protège le protocole VRRP contre un nœud tiers qui voudrait rejoindre le groupe HA. Il doit rester configuré avec le même mot de passe sur les deux serveurs.
+
+**Corriger et redémarrer**
+```bash
+# Sur Serveur 2 d'abord
+systemctl restart keepalived
+
+# Puis Serveur 1
+systemctl restart keepalived
+
+# Vérifier
+ip addr show ens3 | grep <VIP>
+# Serveur 1 → doit l'avoir
+# Serveur 2 → ne doit PAS l'avoir
+```
+
+---
+
 ## Option avancée — Redis Sentinel (promotion automatique)
 
 Redis Sentinel surveille le master et promeut automatiquement le replica si le master est indisponible pendant plus de 5 secondes.
