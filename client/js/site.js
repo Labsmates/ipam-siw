@@ -28,8 +28,9 @@ function _normalizeNetwork(net) {
 
 function osLogo(os, hostname) {
   const h = (hostname || '').toUpperCase();
-  if (h.startsWith('ILO-'))   return `<img src="/img/os/hp.svg"   width="24" height="24" title="HP iLO"   style="display:block;margin:auto">`;
-  if (h.startsWith('IDRAC-')) return `<img src="/img/os/dell.svg" width="24" height="24" title="Dell iDRAC" style="display:block;margin:auto">`;
+  if (h.startsWith('ILO-'))          return `<img src="/img/os/hp.svg"     width="24" height="24" title="HP iLO"              style="display:block;margin:auto">`;
+  if (h.startsWith('IDRAC-'))       return `<img src="/img/os/dell.svg"   width="24" height="24" title="Dell iDRAC"          style="display:block;margin:auto">`;
+  if (/(?:SN|QN)-[A-Z0-9]{2}/i.test(hostname || '')) return `<img src="/img/os/win2016.svg" width="24" height="24" title="Windows Server 2016" style="display:block;margin:auto">`;
   if (!os) return '<span style="color:var(--tx-5)">—</span>';
   const labels = { redhat: 'RHEL', nutanix: 'Nutanix', win2016: 'WS2016', win2022: 'WS2022', win2025: 'WS2025', hp: 'HP iLO', dell: 'Dell iDRAC' };
   return `<img src="/img/os/${os}.svg" width="24" height="24" title="${labels[os] || os}" style="display:block;margin:auto">`;

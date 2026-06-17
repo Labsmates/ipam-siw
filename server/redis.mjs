@@ -646,7 +646,7 @@ export async function deleteIp(id) {
   return true;
 }
 
-const VALID_OS = ['redhat', 'nutanix', 'win2016', 'win2022', 'win2025', ''];
+const VALID_OS = ['redhat', 'nutanix', 'win2022', 'win2025', ''];
 
 export async function updateIp(id, { status, hostname, os }) {
   const VALID = ['Libre', 'Utilisé', 'Réservée'];
