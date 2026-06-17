@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Red Hat logo — fedora hat silhouette -->
+  <!-- Crown -->
+  <path d="M50 8 C32 8 20 22 20 38 C20 46 23 50 23 50 L77 50 C77 50 80 46 80 38 C80 22 68 8 50 8 Z" fill="#CC0000"/>
+  <!-- Brim -->
+  <path d="M4 58 C4 50 25 44 50 44 C75 44 96 50 96 58 C96 66 75 72 50 72 C25 72 4 66 4 58 Z" fill="#EE0000"/>
+  <!-- Band / crown join -->
+  <path d="M23 50 C23 50 33 56 50 56 C67 56 77 50 77 50 L77 52 C77 52 67 58 50 58 C33 58 23 52 23 52 Z" fill="#AA0000"/>
+  <!-- Hat dent top -->
+  <path d="M38 18 C38 18 44 24 50 24 C56 24 62 18 62 18 C62 18 56 12 50 12 C44 12 38 18 38 18 Z" fill="#AA0000" opacity="0.5"/>
+  <!-- Brim shadow -->
+  <path d="M4 58 C4 58 10 54 50 54 C90 54 96 58 96 58 C96 58 90 62 50 62 C10 62 4 58 4 58 Z" fill="#CC0000"/>
+  <!-- Band highlight -->
+  <ellipse cx="50" cy="50" rx="27" ry="6" fill="#FF2222" opacity="0.3"/>
+</svg>

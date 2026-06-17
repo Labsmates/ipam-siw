@@ -26,6 +26,35 @@ function _normalizeNetwork(net) {
   return `${(base>>>24)&0xFF}.${(base>>>16)&0xFF}.${(base>>>8)&0xFF}.${base&0xFF}/${prefix}`;
 }
 
+function osLogo(os) {
+  if (!os) return '<span style="color:var(--tx-5)">—</span>';
+  const labels = { redhat: 'RHEL', nutanix: 'Nutanix', win2016: 'WS2016', win2022: 'WS2022', win2025: 'WS2025' };
+  const label = labels[os] || os;
+  return `<img src="/img/os/${os}.svg" width="24" height="24" title="${label}" style="display:block;margin:auto">`;
+}
+
+function setOsPicker(pickerId, hiddenId, value) {
+  const picker = document.getElementById(pickerId);
+  const hidden = document.getElementById(hiddenId);
+  if (!picker || !hidden) return;
+  hidden.value = value || '';
+  picker.querySelectorAll('.os-btn').forEach(btn => {
+    btn.classList.toggle('sel', btn.dataset.os === value);
+  });
+}
+
+function wireOsPicker(pickerId, hiddenId) {
+  const picker = document.getElementById(pickerId);
+  if (!picker) return;
+  picker.addEventListener('click', e => {
+    const btn = e.target.closest('.os-btn');
+    if (!btn) return;
+    const current = document.getElementById(hiddenId).value;
+    const next = btn.dataset.os === current ? '' : btn.dataset.os;
+    setOsPicker(pickerId, hiddenId, next);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -415,6 +444,7 @@ function renderTable() {
             onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
           <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
           <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
+          <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os)}</td>
           <td style="padding:10px 16px;">${statusBadge(ip.status)}</td>
           <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
           <td style="padding:10px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(ip.updated_at)}</td>
@@ -470,6 +500,7 @@ function openReserveModal(ipObj) {
   document.getElementById('reserve-ip-id').value = ipObj.id;
   document.getElementById('reserve-hostname').value = ipObj.hostname || '';
   updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
+  setOsPicker('reserve-os-picker', 'reserve-os', ipObj.os || '');
   openModal('modal-reserve');
 }
 
@@ -494,6 +525,7 @@ function openRenameModal(ipObj) {
   document.getElementById('rename-ip-id').value = ipObj.id;
   document.getElementById('rename-hostname').value = ipObj.hostname || '';
   updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
+  setOsPicker('rename-os-picker', 'rename-os', ipObj.os || '');
   openModal('modal-rename');
 }
 
@@ -538,6 +570,7 @@ async function deleteIpRow(ipObj) {
 function setupModals(user) {
 
   // --- Reserve / Use ---
+  wireOsPicker('reserve-os-picker', 'reserve-os');
   document.getElementById('reserve-hostname').addEventListener('input', () => {
     updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
   });
@@ -546,9 +579,10 @@ function setupModals(user) {
     const id       = document.getElementById('reserve-ip-id').value;
     const raw      = document.getElementById('reserve-hostname').value.trim();
     const hostname = buildFqdn(raw, _reserveSuffix);
+    const os       = document.getElementById('reserve-os').value;
     triggerBtn.disabled = true; triggerBtn.textContent = loadingText;
     try {
-      await put(`/api/ips/${encodeURIComponent(id)}`, { status, hostname });
+      await put(`/api/ips/${encodeURIComponent(id)}`, { status, hostname, os });
       showToast(status === 'Réservée' ? 'IP réservée avec succès' : 'IP marquée comme utilisée', 'success');
       localStorage.setItem('ipam-ip-change', Date.now());
       closeModal('modal-reserve');
@@ -566,6 +600,7 @@ function setupModals(user) {
   document.getElementById('btn-cancel-reserve').addEventListener('click', () => closeModal('modal-reserve'));
 
   // --- Rename hostname ---
+  wireOsPicker('rename-os-picker', 'rename-os');
   document.getElementById('rename-hostname').addEventListener('input', () => {
     updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
   });
@@ -575,10 +610,11 @@ function setupModals(user) {
     const id       = document.getElementById('rename-ip-id').value;
     const raw      = document.getElementById('rename-hostname').value.trim();
     const hostname = buildFqdn(raw, _renameSuffix);
+    const os       = document.getElementById('rename-os').value;
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true; btn.textContent = 'Enregistrement…';
     try {
-      await put(`/api/ips/${encodeURIComponent(id)}`, { hostname });
+      await put(`/api/ips/${encodeURIComponent(id)}`, { hostname, os });
       showToast('Hostname mis à jour', 'success');
       localStorage.setItem('ipam-ip-change', Date.now());
       closeModal('modal-rename');

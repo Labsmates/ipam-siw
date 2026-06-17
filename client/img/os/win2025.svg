@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Windows logo — 4 colored panes in perspective -->
+  <path d="M6,16 L47,10 L47,48 L6,48 Z" fill="#F25022"/>
+  <path d="M52,9 L94,3 L94,48 L52,48 Z" fill="#7FBA00"/>
+  <path d="M6,53 L47,53 L47,90 L6,84 Z" fill="#00A4EF"/>
+  <path d="M52,53 L94,53 L94,97 L52,91 Z" fill="#FFB900"/>
+  <!-- Version badge -->
+  <rect x="16" y="76" width="68" height="20" rx="4" fill="#002050" opacity="0.92"/>
+  <text x="50" y="91" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">2025</text>
+</svg>

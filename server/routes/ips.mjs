@@ -23,15 +23,16 @@ function requireNonViewer(req, res, next) {
 // PUT /api/ips/:id — modifier statut et/ou hostname
 router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
   try {
-    const { status, hostname, comment } = req.body || {};
-    if (status === undefined && hostname === undefined)
-      return res.status(400).json({ error: 'Statut ou hostname requis' });
+    const { status, hostname, os, comment } = req.body || {};
+    if (status === undefined && hostname === undefined && os === undefined)
+      return res.status(400).json({ error: 'Statut, hostname ou OS requis' });
     const ip = await getIp(req.params.id);
     if (!ip) return res.status(404).json({ error: 'IP introuvable' });
-    await updateIp(req.params.id, { status, hostname: status === 'Libre' ? '' : hostname });
+    await updateIp(req.params.id, { status, hostname: status === 'Libre' ? '' : hostname, os: status === 'Libre' ? '' : os });
     const details = [
       status   !== undefined ? `statut → ${status}`            : null,
       hostname !== undefined ? `hostname → "${hostname || ''}"` : null,
+      os       !== undefined ? `OS → "${os || ''}"`            : null,
     ].filter(Boolean).join(', ');
     await addLog(req.user.username, 'UPDATE_IP', `${ip.ip_address} : ${details}`,
       status === 'Libre' ? 'info' : 'ok');

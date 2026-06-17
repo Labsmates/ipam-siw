@@ -646,7 +646,9 @@ export async function deleteIp(id) {
   return true;
 }
 
-export async function updateIp(id, { status, hostname }) {
+const VALID_OS = ['redhat', 'nutanix', 'win2016', 'win2022', 'win2025', ''];
+
+export async function updateIp(id, { status, hostname, os }) {
   const VALID = ['Libre', 'Utilisé', 'Réservée'];
   const ip = await redis.hgetall(`ip:${id}`);
   if (!ip?.ip_address) throw new Error('IP introuvable');
@@ -674,6 +676,11 @@ export async function updateIp(id, { status, hostname }) {
     patch.status = status;
   }
   if (hostname !== undefined) patch.hostname = hostname;
+  if (os !== undefined) {
+    const osVal = String(os || '').trim().toLowerCase();
+    if (!VALID_OS.includes(osVal)) throw new Error('OS invalide');
+    patch.os = osVal;
+  }
   await redis.hset(`ip:${id}`, patch);
 }
 

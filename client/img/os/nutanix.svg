@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Nutanix logo mark — stylized X made of arrow/chevron shapes -->
+  <!-- Top-left arrow (pointing down-right) -->
+  <polygon points="8,8 42,8 58,50 42,50 24,50" fill="#024DA1"/>
+  <!-- Top-right arrow (pointing down-left) -->
+  <polygon points="92,8 58,8 42,50 58,50 76,50" fill="#024DA1"/>
+  <!-- Bottom-left arrow (pointing up-right) -->
+  <polygon points="8,92 42,92 58,50 42,50 24,50" fill="#6CC04A"/>
+  <!-- Bottom-right arrow (pointing up-left) -->
+  <polygon points="92,92 58,92 42,50 58,50 76,50" fill="#6CC04A"/>
+  <!-- Center diamond -->
+  <polygon points="50,38 62,50 50,62 38,50" fill="#FFFFFF"/>
+</svg>

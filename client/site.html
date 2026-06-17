@@ -58,6 +58,9 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .ip-search-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--bg-4);text-decoration:none;transition:background .1s}
 .ip-search-row:last-child{border-bottom:none}
 .ip-search-row:hover{background:var(--bg-3)}
+.os-btn{background:var(--bg-2);border:1.5px solid var(--brd);border-radius:8px;padding:5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s;outline:none}
+.os-btn:hover{border-color:#58a6ff88;background:var(--bg-3)}
+.os-btn.sel{border-color:#58a6ff;background:#0d224080;box-shadow:0 0 0 3px rgba(88,166,255,.18)}
 </style>
 </head>
 <body>
@@ -274,6 +277,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
           <tr style="position:-webkit-sticky;position:sticky;top:0;background:var(--bg-2);z-index:5">
             <th style="text-align:left;padding:9px 24px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);white-space:nowrap">Adresse IP</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">Hostname</th>
+            <th style="text-align:center;padding:9px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:44px">OS</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">Statut</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">VLAN</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">Mis à jour</th>
@@ -323,6 +327,17 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Hostname <span style="color:var(--tx-3);font-weight:400">(optionnel)</span></label>
         <input type="text" id="reserve-hostname" class="inp" placeholder="ex: 942270SN-AP10" maxlength="253" autocomplete="off">
         <div id="reserve-hostname-hint" style="display:none;margin-top:6px;padding:6px 10px;background:var(--bg-3);border:1px solid var(--brd);border-radius:6px;font-size:12px;color:var(--tx-3);font-family:'JetBrains Mono','Consolas',monospace;"></div>
+      </div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:8px">OS <span style="color:var(--tx-3);font-weight:400">(optionnel)</span></label>
+        <div id="reserve-os-picker" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="os-btn" data-os="redhat" title="Red Hat Enterprise Linux"><img src="/img/os/redhat.svg" width="28" height="28" alt="Red Hat"></button>
+          <button type="button" class="os-btn" data-os="nutanix" title="Nutanix AOS"><img src="/img/os/nutanix.svg" width="28" height="28" alt="Nutanix"></button>
+          <button type="button" class="os-btn" data-os="win2016" title="Windows Server 2016"><img src="/img/os/win2016.svg" width="28" height="28" alt="WS 2016"></button>
+          <button type="button" class="os-btn" data-os="win2022" title="Windows Server 2022"><img src="/img/os/win2022.svg" width="28" height="28" alt="WS 2022"></button>
+          <button type="button" class="os-btn" data-os="win2025" title="Windows Server 2025"><img src="/img/os/win2025.svg" width="28" height="28" alt="WS 2025"></button>
+        </div>
+        <input type="hidden" id="reserve-os">
       </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
         <button type="button" id="btn-cancel-reserve" class="btn btn-g">Annuler</button>
@@ -394,6 +409,17 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Hostname</label>
         <input type="text" id="rename-hostname" class="inp" placeholder="ex: 942270SN-AP10" maxlength="253" autocomplete="off">
         <div id="rename-hostname-hint" style="display:none;margin-top:6px;padding:6px 10px;background:var(--bg-3);border:1px solid var(--brd);border-radius:6px;font-size:12px;color:var(--tx-3);font-family:'JetBrains Mono','Consolas',monospace;"></div>
+      </div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:8px">OS <span style="color:var(--tx-3);font-weight:400">(optionnel)</span></label>
+        <div id="rename-os-picker" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="os-btn" data-os="redhat" title="Red Hat Enterprise Linux"><img src="/img/os/redhat.svg" width="28" height="28" alt="Red Hat"></button>
+          <button type="button" class="os-btn" data-os="nutanix" title="Nutanix AOS"><img src="/img/os/nutanix.svg" width="28" height="28" alt="Nutanix"></button>
+          <button type="button" class="os-btn" data-os="win2016" title="Windows Server 2016"><img src="/img/os/win2016.svg" width="28" height="28" alt="WS 2016"></button>
+          <button type="button" class="os-btn" data-os="win2022" title="Windows Server 2022"><img src="/img/os/win2022.svg" width="28" height="28" alt="WS 2022"></button>
+          <button type="button" class="os-btn" data-os="win2025" title="Windows Server 2025"><img src="/img/os/win2025.svg" width="28" height="28" alt="WS 2025"></button>
+        </div>
+        <input type="hidden" id="rename-os">
       </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
         <button type="button" id="btn-cancel-rename" class="btn btn-g">Annuler</button>
