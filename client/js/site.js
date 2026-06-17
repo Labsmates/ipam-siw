@@ -26,11 +26,13 @@ function _normalizeNetwork(net) {
   return `${(base>>>24)&0xFF}.${(base>>>16)&0xFF}.${(base>>>8)&0xFF}.${base&0xFF}/${prefix}`;
 }
 
-function osLogo(os) {
+function osLogo(os, hostname) {
+  const h = (hostname || '').toUpperCase();
+  if (h.startsWith('ILO-'))   return `<img src="/img/os/hp.svg"   width="24" height="24" title="HP iLO"   style="display:block;margin:auto">`;
+  if (h.startsWith('IDRAC-')) return `<img src="/img/os/dell.svg" width="24" height="24" title="Dell iDRAC" style="display:block;margin:auto">`;
   if (!os) return '<span style="color:var(--tx-5)">—</span>';
-  const labels = { redhat: 'RHEL', nutanix: 'Nutanix', win2016: 'WS2016', win2022: 'WS2022', win2025: 'WS2025' };
-  const label = labels[os] || os;
-  return `<img src="/img/os/${os}.svg" width="24" height="24" title="${label}" style="display:block;margin:auto">`;
+  const labels = { redhat: 'RHEL', nutanix: 'Nutanix', win2016: 'WS2016', win2022: 'WS2022', win2025: 'WS2025', hp: 'HP iLO', dell: 'Dell iDRAC' };
+  return `<img src="/img/os/${os}.svg" width="24" height="24" title="${labels[os] || os}" style="display:block;margin:auto">`;
 }
 
 function setOsPicker(pickerId, hiddenId, value) {
@@ -444,7 +446,7 @@ function renderTable() {
             onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
           <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
           <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
-          <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os)}</td>
+          <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
           <td style="padding:10px 16px;">${statusBadge(ip.status)}</td>
           <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
           <td style="padding:10px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(ip.updated_at)}</td>
