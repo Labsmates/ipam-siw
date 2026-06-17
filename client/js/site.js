@@ -28,7 +28,7 @@ function _normalizeNetwork(net) {
 
 function osLogo(os, hostname) {
   const h = (hostname || '').toUpperCase();
-  if (h.startsWith('GW'))            return `<img src="/img/os/gw.svg"    width="24" height="24" title="Gateway"             style="display:block;margin:auto">`;
+  if (h.startsWith('GATEWAY'))       return `<img src="/img/os/gw.svg"    width="24" height="24" title="Gateway"             style="display:block;margin:auto">`;
   if (h.startsWith('ILO-'))          return `<img src="/img/os/hp.svg"     width="24" height="24" title="HP iLO"              style="display:block;margin:auto">`;
   if (h.startsWith('IDRAC-'))       return `<img src="/img/os/dell.svg"   width="24" height="24" title="Dell iDRAC"          style="display:block;margin:auto">`;
   if (!os && /(?:SN|QN)-[A-Z0-9]{2}/i.test(hostname || '')) return `<img src="/img/os/win2016.svg" width="24" height="24" title="Windows Server 2016" style="display:block;margin:auto">`;
