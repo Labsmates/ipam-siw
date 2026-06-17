@@ -1,10 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Windows logo — 4 colored panes in perspective -->
-  <path d="M6,16 L47,10 L47,48 L6,48 Z" fill="#F25022"/>
-  <path d="M52,9 L94,3 L94,48 L52,48 Z" fill="#7FBA00"/>
-  <path d="M6,53 L47,53 L47,90 L6,84 Z" fill="#00A4EF"/>
-  <path d="M52,53 L94,53 L94,97 L52,91 Z" fill="#FFB900"/>
-  <!-- Version badge -->
-  <rect x="16" y="76" width="68" height="20" rx="4" fill="#005A9E" opacity="0.92"/>
-  <text x="50" y="91" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">2022</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.5 0 257 285">
+  <path d="M0,36.357 L104.619,22.109 L104.665,123.023 L0.096,123.618 Z M104.569,134.650 L104.650,235.652 L0.081,221.275 L0.075,133.973 Z M117.252,20.245 L255.968,0 L255.968,121.739 L117.252,122.841 Z M256,135.600 L255.967,256.791 L117.251,237.213 L117.057,135.373 Z" fill="#00ADEF"/>
+  <rect x="28" y="261" width="200" height="20" rx="4" fill="#005A9E"/>
+  <text x="128" y="276" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">2022</text>
 </svg>
