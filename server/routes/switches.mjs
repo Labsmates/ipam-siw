@@ -2,11 +2,19 @@ import express from 'express';
 import {
   createSwitch, getSwitch, listSwitchesBySite, updateSwitch, deleteSwitch,
   setSwitchPort, deleteSwitchPort, getSwitchPorts,
-  getSite, addLog,
+  getSite, addLog, listServerHostnames,
 } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
+
+// GET /api/switches/servers — hostnames filtrés pour la combobox
+router.get('/servers', requireAuth, async (_req, res) => {
+  try {
+    const servers = await listServerHostnames();
+    res.json({ servers });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // GET /api/switches/site/:siteId
 router.get('/site/:siteId', requireAuth, async (req, res) => {

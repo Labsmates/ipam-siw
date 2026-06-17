@@ -11,6 +11,8 @@ let isAdmin   = false;
 let switchMap = {};
 // Track open accordions
 let openSites = new Set();
+// Server hostnames for combobox
+let serverHostnames = [];
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 if (!requireAuth()) throw new Error('not authenticated');
@@ -58,7 +60,12 @@ document.getElementById('form-change-pw').addEventListener('submit', async e => 
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function load() {
   try {
-    const data = await get('/api/sites');
+    const [sitesData, serversData] = await Promise.all([
+      get('/api/sites'),
+      get('/api/switches/servers').catch(() => ({ servers: [] })),
+    ]);
+    serverHostnames = serversData.servers || [];
+    const data = { sites: sitesData.sites };
     sites = sortSites(data.sites || []);
 
     document.getElementById('summary').textContent =
@@ -340,15 +347,82 @@ function openPortModal(switchId, switchName, editPort, editServer, editDesc) {
   document.getElementById('port-number').disabled = !!editPort;
   document.getElementById('port-error').style.display = 'none';
 
+  closeCombobox();
   document.getElementById('modal-port').classList.remove('hidden');
   document.getElementById(_portEditing ? 'port-server' : 'port-number').focus();
 }
 
 ['btn-cancel-port', 'btn-cancel-port2'].forEach(id =>
-  document.getElementById(id)?.addEventListener('click', () =>
-    document.getElementById('modal-port').classList.add('hidden')
-  )
+  document.getElementById(id)?.addEventListener('click', () => {
+    closeCombobox();
+    document.getElementById('modal-port').classList.add('hidden');
+  })
 );
+
+// ── Combobox serveurs ─────────────────────────────────────────────────────────
+let _comboActiveIdx = -1;
+
+function openCombobox(filter) {
+  const dd    = document.getElementById('port-server-dropdown');
+  const items = filter
+    ? serverHostnames.filter(h => h.toUpperCase().includes(filter.toUpperCase()))
+    : serverHostnames;
+
+  if (!items.length) {
+    dd.innerHTML = `<div class="combobox-empty">Aucun serveur trouvé${filter ? ` pour « ${esc(filter)} »` : ''}</div>`;
+  } else {
+    dd.innerHTML = items.map((h, i) =>
+      `<div class="combobox-item" data-idx="${i}" data-value="${esc(h)}">${esc(h)}</div>`
+    ).join('');
+    dd.querySelectorAll('.combobox-item').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        document.getElementById('port-server').value = el.dataset.value;
+        closeCombobox();
+      });
+    });
+  }
+  _comboActiveIdx = -1;
+  dd.style.display = 'block';
+}
+
+function closeCombobox() {
+  document.getElementById('port-server-dropdown').style.display = 'none';
+  _comboActiveIdx = -1;
+}
+
+function moveCombo(dir) {
+  const dd    = document.getElementById('port-server-dropdown');
+  const items = dd.querySelectorAll('.combobox-item');
+  if (!items.length) return;
+  items[_comboActiveIdx]?.classList.remove('active');
+  _comboActiveIdx = Math.max(0, Math.min(items.length - 1, _comboActiveIdx + dir));
+  const active = items[_comboActiveIdx];
+  active?.classList.add('active');
+  active?.scrollIntoView({ block: 'nearest' });
+}
+
+const _serverInput = document.getElementById('port-server');
+_serverInput.addEventListener('input', () => {
+  if (serverHostnames.length) openCombobox(_serverInput.value);
+});
+_serverInput.addEventListener('focus', () => {
+  if (serverHostnames.length) openCombobox(_serverInput.value);
+});
+_serverInput.addEventListener('blur', () => {
+  setTimeout(closeCombobox, 150);
+});
+_serverInput.addEventListener('keydown', e => {
+  const dd = document.getElementById('port-server-dropdown');
+  if (dd.style.display === 'none') return;
+  if (e.key === 'ArrowDown')  { e.preventDefault(); moveCombo(1);  return; }
+  if (e.key === 'ArrowUp')    { e.preventDefault(); moveCombo(-1); return; }
+  if (e.key === 'Escape')     { closeCombobox(); return; }
+  if (e.key === 'Enter') {
+    const active = dd.querySelector('.combobox-item.active');
+    if (active) { e.preventDefault(); _serverInput.value = active.dataset.value; closeCombobox(); }
+  }
+});
 
 document.getElementById('form-port').addEventListener('submit', async e => {
   e.preventDefault();

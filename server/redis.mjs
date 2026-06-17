@@ -905,6 +905,46 @@ export async function deleteAccountRequest(id) {
 }
 
 // =============================================================================
+// SERVER HOSTNAMES — pour la combobox Switch Config
+// =============================================================================
+
+const SERVER_PREFIXES = ['AF', 'ILO-', 'IDRAC-', 'SV01', 'SS01', 'FS10', 'CA'];
+
+export async function listServerHostnames() {
+  const siteIds  = await redis.smembers('sites');
+  if (!siteIds.length) return [];
+
+  const pipe1 = redis.pipeline();
+  siteIds.forEach(sid => pipe1.smembers(`site:${sid}:vlans`));
+  const vlanSets = await pipe1.exec();
+  const allVlanIds = vlanSets.flatMap(([, v]) => v || []);
+  if (!allVlanIds.length) return [];
+
+  const pipe2 = redis.pipeline();
+  allVlanIds.forEach(vid => pipe2.smembers(`vlan:${vid}:ips`));
+  const ipSets = await pipe2.exec();
+  const allIpIds = ipSets.flatMap(([, v]) => v || []);
+  if (!allIpIds.length) return [];
+
+  const pipe3 = redis.pipeline();
+  allIpIds.forEach(ipId => pipe3.hget(`ip:${ipId}`, 'hostname'));
+  const results = await pipe3.exec();
+
+  const seen = new Set();
+  const hostnames = [];
+  for (const [, h] of results) {
+    if (!h) continue;
+    const name = h.trim().toUpperCase();
+    if (!name || seen.has(name)) continue;
+    if (SERVER_PREFIXES.some(p => name.startsWith(p))) {
+      seen.add(name);
+      hostnames.push(h.trim());
+    }
+  }
+  return hostnames.sort((a, b) => a.localeCompare(b));
+}
+
+// =============================================================================
 // SWITCHES
 // Schéma :
 //   seq:switches               INCR

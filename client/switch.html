@@ -55,6 +55,12 @@
     button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     .lbl{font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:var(--tx-1)}
     .form-row{margin-bottom:14px}
+    .combobox-wrap{position:relative}
+    .combobox-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:300;max-height:220px;overflow-y:auto;display:none}
+    .combobox-item{padding:8px 12px;font-size:13px;color:var(--tx-2);cursor:pointer;-webkit-transition:background .1s;transition:background .1s;border-bottom:1px solid var(--bg-4)}
+    .combobox-item:last-child{border-bottom:none}
+    .combobox-item:hover,.combobox-item.active{background:var(--bg-3);color:var(--tx-1)}
+    .combobox-empty{padding:10px 12px;font-size:12px;color:var(--tx-3);font-style:italic}
   </style>
 </head>
 <body>
@@ -212,7 +218,10 @@
         </div>
         <div class="form-row">
           <label class="lbl">Serveur <span style="color:#f85149">*</span></label>
-          <input id="port-server" class="inp" placeholder="ex: SRV-WEB-01" required>
+          <div class="combobox-wrap">
+            <input id="port-server" class="inp" placeholder="ex: SRV-WEB-01 ou choisir dans la liste" autocomplete="off" required>
+            <div id="port-server-dropdown" class="combobox-dropdown"></div>
+          </div>
         </div>
         <div class="form-row">
           <label class="lbl">Description <span style="color:var(--tx-3);font-weight:400">(optionnel)</span></label>
