@@ -16,6 +16,10 @@
 //   vlan:{id}:ips:idx          HASH {ip_address: ip_id}
 //   ip:{id}                    HASH {vlan_id, ip_address, status, created_at, updated_at}
 //   logs                       LIST JSON (lpush, ltrim 5000)
+//   seq:switches               INCR
+//   site:{id}:switches         SET  {switch_id…}
+//   switch:{id}                HASH {site_id, name, model, ip, created_at}
+//   switch:{id}:ports          HASH {port_name → JSON({server, description})}
 // =============================================================================
 
 import Redis   from 'ioredis';
@@ -898,6 +902,81 @@ export async function getAccountRequest(id) {
 export async function deleteAccountRequest(id) {
   await redis.del(`account_request:${id}`);
   await redis.srem('account_requests', String(id));
+}
+
+// =============================================================================
+// SWITCHES
+// Schéma :
+//   seq:switches               INCR
+//   site:{id}:switches         SET  {switch_id…}
+//   switch:{id}                HASH {site_id, name, model, ip, created_at}
+//   switch:{id}:ports          HASH {port_name → JSON({server, description})}
+// =============================================================================
+
+export async function createSwitch(siteId, { name, model = '', ip = '' }) {
+  const site = await getSite(siteId);
+  if (!site) throw Object.assign(new Error('Site introuvable'), { code: 'NOT_FOUND' });
+  const id = String(await redis.incr('seq:switches'));
+  const pipe = redis.pipeline();
+  pipe.hset(`switch:${id}`, { site_id: String(siteId), name: name.trim(), model: model.trim(), ip: ip.trim(), created_at: now() });
+  pipe.sadd(`site:${siteId}:switches`, id);
+  await pipe.exec();
+  return { id: parseInt(id), site_id: parseInt(siteId), name: name.trim(), model: model.trim(), ip: ip.trim() };
+}
+
+export async function getSwitch(id) {
+  const s = await redis.hgetall(`switch:${id}`);
+  return s?.name ? { id: parseInt(id), ...s, site_id: parseInt(s.site_id) } : null;
+}
+
+export async function listSwitchesBySite(siteId) {
+  const ids = await redis.smembers(`site:${siteId}:switches`);
+  if (!ids.length) return [];
+  const pipe = redis.pipeline();
+  ids.forEach(id => pipe.hgetall(`switch:${id}`));
+  const results = await pipe.exec();
+  return ids
+    .map((id, i) => ({ id: parseInt(id), ...results[i][1], site_id: parseInt(siteId) }))
+    .filter(s => s.name)
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+}
+
+export async function updateSwitch(id, fields) {
+  const allowed = {};
+  if (fields.name  !== undefined) allowed.name  = String(fields.name  || '').trim();
+  if (fields.model !== undefined) allowed.model = String(fields.model || '').trim();
+  if (fields.ip    !== undefined) allowed.ip    = String(fields.ip    || '').trim();
+  if (!Object.keys(allowed).length) return;
+  await redis.hset(`switch:${id}`, allowed);
+}
+
+export async function deleteSwitch(id) {
+  const s = await redis.hgetall(`switch:${id}`);
+  if (!s?.name) return;
+  const pipe = redis.pipeline();
+  pipe.srem(`site:${s.site_id}:switches`, String(id));
+  pipe.del(`switch:${id}`);
+  pipe.del(`switch:${id}:ports`);
+  await pipe.exec();
+}
+
+export async function setSwitchPort(switchId, port, { server, description = '' }) {
+  await redis.hset(`switch:${switchId}:ports`, port, JSON.stringify({ server: (server || '').trim(), description: (description || '').trim() }));
+}
+
+export async function deleteSwitchPort(switchId, port) {
+  await redis.hdel(`switch:${switchId}:ports`, port);
+}
+
+export async function getSwitchPorts(switchId) {
+  const raw = await redis.hgetall(`switch:${switchId}:ports`);
+  if (!raw) return [];
+  return Object.entries(raw)
+    .map(([port, val]) => {
+      try { return { port, ...JSON.parse(val) }; }
+      catch { return { port, server: val, description: '' }; }
+    })
+    .sort((a, b) => a.port.localeCompare(b.port, undefined, { numeric: true }));
 }
 
 // =============================================================================
