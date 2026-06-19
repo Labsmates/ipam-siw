@@ -612,7 +612,7 @@ function setupModals(user) {
     const ip  = document.getElementById('reserve-ip-display').textContent.trim();
     const res = document.getElementById('ping-result');
     if (!ip) return;
-    res.textContent = '…';
+    res.textContent = 'Ping en cours…';
     res.style.color = 'var(--tx-3)';
     const btn = document.getElementById('btn-ping');
     btn.disabled = true;
