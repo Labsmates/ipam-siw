@@ -407,26 +407,28 @@ function moveCombo(dir) {
 }
 
 const _serverInput = document.getElementById('port-server');
-_serverInput.addEventListener('input', () => {
-  if (serverHostnames.length) openCombobox(_serverInput.value);
-});
-_serverInput.addEventListener('focus', () => {
-  if (serverHostnames.length) openCombobox(_serverInput.value);
-});
-_serverInput.addEventListener('blur', () => {
-  setTimeout(closeCombobox, 150);
-});
-_serverInput.addEventListener('keydown', e => {
-  const dd = document.getElementById('port-server-dropdown');
-  if (dd.style.display === 'none') return;
-  if (e.key === 'ArrowDown')  { e.preventDefault(); moveCombo(1);  return; }
-  if (e.key === 'ArrowUp')    { e.preventDefault(); moveCombo(-1); return; }
-  if (e.key === 'Escape')     { closeCombobox(); return; }
-  if (e.key === 'Enter') {
-    const active = dd.querySelector('.combobox-item.active');
-    if (active) { e.preventDefault(); _serverInput.value = active.dataset.value; closeCombobox(); }
-  }
-});
+if (_serverInput) {
+  _serverInput.addEventListener('input', () => {
+    if (serverHostnames.length) openCombobox(_serverInput.value);
+  });
+  _serverInput.addEventListener('focus', () => {
+    if (serverHostnames.length) openCombobox(_serverInput.value);
+  });
+  _serverInput.addEventListener('blur', () => {
+    setTimeout(closeCombobox, 150);
+  });
+  _serverInput.addEventListener('keydown', e => {
+    const dd = document.getElementById('port-server-dropdown');
+    if (!dd || dd.style.display === 'none') return;
+    if (e.key === 'ArrowDown')  { e.preventDefault(); moveCombo(1);  return; }
+    if (e.key === 'ArrowUp')    { e.preventDefault(); moveCombo(-1); return; }
+    if (e.key === 'Escape')     { closeCombobox(); return; }
+    if (e.key === 'Enter') {
+      const active = dd.querySelector('.combobox-item.active');
+      if (active) { e.preventDefault(); _serverInput.value = active.dataset.value; closeCombobox(); }
+    }
+  });
+}
 
 document.getElementById('form-port').addEventListener('submit', async e => {
   e.preventDefault();
