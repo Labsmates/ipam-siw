@@ -617,8 +617,8 @@ function setupModals(user) {
     const btn = document.getElementById('btn-ping');
     btn.disabled = true;
     try {
-      const data = await get(`/api/ping?ip=${encodeURIComponent(ip)}`);
-      if (data.reachable) {
+      const data = await post('/api/nettools/ping', { target: ip });
+      if (data.success) {
         res.textContent = '⚠ Répond au ping — peut-être déjà utilisée';
         res.style.color = '#d29922';
       } else {
