@@ -508,6 +508,8 @@ function openReserveModal(ipObj) {
   document.getElementById('reserve-hostname').value = ipObj.hostname || '';
   updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
   setOsPicker('reserve-os-picker', 'reserve-os', ipObj.os || '');
+  const pr = document.getElementById('ping-result');
+  pr.textContent = ''; pr.style.color = '';
   openModal('modal-reserve');
 }
 
@@ -605,6 +607,27 @@ function setupModals(user) {
   document.getElementById('btn-do-reserve').addEventListener('click', function() { _assignIp('Réservée', this, 'Réservation…'); });
   document.getElementById('btn-do-use').addEventListener('click', function() { _assignIp('Utilisé', this, 'En cours…'); });
   document.getElementById('btn-cancel-reserve').addEventListener('click', () => closeModal('modal-reserve'));
+
+  document.getElementById('btn-ping').addEventListener('click', async () => {
+    const ip  = document.getElementById('reserve-ip-display').textContent.trim();
+    const res = document.getElementById('ping-result');
+    if (!ip) return;
+    res.textContent = '…';
+    res.style.color = 'var(--tx-3)';
+    const btn = document.getElementById('btn-ping');
+    btn.disabled = true;
+    try {
+      const data = await get(`/api/ping?ip=${encodeURIComponent(ip)}`);
+      if (data.reachable) {
+        res.textContent = '⚠ Répond au ping — peut-être déjà utilisée';
+        res.style.color = '#d29922';
+      } else {
+        res.textContent = '✓ Ne répond pas — probablement libre';
+        res.style.color = '#3fb950';
+      }
+    } catch { res.textContent = 'Erreur ping'; res.style.color = '#f85149'; }
+    finally { btn.disabled = false; }
+  });
 
   // --- Rename hostname ---
   wireOsPicker('rename-os-picker', 'rename-os');

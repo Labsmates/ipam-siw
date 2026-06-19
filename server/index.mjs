@@ -1,6 +1,7 @@
 import express  from 'express';
 import path     from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
 
 import authRouter         from './routes/auth.mjs';
 import sitesRouter        from './routes/sites.mjs';
@@ -41,6 +42,15 @@ app.get('/api/maintenance/status', async (_req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Ping IP ───────────────────────────────────────────────────────────────────
+import { requireAuth as _requireAuth } from './middleware/auth.mjs';
+app.get('/api/ping', _requireAuth, (req, res) => {
+  const ip = (req.query.ip || '').trim();
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip))
+    return res.status(400).json({ error: 'IP invalide' });
+  exec(`ping -c 1 -W 1 ${ip}`, (err) => res.json({ reachable: !err }));
 });
 
 // ── Middleware maintenance (avant static et routes protégées) ──────────────────

@@ -337,6 +337,13 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         </div>
         <input type="hidden" id="reserve-os">
       </div>
+      <div style="margin-bottom:18px;display:flex;align-items:center;gap:10px">
+        <button type="button" id="btn-ping" class="btn btn-g btn-sm">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Tester la connectivité
+        </button>
+        <span id="ping-result" style="font-size:12px;font-weight:500"></span>
+      </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
         <button type="button" id="btn-cancel-reserve" class="btn btn-g">Annuler</button>
         <button type="button" id="btn-do-reserve" class="btn" style="background:#2e2000;color:#d29922;border:1px solid #5c4200;">
