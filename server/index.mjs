@@ -15,6 +15,7 @@ import infosRouter           from './routes/infos.mjs';
 import nettoolsRouter        from './routes/nettools.mjs';
 import bypassRouter          from './routes/bypass.mjs';
 import switchesRouter        from './routes/switches.mjs';
+import { requireAuth } from './middleware/auth.mjs';
 import { securityHeaders } from './middleware/security.mjs';
 import { maintenanceMiddleware } from './middleware/maintenance.mjs';
 import { ensureDefaultAdmin } from './routes/auth.mjs';
@@ -45,8 +46,7 @@ app.get('/api/maintenance/status', async (_req, res) => {
 });
 
 // ── Ping IP ───────────────────────────────────────────────────────────────────
-import { requireAuth as _requireAuth } from './middleware/auth.mjs';
-app.get('/api/ping', _requireAuth, (req, res) => {
+app.get('/api/ping', requireAuth, (req, res) => {
   const ip = (req.query.ip || '').trim();
   if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip))
     return res.status(400).json({ error: 'IP invalide' });
