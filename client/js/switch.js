@@ -80,6 +80,10 @@ async function load() {
     await renderAll();
   } catch (e) {
     showToast(e.message, 'error');
+    document.getElementById('sites-container').innerHTML =
+      `<div style="padding:32px;color:#f85149;background:#f8514912;border:1px solid #f8514930;border-radius:8px;font-size:13px;font-family:monospace">
+        Erreur de chargement : ${e.message}
+      </div>`;
   }
 }
 
