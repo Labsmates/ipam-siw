@@ -561,11 +561,56 @@ function openRenameModal(ipObj) {
 // ---------------------------------------------------------------------------
 // Info modal (fiche serveur)
 // ---------------------------------------------------------------------------
-const INFO_TABS = ['contact', 'technique', 'commentaire'];
+const INFO_TABS = ['contact', 'technique', 'commentaire', 'historique'];
+let _infoHistoryLoadedForId = null;
 
 function switchInfoTab(tabName) {
   document.querySelectorAll('#modal-info [data-info-tab]').forEach(btn => btn.classList.toggle('on', btn.dataset.infoTab === tabName));
   INFO_TABS.forEach(t => document.getElementById(`info-pane-${t}`).classList.toggle('hidden', t !== tabName));
+  if (tabName === 'historique') loadInfoHistory();
+}
+
+const HISTORY_ACTION_LABELS = { UPDATE_IP: 'Modification', RELEASE_IP: 'Libération', DEL_IP: 'Suppression' };
+
+async function loadInfoHistory() {
+  const id = document.getElementById('info-ip-id').value;
+  if (_infoHistoryLoadedForId === id) return;
+  const loadingEl = document.getElementById('info-history-loading');
+  const emptyEl   = document.getElementById('info-history-empty');
+  const listEl    = document.getElementById('info-history-list');
+  loadingEl.classList.remove('hidden');
+  emptyEl.classList.add('hidden');
+  listEl.innerHTML = '';
+  try {
+    const { history } = await get(`/api/ips/${encodeURIComponent(id)}/history`);
+    _infoHistoryLoadedForId = id;
+    if (!history.length) {
+      emptyEl.classList.remove('hidden');
+    } else {
+      listEl.innerHTML = history.map(entry => {
+        let desc = entry.details || '';
+        if (entry.action === 'RELEASE_IP') {
+          try {
+            const d = JSON.parse(entry.details);
+            desc = `Libérée${d.comment ? ` — commentaire : "${esc(d.comment)}"` : ''}`;
+          } catch { /* garde le texte brut */ }
+        }
+        return `
+          <div style="border:1px solid var(--brd);border-radius:8px;padding:10px 12px;font-size:13px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-weight:600;color:var(--tx-1)">${esc(HISTORY_ACTION_LABELS[entry.action] || entry.action)}</span>
+              <span style="color:var(--tx-4);font-size:12px">${fmtDate(entry.created_at)}</span>
+            </div>
+            <div style="color:var(--tx-3)">${esc(entry.username)} — ${entry.action === 'RELEASE_IP' ? desc : esc(desc)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+  } catch (err) {
+    listEl.innerHTML = `<div style="color:#f85149;font-size:13px">${esc(err.message)}</div>`;
+  } finally {
+    loadingEl.classList.add('hidden');
+  }
 }
 
 // Liste déroulante avec option "Autre (saisie manuelle)" — CPU / RAM
@@ -651,6 +696,7 @@ function updateAddProgramBtnState() {
 }
 
 function openInfoModal(ipObj) {
+  _infoHistoryLoadedForId = null;
   document.getElementById('info-ip-id').value = ipObj.id;
   document.getElementById('info-hostname-display').textContent = ipObj.hostname || '—';
   document.getElementById('info-site-display').textContent = siteData.site?.name || '—';
@@ -869,6 +915,20 @@ function setupModals(user) {
     const customValues = [...document.querySelectorAll('#info-programs-custom > div')]
       .filter(row => row.querySelector('.info-program-custom-check').checked && row.querySelector('.info-program-custom').value.trim())
       .map(row => row.querySelector('.info-program-custom').value.trim());
+    const fixedNorm = FIXED_PROGRAMS.map(p => p.toLowerCase());
+    const seenCustom = new Set();
+    for (const v of customValues) {
+      const n = v.toLowerCase();
+      if (fixedNorm.includes(n)) {
+        showToast(`« ${v} » est déjà dans la liste des programmes fixes`, 'error');
+        return;
+      }
+      if (seenCustom.has(n)) {
+        showToast(`« ${v} » est en double dans les programmes personnalisés`, 'error');
+        return;
+      }
+      seenCustom.add(n);
+    }
     const programs = [...fixedChecked, ...customValues];
     if (!await showConfirm({ title: 'Confirmer les modifications', message: 'Enregistrer les modifications apportées à la fiche serveur ?', confirmText: 'Enregistrer' })) return;
     const btn = e.target.querySelector('button[type=submit]');

@@ -794,8 +794,8 @@ export async function importIps(siteId, rows) {
 // =============================================================================
 // LOGS
 // =============================================================================
-export async function addLog(username, action, details, level = 'info') {
-  const entry = JSON.stringify({ username, action, details, level, created_at: now() });
+export async function addLog(username, action, details, level = 'info', meta = undefined) {
+  const entry = JSON.stringify({ username, action, details, level, created_at: now(), ...meta });
   const pipe = redis.pipeline();
   pipe.lpush('logs', entry);
   pipe.ltrim('logs', 0, 4999);
@@ -808,6 +808,20 @@ export async function getLogs(limit = 500) {
     try { return { _raw: r, id: i + 1, ...JSON.parse(r) }; }
     catch { return null; }
   }).filter(Boolean);
+}
+
+// Historique des actions liées à une IP précise (fiche serveur)
+export async function getIpHistory(ipAddress, limit = 50) {
+  const raw = await redis.lrange('logs', 0, 4999);
+  const results = [];
+  for (const r of raw) {
+    let entry;
+    try { entry = JSON.parse(r); } catch { continue; }
+    if (entry.ip_address !== ipAddress) continue;
+    results.push(entry);
+    if (results.length >= limit) break;
+  }
+  return results;
 }
 
 export async function clearLogs() {

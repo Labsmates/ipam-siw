@@ -8,7 +8,7 @@
 <title>IPAM SIW</title>
 <link rel="stylesheet" href="/vendor/fonts.css">
 <link rel="stylesheet" href="/css/theme.css">
-<script src="/js/protect.js"></script>
+<script src="/js/protect.js?v=95ba589"></script>
 <script src="/vendor/tailwind.min.js"></script>
 <script src="/vendor/xlsx.full.min.js"></script>
 <style>
@@ -470,6 +470,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
       <button type="button" class="vlan-tab on" data-info-tab="contact">Info contact</button>
       <button type="button" class="vlan-tab" data-info-tab="technique">Fiche technique</button>
       <button type="button" class="vlan-tab" data-info-tab="commentaire">Commentaire</button>
+      <button type="button" class="vlan-tab" data-info-tab="historique">Historique</button>
     </div>
     <form id="form-info" style="-webkit-box-flex:1;-ms-flex:1;flex:1;display:flex;flex-direction:column;min-height:0">
       <input type="hidden" id="info-ip-id">
@@ -559,6 +560,11 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         <div id="info-pane-commentaire" class="hidden">
           <label style="font-size:12px;font-weight:600;color:var(--tx-3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Commentaire</label>
           <textarea id="info-notes" class="inp" rows="10" placeholder="Notes, contexte, ticket associé…" style="resize:none;font-size:13px;padding:9px 12px"></textarea>
+        </div>
+        <div id="info-pane-historique" class="hidden">
+          <div id="info-history-loading" style="color:var(--tx-3);font-size:13px">Chargement…</div>
+          <div id="info-history-empty" class="hidden" style="color:var(--tx-3);font-size:13px">Aucun historique pour ce serveur.</div>
+          <div id="info-history-list" style="display:flex;flex-direction:column;gap:10px"></div>
         </div>
       </div>
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;padding-top:16px;-ms-flex-negative:0;flex-shrink:0">
@@ -738,6 +744,6 @@ function closeModal(id){document.getElementById(id)?.classList.add('hidden')}
   </div>
 </div>
 
-<script type="module" src="/js/site.js?v=3"></script>
+<script type="module" src="/js/site.js?v=95ba589"></script>
 </body>
 </html>
