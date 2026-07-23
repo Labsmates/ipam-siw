@@ -20,6 +20,8 @@ body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-app
 ::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
 *{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
 .hidden{display:none!important}
+.no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}
+.no-scrollbar::-webkit-scrollbar{display:none;width:0;height:0}
 input,select,textarea,button{-webkit-appearance:none;appearance:none}
 input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
 input:focus,select:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
@@ -474,7 +476,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     </div>
     <form id="form-info" style="-webkit-box-flex:1;-ms-flex:1;flex:1;display:flex;flex-direction:column;min-height:0">
       <input type="hidden" id="info-ip-id">
-      <div style="-webkit-box-flex:1;-ms-flex:1;flex:1">
+      <div class="no-scrollbar" style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto;min-height:0">
         <div id="info-pane-contact">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
             <div>

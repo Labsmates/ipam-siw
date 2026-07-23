@@ -939,8 +939,13 @@ function setupModals(user) {
         server_type, cpu, ram, disk_size, programs,
       });
       showToast('Fiche serveur mise à jour', 'success');
-      closeModal('modal-info');
       await loadSite();
+      const updated = (siteData.ips || []).find(i => String(i.id) === String(id));
+      if (updated) {
+        document.getElementById('info-created-by-display').textContent = updated.created_by || '—';
+        document.getElementById('info-created-at-display').textContent = updated.created_at ? fmtDate(updated.created_at) : '—';
+      }
+      _infoHistoryLoadedForId = null; // force le rechargement de l'historique au prochain clic sur l'onglet
     } catch (err) {
       showToast(err.message, 'error');
     } finally {

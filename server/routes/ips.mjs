@@ -59,26 +59,50 @@ router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
       disk_size: isRelease ? '' : disk_size,
       programs: isRelease ? '[]' : (dedupedPrograms !== undefined ? JSON.stringify(dedupedPrograms.slice(0, 20)) : undefined),
     });
+    // Ne consigne que ce qui a réellement changé (ajouté / modifié / supprimé),
+    // pas tous les champs envoyés par le formulaire (la fiche Info renvoie tout à chaque fois).
+    const trunc = s => s.length > 200 ? s.slice(0, 200) + '…' : s;
+    const diffField = (label, key, newVal) => {
+      if (newVal === undefined) return null;
+      const oldVal = (ip[key] || '').trim();
+      const nv = (newVal || '').trim();
+      if (oldVal === nv) return null;
+      if (!oldVal) return `${label} ajouté : "${trunc(nv)}"`;
+      if (!nv) return `${label} supprimé (était "${trunc(oldVal)}")`;
+      return `${label} modifié : "${trunc(oldVal)}" → "${trunc(nv)}"`;
+    };
+    let programsDiff = null;
+    if (dedupedPrograms !== undefined) {
+      let oldPrograms = [];
+      try { oldPrograms = JSON.parse(ip.programs || '[]'); } catch { /* ignore */ }
+      const added   = dedupedPrograms.filter(p => !oldPrograms.includes(p));
+      const removed = oldPrograms.filter(p => !dedupedPrograms.includes(p));
+      if (added.length || removed.length) {
+        programsDiff = `programmes : ${[added.length && `+${added.join(', ')}`, removed.length && `-${removed.join(', ')}`].filter(Boolean).join(' / ')}`;
+      }
+    }
     const details = [
-      status      !== undefined ? `statut → ${status}`              : null,
-      hostname    !== undefined ? `hostname → "${hostname || ''}"`  : null,
-      os          !== undefined ? `OS → "${os || ''}"`              : null,
-      role        !== undefined ? `rôle → "${role || ''}"`          : null,
-      demandeur   !== undefined ? `demandeur → "${demandeur || ''}"` : null,
-      chef_projet !== undefined ? `chef de projet → "${chef_projet || ''}"` : null,
-      direction   !== undefined ? `direction → "${direction || ''}"` : null,
-      product_owner !== undefined ? `product owner → "${product_owner || ''}"` : null,
-      architecte  !== undefined ? `architecte → "${architecte || ''}"` : null,
-      contact     !== undefined ? `contact → "${contact || ''}"`    : null,
-      notes       !== undefined ? `commentaire mis à jour`          : null,
-      server_type !== undefined ? `type serveur → "${server_type || ''}"` : null,
-      cpu         !== undefined ? `CPU → "${cpu || ''}"`            : null,
-      ram         !== undefined ? `RAM → "${ram || ''}"`            : null,
-      disk_size   !== undefined ? `disque → "${disk_size || ''}"`  : null,
-      programs    !== undefined ? `programmes mis à jour`          : null,
+      diffField('statut', 'status', status),
+      diffField('hostname', 'hostname', hostname),
+      diffField('OS', 'os', os),
+      diffField('rôle', 'role', role),
+      diffField('demandeur', 'demandeur', demandeur),
+      diffField('chef de projet', 'chef_projet', chef_projet),
+      diffField('direction', 'direction', direction),
+      diffField('product owner', 'product_owner', product_owner),
+      diffField('architecte', 'architecte', architecte),
+      diffField('contact', 'contact', contact),
+      diffField('commentaire', 'notes', notes),
+      diffField('type serveur', 'server_type', server_type),
+      diffField('CPU', 'cpu', cpu),
+      diffField('RAM', 'ram', ram),
+      diffField('disque', 'disk_size', disk_size),
+      programsDiff,
     ].filter(Boolean).join(', ');
-    await addLog(req.user.username, 'UPDATE_IP', `${ip.ip_address} : ${details}`,
-      status === 'Libre' ? 'info' : 'ok', { ip_address: ip.ip_address });
+    if (details) {
+      await addLog(req.user.username, 'UPDATE_IP', `${ip.ip_address} : ${details}`,
+        status === 'Libre' ? 'info' : 'ok', { ip_address: ip.ip_address });
+    }
     // Archive entry when an IP is released and had a hostname
     if (status === 'Libre' && ip.hostname) {
       await addLog(req.user.username, 'RELEASE_IP',
