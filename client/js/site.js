@@ -40,6 +40,18 @@ function osLogo(os, hostname) {
   return `<img src="/img/os/${os}.svg" width="24" height="24" title="${labels[os] || os}" style="display:block;margin:auto">`;
 }
 
+// Catégories exclues de la fiche Info (mêmes motifs que osLogo) : Gateway, iLO, iDRAC, Nutanix
+function isInfoExcluded(hostname) {
+  const h = (hostname || '').toUpperCase();
+  if (!h) return false;
+  return h.startsWith('GATEWAY') || h.startsWith('ILO-') || h.startsWith('IDRAC-') || /^(?:SPH|SPY|SQH)/.test(h);
+}
+
+const FIXED_PROGRAMS = ['SQL Server', 'IIS', 'SMI Server', 'Apache', 'SQL Management Studio', 'Watchdoc', 'Émulateur Rumba', 'CFT', 'Serveur FTP'];
+const MAX_CUSTOM_PROGRAMS = 6;
+const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '16 vCPU'];
+const RAM_OPTIONS = ['1 Go', '2 Go', '4 Go', '6 Go', '8 Go', '16 Go'];
+
 function setOsPicker(pickerId, hiddenId, value) {
   const picker = document.getElementById(pickerId);
   const hidden = document.getElementById(hiddenId);
@@ -445,6 +457,7 @@ function renderTable() {
       const canToggle    = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
       const toggleTarget = ip.status === 'Utilisé' ? 'Réservée' : 'Utilisé';
       const toggleTitle  = ip.status === 'Utilisé' ? 'Passer en Réservée' : 'Passer en Utilisé';
+      const showInfo     = ip.status !== 'Libre' && !isInfoExcluded(ip.hostname);
 
       return `
         <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
@@ -452,6 +465,12 @@ function renderTable() {
           <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
           <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
+          <td style="padding:6px 10px;text-align:center;width:44px;">
+            ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
+              style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px;display:inline-flex">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </button>` : ''}
+          </td>
           <td style="padding:10px 16px;">${statusBadge(ip.status)}</td>
           <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
           <td style="padding:10px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(ip.updated_at)}</td>
@@ -491,6 +510,7 @@ function renderTable() {
       if (btn.dataset.action === 'reserve') openReserveModal(ipObj);
       else if (btn.dataset.action === 'release') openReleaseModal(ipObj);
       else if (btn.dataset.action === 'rename') openRenameModal(ipObj);
+      else if (btn.dataset.action === 'info') openInfoModal(ipObj);
       else if (btn.dataset.action === 'toggle-status') toggleStatus(ipObj, btn.dataset.target);
       else if (btn.dataset.action === 'delete-ip') deleteIpRow(ipObj);
     });
@@ -536,6 +556,138 @@ function openRenameModal(ipObj) {
   updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
   setOsPicker('rename-os-picker', 'rename-os', ipObj.os || '');
   openModal('modal-rename');
+}
+
+// ---------------------------------------------------------------------------
+// Info modal (fiche serveur)
+// ---------------------------------------------------------------------------
+const INFO_TABS = ['contact', 'technique', 'commentaire'];
+
+function switchInfoTab(tabName) {
+  document.querySelectorAll('#modal-info [data-info-tab]').forEach(btn => btn.classList.toggle('on', btn.dataset.infoTab === tabName));
+  INFO_TABS.forEach(t => document.getElementById(`info-pane-${t}`).classList.toggle('hidden', t !== tabName));
+}
+
+// Liste déroulante avec option "Autre (saisie manuelle)" — CPU / RAM
+function setSelectOrCustom(selectId, customId, options, value) {
+  const select = document.getElementById(selectId);
+  const custom = document.getElementById(customId);
+  if (!value) {
+    select.value = '';
+    custom.classList.add('hidden');
+    custom.value = '';
+  } else if (options.includes(value)) {
+    select.value = value;
+    custom.classList.add('hidden');
+    custom.value = '';
+  } else {
+    select.value = '__custom__';
+    custom.classList.remove('hidden');
+    custom.value = value;
+  }
+}
+
+function getSelectOrCustomValue(selectId, customId) {
+  const select = document.getElementById(selectId);
+  return select.value === '__custom__' ? document.getElementById(customId).value.trim() : select.value;
+}
+
+function wireSelectOrCustom(selectId, customId) {
+  document.getElementById(selectId).addEventListener('change', e => {
+    const custom = document.getElementById(customId);
+    custom.classList.toggle('hidden', e.target.value !== '__custom__');
+    if (e.target.value === '__custom__') custom.focus();
+  });
+}
+
+function setServerTypePicker(value) {
+  document.getElementById('info-server-type').value = value || '';
+  document.querySelectorAll('#info-server-type-picker .server-type-btn').forEach(btn => {
+    const isSel = btn.dataset.type === value;
+    btn.classList.toggle('btn-p', isSel);
+    btn.classList.toggle('btn-g', !isSel);
+    // Une fois un type choisi, l'autre bouton se masque — cliquer sur le bouton visible permet de revenir en arrière
+    btn.style.display = (!value || isSel) ? '' : 'none';
+  });
+}
+
+// Rendu unique des 9 cases fixes (contenu statique, appelé une fois au chargement)
+function renderFixedPrograms() {
+  const el = document.getElementById('info-programs-fixed');
+  el.innerHTML = FIXED_PROGRAMS.map(name => `
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+      <input type="checkbox" class="info-program-fixed" value="${esc(name)}"> ${esc(name)}
+    </label>
+  `).join('');
+}
+
+function addCustomProgramRow(value = '', checked = true) {
+  const container = document.getElementById('info-programs-custom');
+  if (container.children.length >= MAX_CUSTOM_PROGRAMS) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:4px;min-width:0';
+  row.innerHTML = `
+    <input type="checkbox" class="info-program-custom-check" style="-ms-flex-negative:0;flex-shrink:0">
+    <input type="text" class="inp info-program-custom" placeholder="Nom du programme…" autocomplete="off" style="min-width:0;padding:6px 8px;font-size:12.5px">
+    <button type="button" class="btn btn-g btn-sm btn-remove-program" style="padding:5px 8px;-ms-flex-negative:0;flex-shrink:0">✕</button>
+  `;
+  row.querySelector('.info-program-custom-check').checked = checked;
+  row.querySelector('.info-program-custom').value = value;
+  row.querySelector('.btn-remove-program').addEventListener('click', () => {
+    row.remove();
+    updateAddProgramBtnState();
+  });
+  container.appendChild(row);
+  updateAddProgramBtnState();
+}
+
+function updateAddProgramBtnState() {
+  const container = document.getElementById('info-programs-custom');
+  const btn = document.getElementById('btn-add-program');
+  const isViewer = user?.role === 'viewer';
+  btn.style.display = (isViewer || container.children.length >= MAX_CUSTOM_PROGRAMS) ? 'none' : '';
+  container.querySelectorAll('.btn-remove-program').forEach(b => b.style.display = isViewer ? 'none' : '');
+  container.querySelectorAll('.info-program-custom, .info-program-custom-check').forEach(el => el.disabled = isViewer);
+}
+
+function openInfoModal(ipObj) {
+  document.getElementById('info-ip-id').value = ipObj.id;
+  document.getElementById('info-hostname-display').textContent = ipObj.hostname || '—';
+  document.getElementById('info-site-display').textContent = siteData.site?.name || '—';
+  document.getElementById('info-created-by-display').textContent = ipObj.created_by || '—';
+  document.getElementById('info-created-at-display').textContent = ipObj.created_at ? fmtDate(ipObj.created_at) : '—';
+  document.getElementById('info-role').value        = ipObj.role || '';
+  document.getElementById('info-demandeur').value   = ipObj.demandeur || '';
+  document.getElementById('info-chef-projet').value = ipObj.chef_projet || '';
+  document.getElementById('info-direction').value   = ipObj.direction || '';
+  document.getElementById('info-product-owner').value = ipObj.product_owner || '';
+  document.getElementById('info-architecte').value  = ipObj.architecte || '';
+  document.getElementById('info-contact').value     = ipObj.contact || '';
+  document.getElementById('info-notes').value       = ipObj.notes || '';
+
+  // Fiche technique
+  setServerTypePicker(ipObj.server_type || '');
+  setSelectOrCustom('info-cpu-select', 'info-cpu-custom', CPU_OPTIONS, ipObj.cpu || '');
+  setSelectOrCustom('info-ram-select', 'info-ram-custom', RAM_OPTIONS, ipObj.ram || '');
+  document.getElementById('info-disk-size').value = ipObj.disk_size || '';
+  let programs = [];
+  try { programs = JSON.parse(ipObj.programs || '[]'); } catch { programs = []; }
+  document.querySelectorAll('.info-program-fixed').forEach(cb => cb.checked = programs.includes(cb.value));
+  document.getElementById('info-programs-custom').innerHTML = '';
+  programs.filter(p => !FIXED_PROGRAMS.includes(p)).slice(0, MAX_CUSTOM_PROGRAMS).forEach(p => addCustomProgramRow(p));
+  updateAddProgramBtnState();
+
+  switchInfoTab('contact');
+
+  const isViewer = user?.role === 'viewer';
+  ['info-role', 'info-demandeur', 'info-chef-projet', 'info-direction', 'info-product-owner', 'info-architecte', 'info-contact', 'info-notes',
+   'info-cpu-select', 'info-cpu-custom', 'info-ram-select', 'info-ram-custom', 'info-disk-size']
+    .forEach(id => document.getElementById(id).disabled = isViewer);
+  document.querySelectorAll('#info-server-type-picker .server-type-btn').forEach(btn => btn.disabled = isViewer);
+  document.querySelectorAll('.info-program-fixed').forEach(cb => cb.disabled = isViewer);
+  document.getElementById('btn-save-info').style.display = isViewer ? 'none' : '';
+
+  openModal('modal-info');
 }
 
 // ---------------------------------------------------------------------------
@@ -682,6 +834,60 @@ function setupModals(user) {
     if (document.getElementById('release-comment')) document.getElementById('release-comment').value = '';
     closeModal('modal-release');
   });
+
+  // --- Info (fiche serveur) ---
+  renderFixedPrograms();
+  wireSelectOrCustom('info-cpu-select', 'info-cpu-custom');
+  wireSelectOrCustom('info-ram-select', 'info-ram-custom');
+  document.querySelectorAll('#modal-info [data-info-tab]').forEach(btn => {
+    btn.addEventListener('click', () => switchInfoTab(btn.dataset.infoTab));
+  });
+  document.querySelectorAll('#info-server-type-picker .server-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = document.getElementById('info-server-type').value;
+      setServerTypePicker(btn.dataset.type === current ? '' : btn.dataset.type);
+    });
+  });
+  document.getElementById('btn-add-program').addEventListener('click', () => addCustomProgramRow());
+
+  document.getElementById('form-info').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id          = document.getElementById('info-ip-id').value;
+    const role        = document.getElementById('info-role').value.trim();
+    const demandeur   = document.getElementById('info-demandeur').value.trim();
+    const chef_projet = document.getElementById('info-chef-projet').value.trim();
+    const direction   = document.getElementById('info-direction').value.trim();
+    const product_owner = document.getElementById('info-product-owner').value.trim();
+    const architecte  = document.getElementById('info-architecte').value.trim();
+    const contact     = document.getElementById('info-contact').value.trim();
+    const notes       = document.getElementById('info-notes').value.trim();
+    const server_type = document.getElementById('info-server-type').value;
+    const cpu         = getSelectOrCustomValue('info-cpu-select', 'info-cpu-custom');
+    const ram         = getSelectOrCustomValue('info-ram-select', 'info-ram-custom');
+    const disk_size   = document.getElementById('info-disk-size').value.trim();
+    const fixedChecked = [...document.querySelectorAll('.info-program-fixed')].filter(cb => cb.checked).map(cb => cb.value);
+    const customValues = [...document.querySelectorAll('#info-programs-custom > div')]
+      .filter(row => row.querySelector('.info-program-custom-check').checked && row.querySelector('.info-program-custom').value.trim())
+      .map(row => row.querySelector('.info-program-custom').value.trim());
+    const programs = [...fixedChecked, ...customValues];
+    if (!await showConfirm({ title: 'Confirmer les modifications', message: 'Enregistrer les modifications apportées à la fiche serveur ?', confirmText: 'Enregistrer' })) return;
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put(`/api/ips/${encodeURIComponent(id)}`, {
+        role, demandeur, chef_projet, direction, product_owner, architecte, contact, notes,
+        server_type, cpu, ram, disk_size, programs,
+      });
+      showToast('Fiche serveur mise à jour', 'success');
+      closeModal('modal-info');
+      await loadSite();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Enregistrer';
+    }
+  });
+  document.getElementById('btn-cancel-info').addEventListener('click', () => closeModal('modal-info'));
 
   // --- Request VLAN (utilisateur uniquement, pas viewer) ---
   if (user?.role === 'user') {

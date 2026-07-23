@@ -20,19 +20,51 @@ function requireNonViewer(req, res, next) {
   next();
 }
 
-// PUT /api/ips/:id — modifier statut et/ou hostname
+// PUT /api/ips/:id — modifier statut et/ou hostname et/ou fiche serveur (Info)
 router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
   try {
-    const { status, hostname, os, comment } = req.body || {};
-    if (status === undefined && hostname === undefined && os === undefined)
-      return res.status(400).json({ error: 'Statut, hostname ou OS requis' });
+    const { status, hostname, os, comment, role, demandeur, chef_projet, direction, product_owner, architecte, contact, notes,
+      server_type, cpu, ram, disk_size, programs } = req.body || {};
+    if ([status, hostname, os, role, demandeur, chef_projet, direction, product_owner, architecte, contact, notes,
+      server_type, cpu, ram, disk_size, programs].every(v => v === undefined))
+      return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
+    if (programs !== undefined && !Array.isArray(programs))
+      return res.status(400).json({ error: 'Format de programmes invalide' });
     const ip = await getIp(req.params.id);
     if (!ip) return res.status(404).json({ error: 'IP introuvable' });
-    await updateIp(req.params.id, { status, hostname: status === 'Libre' ? '' : hostname, os: status === 'Libre' ? '' : os });
+    const isRelease = status === 'Libre';
+    // Capture l'auteur dès que l'IP a (ou reçoit) un hostname et n'en a pas encore —
+    // couvre la première assignation, mais aussi les IPs déjà assignées avant l'ajout de ce champ
+    const effectiveHostname = hostname !== undefined ? hostname : ip.hostname;
+    const isFirstAssignment = !isRelease && !ip.created_by && effectiveHostname && effectiveHostname.trim();
+    await updateIp(req.params.id, {
+      status, hostname: isRelease ? '' : hostname, os: isRelease ? '' : os,
+      role: isRelease ? '' : role,
+      demandeur: isRelease ? '' : demandeur, chef_projet: isRelease ? '' : chef_projet,
+      direction: isRelease ? '' : direction, product_owner: isRelease ? '' : product_owner,
+      architecte: isRelease ? '' : architecte, contact: isRelease ? '' : contact, notes: isRelease ? '' : notes,
+      created_by: isRelease ? '' : (isFirstAssignment ? req.user.username : undefined),
+      server_type: isRelease ? '' : server_type, cpu: isRelease ? '' : cpu, ram: isRelease ? '' : ram,
+      disk_size: isRelease ? '' : disk_size,
+      programs: isRelease ? '[]' : (programs !== undefined ? JSON.stringify(programs.slice(0, 20)) : undefined),
+    });
     const details = [
-      status   !== undefined ? `statut → ${status}`            : null,
-      hostname !== undefined ? `hostname → "${hostname || ''}"` : null,
-      os       !== undefined ? `OS → "${os || ''}"`            : null,
+      status      !== undefined ? `statut → ${status}`              : null,
+      hostname    !== undefined ? `hostname → "${hostname || ''}"`  : null,
+      os          !== undefined ? `OS → "${os || ''}"`              : null,
+      role        !== undefined ? `rôle → "${role || ''}"`          : null,
+      demandeur   !== undefined ? `demandeur → "${demandeur || ''}"` : null,
+      chef_projet !== undefined ? `chef de projet → "${chef_projet || ''}"` : null,
+      direction   !== undefined ? `direction → "${direction || ''}"` : null,
+      product_owner !== undefined ? `product owner → "${product_owner || ''}"` : null,
+      architecte  !== undefined ? `architecte → "${architecte || ''}"` : null,
+      contact     !== undefined ? `contact → "${contact || ''}"`    : null,
+      notes       !== undefined ? `commentaire mis à jour`          : null,
+      server_type !== undefined ? `type serveur → "${server_type || ''}"` : null,
+      cpu         !== undefined ? `CPU → "${cpu || ''}"`            : null,
+      ram         !== undefined ? `RAM → "${ram || ''}"`            : null,
+      disk_size   !== undefined ? `disque → "${disk_size || ''}"`  : null,
+      programs    !== undefined ? `programmes mis à jour`          : null,
     ].filter(Boolean).join(', ');
     await addLog(req.user.username, 'UPDATE_IP', `${ip.ip_address} : ${details}`,
       status === 'Libre' ? 'info' : 'ok');

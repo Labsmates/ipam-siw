@@ -648,7 +648,7 @@ export async function deleteIp(id) {
 
 const VALID_OS = ['redhat', 'nutanix', 'win2022', 'win2025', ''];
 
-export async function updateIp(id, { status, hostname, os }) {
+export async function updateIp(id, { status, hostname, os, role, demandeur, chef_projet, direction, product_owner, architecte, contact, notes, created_by, server_type, cpu, ram, disk_size, programs }) {
   const VALID = ['Libre', 'Utilisé', 'Réservée'];
   const ip = await redis.hgetall(`ip:${id}`);
   if (!ip?.ip_address) throw new Error('IP introuvable');
@@ -681,6 +681,20 @@ export async function updateIp(id, { status, hostname, os }) {
     if (!VALID_OS.includes(osVal)) throw new Error('OS invalide');
     patch.os = osVal;
   }
+  if (role !== undefined) patch.role = role;
+  if (demandeur !== undefined) patch.demandeur = demandeur;
+  if (chef_projet !== undefined) patch.chef_projet = chef_projet;
+  if (direction !== undefined) patch.direction = direction;
+  if (product_owner !== undefined) patch.product_owner = product_owner;
+  if (architecte !== undefined) patch.architecte = architecte;
+  if (contact !== undefined) patch.contact = contact;
+  if (notes !== undefined) patch.notes = notes;
+  if (created_by !== undefined) patch.created_by = created_by;
+  if (server_type !== undefined) patch.server_type = server_type;
+  if (cpu !== undefined) patch.cpu = cpu;
+  if (ram !== undefined) patch.ram = ram;
+  if (disk_size !== undefined) patch.disk_size = disk_size;
+  if (programs !== undefined) patch.programs = programs;
   await redis.hset(`ip:${id}`, patch);
 }
 

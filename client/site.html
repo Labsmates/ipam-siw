@@ -278,6 +278,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
             <th style="text-align:left;padding:9px 24px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);white-space:nowrap">Adresse IP</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">Hostname</th>
             <th style="text-align:center;padding:9px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:44px">OS</th>
+            <th style="text-align:center;padding:9px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:44px">Info</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">Statut</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">VLAN</th>
             <th style="text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd)">Mis à jour</th>
@@ -427,6 +428,142 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
       <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
         <button type="button" id="btn-cancel-rename" class="btn btn-g">Annuler</button>
         <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Info -->
+<div id="modal-info" class="modal-overlay hidden">
+  <div class="modal-box" style="width:760px;height:650px;display:flex;flex-direction:column">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Fiche serveur</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Informations et contacts liés à ce serveur</div>
+      </div>
+      <button onclick="closeModal('modal-info')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:12px;margin-bottom:18px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px">
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Hostname</span>
+        <code id="info-hostname-display" style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px"></code>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Site</span>
+        <span id="info-site-display" style="font-weight:500"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Créé par</span>
+        <span id="info-created-by-display" style="font-weight:500"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Date de création</span>
+        <span id="info-created-at-display" style="font-weight:500"></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:4px;border-bottom:1px solid var(--brd);margin-bottom:16px;-ms-flex-negative:0;flex-shrink:0">
+      <button type="button" class="vlan-tab on" data-info-tab="contact">Info contact</button>
+      <button type="button" class="vlan-tab" data-info-tab="technique">Fiche technique</button>
+      <button type="button" class="vlan-tab" data-info-tab="commentaire">Commentaire</button>
+    </div>
+    <form id="form-info" style="-webkit-box-flex:1;-ms-flex:1;flex:1;display:flex;flex-direction:column;min-height:0">
+      <input type="hidden" id="info-ip-id">
+      <div style="-webkit-box-flex:1;-ms-flex:1;flex:1">
+        <div id="info-pane-contact">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle</label>
+              <input type="text" id="info-role" class="inp" placeholder="ex : Serveur de Fichier, Serveur Rumba…" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Demandeur</label>
+              <input type="text" id="info-demandeur" class="inp" placeholder="ex : Jean Dupont" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Chef de projet</label>
+              <input type="text" id="info-chef-projet" class="inp" placeholder="ex : Marie Martin" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Direction</label>
+              <input type="text" id="info-direction" class="inp" placeholder="ex : Direction des Systèmes d'Information" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Product Owner</label>
+              <input type="text" id="info-product-owner" class="inp" placeholder="ex : Sophie Bernard" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Architecte</label>
+              <input type="text" id="info-architecte" class="inp" placeholder="ex : Paul Lambert" autocomplete="off">
+            </div>
+            <div style="grid-column:1/-1">
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Contact</label>
+              <input type="text" id="info-contact" class="inp" placeholder="ex : jean.dupont@exemple.fr" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div id="info-pane-technique" class="hidden">
+          <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px">
+            <label style="font-size:13px;font-weight:500;white-space:nowrap">Type de serveur</label>
+            <div id="info-server-type-picker" style="display:flex;gap:6px">
+              <button type="button" class="btn btn-g btn-sm server-type-btn" data-type="VM">VM</button>
+              <button type="button" class="btn btn-g btn-sm server-type-btn" data-type="Physique">Physique</button>
+            </div>
+            <input type="hidden" id="info-server-type">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">CPU</label>
+              <select id="info-cpu-select" class="inp">
+                <option value="">—</option>
+                <option value="1 vCPU">1 vCPU</option>
+                <option value="2 vCPU">2 vCPU</option>
+                <option value="4 vCPU">4 vCPU</option>
+                <option value="6 vCPU">6 vCPU</option>
+                <option value="8 vCPU">8 vCPU</option>
+                <option value="16 vCPU">16 vCPU</option>
+                <option value="__custom__">Autre (saisie manuelle)</option>
+              </select>
+              <input type="text" id="info-cpu-custom" class="inp hidden" placeholder="ex : 12 vCPU" autocomplete="off" style="margin-top:6px">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">RAM</label>
+              <select id="info-ram-select" class="inp">
+                <option value="">—</option>
+                <option value="1 Go">1 Go</option>
+                <option value="2 Go">2 Go</option>
+                <option value="4 Go">4 Go</option>
+                <option value="6 Go">6 Go</option>
+                <option value="8 Go">8 Go</option>
+                <option value="16 Go">16 Go</option>
+                <option value="__custom__">Autre (saisie manuelle)</option>
+              </select>
+              <input type="text" id="info-ram-custom" class="inp hidden" placeholder="ex : 32 Go" autocomplete="off" style="margin-top:6px">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Taille Disque (D)</label>
+              <input type="text" id="info-disk-size" class="inp" placeholder="ex : 500 Go" autocomplete="off">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--tx-3);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Programmes installés</label>
+            <div id="info-programs-fixed" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;margin-bottom:10px;font-size:13px"></div>
+            <div id="info-programs-custom" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;margin-bottom:10px"></div>
+            <button type="button" id="btn-add-program" class="btn btn-g btn-sm">+ Ajouter un programme</button>
+          </div>
+        </div>
+        <div id="info-pane-commentaire" class="hidden">
+          <label style="font-size:12px;font-weight:600;color:var(--tx-3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Commentaire</label>
+          <textarea id="info-notes" class="inp" rows="10" placeholder="Notes, contexte, ticket associé…" style="resize:none;font-size:13px;padding:9px 12px"></textarea>
+        </div>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;padding-top:16px;-ms-flex-negative:0;flex-shrink:0">
+        <button type="button" id="btn-cancel-info" class="btn btn-g">Fermer</button>
+        <button type="submit" id="btn-save-info" class="btn btn-p">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           Enregistrer
         </button>
