@@ -457,7 +457,9 @@ function renderTable() {
       const canToggle    = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
       const toggleTarget = ip.status === 'Utilisé' ? 'Réservée' : 'Utilisé';
       const toggleTitle  = ip.status === 'Utilisé' ? 'Passer en Réservée' : 'Passer en Utilisé';
-      const showInfo     = ip.status !== 'Libre' && !isInfoExcluded(ip.hostname);
+      const isMetierVlan = (vlan?.description || '').trim().toUpperCase() === 'METIER';
+      const isReservedHostname = (ip.hostname || '').trim().toLowerCase().startsWith('réservée');
+      const showInfo     = isMetierVlan && ip.status !== 'Libre' && !isReservedHostname && !isInfoExcluded(ip.hostname);
 
       return `
         <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
