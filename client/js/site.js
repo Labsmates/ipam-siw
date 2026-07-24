@@ -493,7 +493,8 @@ function renderTable() {
       const isEmptyHostname = !(ip.hostname || '').trim();
       const hideMetierReserved = vlanTag === 'METIER' && ip.status === 'Réservée' && (isReservedHostname || isEmptyHostname);
       const showInfo     = isEligibleVlan && ip.status !== 'Libre' && !isReservedHostname && !hideMetierReserved && !isInfoExcluded(ip.hostname);
-      const infoFilled   = hasInfoData(ip);
+      const isProcefAF   = vlanTag === 'PROCEF' && /AF21|AF22/i.test(ip.hostname || '');
+      const infoFilled   = hasInfoData(ip) || isProcefAF;
       const infoIconStyle = infoFilled
         ? 'background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex'
         : 'background:none;border:1px solid transparent;border-radius:6px;color:var(--tx-3);cursor:pointer;padding:4px;display:inline-flex';
