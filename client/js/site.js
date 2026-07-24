@@ -64,10 +64,11 @@ const PROCEF_DEFAULTS = {
   role: 'Serveurs PROCEF',
   demandeur: 'LBP DOSB SOLU PART EXP',
   chef_projet: 'Florence MENARD',
-  direction: 'Service Généraux du CREC',
+  direction: 'Services Généraux du CREC',
   product_owner: 'Leila BOUHOUT',
   architecte: 'Francois-Hugues M.',
   contact: 'leila.bouhout@labanquepostale.fr',
+  server_type: 'Physique',
   cpu: '12 vCPU',
   ram: '64 Go',
   disk_size: '24 To',
@@ -490,9 +491,8 @@ function renderTable() {
       const vlanTag = (vlan?.description || '').trim().toUpperCase();
       const isEligibleVlan = INFO_VLAN_TAGS.includes(vlanTag);
       const isReservedHostname = (ip.hostname || '').trim().toLowerCase().startsWith('réservée');
-      const isEmptyHostname = !(ip.hostname || '').trim();
-      const hideMetierReserved = vlanTag === 'METIER' && ip.status === 'Réservée' && (isReservedHostname || isEmptyHostname);
-      const showInfo     = isEligibleVlan && ip.status !== 'Libre' && !isReservedHostname && !hideMetierReserved && !isInfoExcluded(ip.hostname);
+      // Statut "Réservée" jamais éligible à l'icône Info (METIER/PROCEF/CACI) — seul "Utilisé" l'est
+      const showInfo     = isEligibleVlan && ip.status === 'Utilisé' && !isReservedHostname && !isInfoExcluded(ip.hostname);
       const isProcefAF   = vlanTag === 'PROCEF' && /AF21|AF22/i.test(ip.hostname || '');
       const infoFilled   = hasInfoData(ip) || isProcefAF;
       const infoIconStyle = infoFilled
@@ -782,6 +782,7 @@ function openInfoModal(ipObj) {
     document.getElementById('info-product-owner').value  = PROCEF_DEFAULTS.product_owner;
     document.getElementById('info-architecte').value     = PROCEF_DEFAULTS.architecte;
     document.getElementById('info-contact').value        = PROCEF_DEFAULTS.contact;
+    setServerTypePicker(PROCEF_DEFAULTS.server_type);
     setSelectOrCustom('info-cpu-select', 'info-cpu-custom', CPU_OPTIONS, PROCEF_DEFAULTS.cpu);
     setSelectOrCustom('info-ram-select', 'info-ram-custom', RAM_OPTIONS, PROCEF_DEFAULTS.ram);
     document.getElementById('info-disk-size').value = PROCEF_DEFAULTS.disk_size;

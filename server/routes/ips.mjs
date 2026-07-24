@@ -9,10 +9,11 @@ const PROCEF_DEFAULTS = {
   role: 'Serveurs PROCEF',
   demandeur: 'LBP DOSB SOLU PART EXP',
   chef_projet: 'Florence MENARD',
-  direction: 'Service Généraux du CREC',
+  direction: 'Services Généraux du CREC',
   product_owner: 'Leila BOUHOUT',
   architecte: 'Francois-Hugues M.',
   contact: 'leila.bouhout@labanquepostale.fr',
+  server_type: 'Physique',
   cpu: '12 vCPU',
   ram: '64 Go',
   disk_size: '24 To',
@@ -84,6 +85,7 @@ router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
     const effProductOwner = product_owner !== undefined ? product_owner : procefFill?.product_owner;
     const effArchitecte  = architecte !== undefined ? architecte : procefFill?.architecte;
     const effContact     = contact !== undefined ? contact : procefFill?.contact;
+    const effServerType  = server_type !== undefined ? server_type : procefFill?.server_type;
     const effCpu         = cpu !== undefined ? cpu : procefFill?.cpu;
     const effRam         = ram !== undefined ? ram : procefFill?.ram;
     const effDiskSize    = disk_size !== undefined ? disk_size : procefFill?.disk_size;
@@ -96,7 +98,7 @@ router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
       direction: isRelease ? '' : effDirection, product_owner: isRelease ? '' : effProductOwner,
       architecte: isRelease ? '' : effArchitecte, contact: isRelease ? '' : effContact, notes: isRelease ? '' : notes,
       created_by: isRelease ? '' : (isFirstAssignment ? req.user.username : undefined),
-      server_type: isRelease ? '' : server_type, cpu: isRelease ? '' : effCpu, ram: isRelease ? '' : effRam,
+      server_type: isRelease ? '' : effServerType, cpu: isRelease ? '' : effCpu, ram: isRelease ? '' : effRam,
       disk_size: isRelease ? '' : effDiskSize,
       programs: isRelease ? '[]' : (effPrograms !== undefined ? JSON.stringify(effPrograms.slice(0, 20)) : undefined),
     });
@@ -135,7 +137,7 @@ router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
       diffField('architecte', 'architecte', effArchitecte),
       diffField('contact', 'contact', effContact),
       diffField('commentaire', 'notes', notes),
-      diffField('type serveur', 'server_type', server_type),
+      diffField('type serveur', 'server_type', effServerType),
       diffField('CPU', 'cpu', effCpu),
       diffField('RAM', 'ram', effRam),
       diffField('disque', 'disk_size', effDiskSize),
