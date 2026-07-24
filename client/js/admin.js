@@ -1052,6 +1052,26 @@ async function loadSiteStats() {
         </div>`;
     }
 
+    function userLoginsList(users) {
+      if (!users.length) {
+        return `<div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px 24px;color:var(--tx-3);font-size:13px;">Aucune connexion tracée.</div>`;
+      }
+      const max = Math.max(...users.map(u => u.logins));
+      const rows = users.map(u => `
+        <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--bg-4);">
+          <span style="font-size:13px;color:var(--tx-1);font-weight:500;min-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(u.username)}</span>
+          <div style="flex:1;background:var(--bg-4);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:${max ? Math.round(u.logins / max * 100) : 0}%;height:100%;background:#58a6ff;border-radius:4px;"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:#58a6ff;min-width:70px;text-align:right;">${u.logins.toLocaleString('fr')} cnx</span>
+        </div>`).join('');
+      return `
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px 24px;">
+          <div style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">Connexions par utilisateur</div>
+          ${rows}
+        </div>`;
+    }
+
     const br = d.by_role || {};
     const roles = ['admin', 'user', 'viewer'];
 
@@ -1077,6 +1097,9 @@ async function loadSiteStats() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
         ${donutChart('Connexions par rôle', loginSlices)}
         ${donutChart('Durée moy. par rôle', durSlices)}
+      </div>
+      <div style="margin-bottom:16px;">
+        ${userLoginsList(d.by_user || [])}
       </div>
       <p style="color:var(--tx-4);font-size:12px;margin:0;">
         Durée calculée sur ${d.sample} session${d.sample !== 1 ? 's' : ''} tracée${d.sample !== 1 ? 's' : ''}.

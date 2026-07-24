@@ -82,6 +82,7 @@ router.get('/site-stats', requireAuth, requireSuperAdmin, async (req, res) => {
     const ROLES = ['admin', 'user', 'viewer'];
     const byRole = {};
     ROLES.forEach(r => { byRole[r] = { logins: 0, duration_total: 0, duration_count: 0 }; });
+    const byUser = {};
 
     for (const l of all) {
       const ts   = l.created_at ? new Date(l.created_at).getTime() : 0;
@@ -92,6 +93,7 @@ router.get('/site-stats', requireAuth, requireSuperAdmin, async (req, res) => {
         if (ts >= monthStart) monthLogins++;
         if (ts >= yearStart)  yearLogins++;
         rb.logins++;
+        byUser[l.username] = (byUser[l.username] || 0) + 1;
       } else if (l.action === 'LOGOUT') {
         try {
           const d = JSON.parse(l.details || '{}');
@@ -118,7 +120,11 @@ router.get('/site-stats', requireAuth, requireSuperAdmin, async (req, res) => {
       };
     });
 
-    res.json({ week: weekLogins, month: monthLogins, year: yearLogins, avg_duration_s, sample: durations.length, by_role: byRoleOut });
+    const byUserOut = Object.entries(byUser)
+      .map(([username, logins]) => ({ username, logins }))
+      .sort((a, b) => b.logins - a.logins);
+
+    res.json({ week: weekLogins, month: monthLogins, year: yearLogins, avg_duration_s, sample: durations.length, by_role: byRoleOut, by_user: byUserOut });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
