@@ -478,6 +478,7 @@ function renderTable() {
   } else {
     if (emptyEl) emptyEl.style.display = 'none';
     if (tableEl) tableEl.style.display = '';
+    const isCrecOrleansBuffon = (siteData.site?.name || '').trim().toUpperCase() === 'CREC ORLEANS BUFFON';
     tbody.innerHTML = slice.map(ip => {
       const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
       const vlanLabel = vlan ? `VLAN ${vlan.vlan_id}` : '—';
@@ -491,8 +492,15 @@ function renderTable() {
       const vlanTag = (vlan?.description || '').trim().toUpperCase();
       const isEligibleVlan = INFO_VLAN_TAGS.includes(vlanTag);
       const isReservedHostname = (ip.hostname || '').trim().toLowerCase().startsWith('réservée');
-      // Statut "Réservée" jamais éligible à l'icône Info (METIER/PROCEF/CACI) — seul "Utilisé" l'est
-      const showInfo     = isEligibleVlan && ip.status === 'Utilisé' && !isReservedHostname && !isInfoExcluded(ip.hostname);
+      const hostnameLower = (ip.hostname || '').toLowerCase();
+      const hasWindowsDomain = hostnameLower.includes('dct.adt.local');
+      const hasLinuxDomain   = hostnameLower.includes('sf.intra.laposte.fr');
+      // Statut "Réservée" normalement exclu, sauf hostname classifié Windows/Linux (domaine connu)
+      const reservedButClassified = ip.status === 'Réservée' && (hasWindowsDomain || hasLinuxDomain);
+      const metierProcefCaciOk = isEligibleVlan && (ip.status === 'Utilisé' || reservedButClassified) && !isReservedHostname && !isInfoExcluded(ip.hostname);
+      // Exception : site CREC ORLEANS BUFFON, VLAN ADMIN, serveurs Windows
+      const adminException = isCrecOrleansBuffon && vlanTag === 'ADMIN' && hasWindowsDomain && ip.status !== 'Libre' && !isReservedHostname;
+      const showInfo     = metierProcefCaciOk || adminException;
       const isProcefAF   = vlanTag === 'PROCEF' && /AF21|AF22/i.test(ip.hostname || '');
       const infoFilled   = hasInfoData(ip) || isProcefAF;
       const infoIconStyle = infoFilled
