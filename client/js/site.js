@@ -64,6 +64,7 @@ const PROCEF_DEFAULTS = {
   role: 'Serveurs PROCEF',
   demandeur: 'LBP DOSB SOLU PART EXP',
   chef_projet: 'Florence MENARD',
+  direction: 'Service Généraux du CREC',
   product_owner: 'Leila BOUHOUT',
   architecte: 'Francois-Hugues M.',
   contact: 'leila.bouhout@labanquepostale.fr',
@@ -75,8 +76,8 @@ const PROCEF_DEFAULTS = {
 
 const FIXED_PROGRAMS = ['SQL Server', 'IIS', 'SMI Server', 'Apache', 'SQL Management Studio', 'Watchdoc', 'Émulateur Rumba', 'CFT', 'Serveur FTP'];
 const MAX_CUSTOM_PROGRAMS = 6;
-const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '16 vCPU'];
-const RAM_OPTIONS = ['1 Go', '2 Go', '4 Go', '6 Go', '8 Go', '16 Go'];
+const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '12 vCPU', '16 vCPU'];
+const RAM_OPTIONS = ['1 Go', '2 Go', '4 Go', '6 Go', '8 Go', '16 Go', '64 Go'];
 // Rôles repris des Statistiques serveurs (Windows par rôle, Linux par rôle, XMB) —
 // la sélection "Autre (saisie manuelle)" couvre les futurs rôles non encore catalogués.
 const ROLE_OPTIONS = [...WIN_ROLES.map(r => r.label), ...LIN_ROLES.map(r => r.label), XMB_ROLE_LABEL];
@@ -486,9 +487,12 @@ function renderTable() {
       const canToggle    = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
       const toggleTarget = ip.status === 'Utilisé' ? 'Réservée' : 'Utilisé';
       const toggleTitle  = ip.status === 'Utilisé' ? 'Passer en Réservée' : 'Passer en Utilisé';
-      const isEligibleVlan = INFO_VLAN_TAGS.includes((vlan?.description || '').trim().toUpperCase());
+      const vlanTag = (vlan?.description || '').trim().toUpperCase();
+      const isEligibleVlan = INFO_VLAN_TAGS.includes(vlanTag);
       const isReservedHostname = (ip.hostname || '').trim().toLowerCase().startsWith('réservée');
-      const showInfo     = isEligibleVlan && ip.status !== 'Libre' && !isReservedHostname && !isInfoExcluded(ip.hostname);
+      const isEmptyHostname = !(ip.hostname || '').trim();
+      const hideMetierReserved = vlanTag === 'METIER' && ip.status === 'Réservée' && (isReservedHostname || isEmptyHostname);
+      const showInfo     = isEligibleVlan && ip.status !== 'Libre' && !isReservedHostname && !hideMetierReserved && !isInfoExcluded(ip.hostname);
       const infoFilled   = hasInfoData(ip);
       const infoIconStyle = infoFilled
         ? 'background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex'
@@ -773,6 +777,7 @@ function openInfoModal(ipObj) {
     setSelectOrCustom('info-role-select', 'info-role-custom', ROLE_OPTIONS, PROCEF_DEFAULTS.role);
     document.getElementById('info-demandeur').value      = PROCEF_DEFAULTS.demandeur;
     document.getElementById('info-chef-projet').value    = PROCEF_DEFAULTS.chef_projet;
+    document.getElementById('info-direction').value      = PROCEF_DEFAULTS.direction;
     document.getElementById('info-product-owner').value  = PROCEF_DEFAULTS.product_owner;
     document.getElementById('info-architecte').value     = PROCEF_DEFAULTS.architecte;
     document.getElementById('info-contact').value        = PROCEF_DEFAULTS.contact;
