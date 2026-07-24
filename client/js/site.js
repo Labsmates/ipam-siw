@@ -48,6 +48,13 @@ function isInfoExcluded(hostname) {
   return h.startsWith('GATEWAY') || h.startsWith('ILO-') || h.startsWith('IDRAC-') || /^(?:SPH|SPY|SQH)/.test(h);
 }
 
+// Vrai si au moins un champ de la fiche serveur a été renseigné (icône Info verte vs grise)
+function hasInfoData(ip) {
+  return !!(ip.role || ip.demandeur || ip.chef_projet || ip.direction || ip.product_owner || ip.architecte ||
+    ip.contact || ip.notes || ip.server_type || ip.cpu || ip.ram || ip.disk_size ||
+    (ip.programs && ip.programs !== '[]'));
+}
+
 const FIXED_PROGRAMS = ['SQL Server', 'IIS', 'SMI Server', 'Apache', 'SQL Management Studio', 'Watchdoc', 'Émulateur Rumba', 'CFT', 'Serveur FTP'];
 const MAX_CUSTOM_PROGRAMS = 6;
 const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '16 vCPU'];
@@ -464,6 +471,10 @@ function renderTable() {
       const isMetierVlan = (vlan?.description || '').trim().toUpperCase() === 'METIER';
       const isReservedHostname = (ip.hostname || '').trim().toLowerCase().startsWith('réservée');
       const showInfo     = isMetierVlan && ip.status !== 'Libre' && !isReservedHostname && !isInfoExcluded(ip.hostname);
+      const infoFilled   = hasInfoData(ip);
+      const infoIconStyle = infoFilled
+        ? 'background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex'
+        : 'background:none;border:1px solid transparent;border-radius:6px;color:var(--tx-3);cursor:pointer;padding:4px;display:inline-flex';
 
       return `
         <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
@@ -473,7 +484,7 @@ function renderTable() {
           <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">
             ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
-              style="background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex">
+              style="${infoIconStyle}">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             </button>` : ''}
           </td>
