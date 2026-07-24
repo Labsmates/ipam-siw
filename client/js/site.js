@@ -8,6 +8,7 @@ import {
   openModal, closeModal, cidrToIPs, showConfirm, initTheme, setupGlobalIpSearch,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
+import { WIN_ROLES, LIN_ROLES, XMB_ROLE_LABEL } from './server-roles.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,6 +52,9 @@ const FIXED_PROGRAMS = ['SQL Server', 'IIS', 'SMI Server', 'Apache', 'SQL Manage
 const MAX_CUSTOM_PROGRAMS = 6;
 const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '16 vCPU'];
 const RAM_OPTIONS = ['1 Go', '2 Go', '4 Go', '6 Go', '8 Go', '16 Go'];
+// Rôles repris des Statistiques serveurs (Windows par rôle, Linux par rôle, XMB) —
+// la sélection "Autre (saisie manuelle)" couvre les futurs rôles non encore catalogués.
+const ROLE_OPTIONS = [...WIN_ROLES.map(r => r.label), ...LIN_ROLES.map(r => r.label), XMB_ROLE_LABEL];
 
 function setOsPicker(pickerId, hiddenId, value) {
   const picker = document.getElementById(pickerId);
@@ -469,8 +473,8 @@ function renderTable() {
           <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">
             ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
-              style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px;display:inline-flex">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              style="background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             </button>` : ''}
           </td>
           <td style="padding:10px 16px;">${statusBadge(ip.status)}</td>
@@ -658,6 +662,14 @@ function setServerTypePicker(value) {
   });
 }
 
+// Rendu unique des options de rôle (contenu statique, appelé une fois au chargement)
+function renderRoleOptions() {
+  const select = document.getElementById('info-role-select');
+  const customOpt = select.querySelector('option[value="__custom__"]');
+  const options = ROLE_OPTIONS.map(label => `<option value="${esc(label)}">${esc(label)}</option>`).join('');
+  customOpt.insertAdjacentHTML('beforebegin', options);
+}
+
 // Rendu unique des 9 cases fixes (contenu statique, appelé une fois au chargement)
 function renderFixedPrograms() {
   const el = document.getElementById('info-programs-fixed');
@@ -704,7 +716,7 @@ function openInfoModal(ipObj) {
   document.getElementById('info-site-display').textContent = siteData.site?.name || '—';
   document.getElementById('info-created-by-display').textContent = ipObj.created_by || '—';
   document.getElementById('info-created-at-display').textContent = ipObj.created_at ? fmtDate(ipObj.created_at) : '—';
-  document.getElementById('info-role').value        = ipObj.role || '';
+  setSelectOrCustom('info-role-select', 'info-role-custom', ROLE_OPTIONS, ipObj.role || '');
   document.getElementById('info-demandeur').value   = ipObj.demandeur || '';
   document.getElementById('info-chef-projet').value = ipObj.chef_projet || '';
   document.getElementById('info-direction').value   = ipObj.direction || '';
@@ -728,7 +740,7 @@ function openInfoModal(ipObj) {
   switchInfoTab('contact');
 
   const isViewer = user?.role === 'viewer';
-  ['info-role', 'info-demandeur', 'info-chef-projet', 'info-direction', 'info-product-owner', 'info-architecte', 'info-contact', 'info-notes',
+  ['info-role-select', 'info-role-custom', 'info-demandeur', 'info-chef-projet', 'info-direction', 'info-product-owner', 'info-architecte', 'info-contact', 'info-notes',
    'info-cpu-select', 'info-cpu-custom', 'info-ram-select', 'info-ram-custom', 'info-disk-size']
     .forEach(id => document.getElementById(id).disabled = isViewer);
   document.querySelectorAll('#info-server-type-picker .server-type-btn').forEach(btn => btn.disabled = isViewer);
@@ -884,7 +896,9 @@ function setupModals(user) {
   });
 
   // --- Info (fiche serveur) ---
+  renderRoleOptions();
   renderFixedPrograms();
+  wireSelectOrCustom('info-role-select', 'info-role-custom');
   wireSelectOrCustom('info-cpu-select', 'info-cpu-custom');
   wireSelectOrCustom('info-ram-select', 'info-ram-custom');
   document.querySelectorAll('#modal-info [data-info-tab]').forEach(btn => {
@@ -901,7 +915,7 @@ function setupModals(user) {
   document.getElementById('form-info').addEventListener('submit', async e => {
     e.preventDefault();
     const id          = document.getElementById('info-ip-id').value;
-    const role        = document.getElementById('info-role').value.trim();
+    const role        = getSelectOrCustomValue('info-role-select', 'info-role-custom');
     const demandeur   = document.getElementById('info-demandeur').value.trim();
     const chef_projet = document.getElementById('info-chef-projet').value.trim();
     const direction   = document.getElementById('info-direction').value.trim();

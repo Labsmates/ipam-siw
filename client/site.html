@@ -481,7 +481,11 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
             <div>
               <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle</label>
-              <input type="text" id="info-role" class="inp" placeholder="ex : Serveur de Fichier, Serveur Rumba…" autocomplete="off">
+              <select id="info-role-select" class="inp">
+                <option value="">—</option>
+                <option value="__custom__">Autre (saisie manuelle)</option>
+              </select>
+              <input type="text" id="info-role-custom" class="inp hidden" placeholder="Rôle personnalisé…" autocomplete="off" style="margin-top:6px">
             </div>
             <div>
               <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Demandeur</label>

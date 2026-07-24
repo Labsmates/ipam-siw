@@ -7,33 +7,7 @@ import {
   get, post, showToast, sortSites, showConfirm, initTheme,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
-
-// ---------------------------------------------------------------------------
-// Server role definitions
-// ---------------------------------------------------------------------------
-const WIN_ROLES = [
-  { code: 'FS', label: 'Serveurs de Fichiers' },
-  { code: 'AP', label: 'Serveurs Applicatifs' },
-  { code: 'AR', label: 'Serveurs RUMBA' },
-  { code: 'IS', label: "Serveurs d'Impression" },
-  { code: 'TS', label: 'Serveurs de Rebond' },
-  { code: 'FI', label: 'Serveurs Impression & Fichiers' },
-  { code: 'ZN', label: 'Serveurs Fichier / APP' },
-  { code: 'QN', label: 'Serveurs de Qualif' },
-  { code: 'AT', label: 'Serveurs STEI' },
-  { code: 'SS', label: 'Serveurs de Sauvegarde' },
-  { code: 'LD', label: 'Serveurs Landesk' },
-  { code: 'AF', label: 'Serveurs PROCEF' },
-  { code: 'PR', label: 'Serveurs de PRA' },
-  { code: 'AS',    label: 'Serveurs de Socle' },
-  { code: 'AA',    label: 'Serveurs Rebond SRW' },
-  { code: 'IDRAC', label: 'IDRAC / iLO' },
-];
-
-// Linux roles — CFT only (XG + XD fusionnés) ; SPHY compté séparément (Nutanix HDC)
-const LIN_ROLES = [
-  { code: 'XG', label: 'Serveurs CFT' },
-];
+import { WIN_ROLES, LIN_ROLES } from './server-roles.js';
 
 // Domain suffixes are the source of truth for OS classification
 const WIN_DOMAIN  = '.dct.adt.local';
