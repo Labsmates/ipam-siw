@@ -55,6 +55,24 @@ function hasInfoData(ip) {
     (ip.programs && ip.programs !== '[]'));
 }
 
+// VLANs pour lesquels l'icône Info est proposée (fiche pertinente uniquement sur ces tags)
+const INFO_VLAN_TAGS = ['METIER', 'PROCEF', 'CACI'];
+
+// Valeurs par défaut pré-remplies (mais modifiables) pour les serveurs PROCEF
+// dont le hostname contient AF21/AF22 — appliquées uniquement si la fiche est encore vide.
+const PROCEF_DEFAULTS = {
+  role: 'Serveurs PROCEF',
+  demandeur: 'LBP DOSB SOLU PART EXP',
+  chef_projet: 'Florence MENARD',
+  product_owner: 'Leila BOUHOUT',
+  architecte: 'Francois-Hugues M.',
+  contact: 'leila.bouhout@labanquepostale.fr',
+  cpu: '12 vCPU',
+  ram: '64 Go',
+  disk_size: '24 To',
+  programs: ['SQL Server', 'SQL Management Studio', 'SMI Server', 'IIS'],
+};
+
 const FIXED_PROGRAMS = ['SQL Server', 'IIS', 'SMI Server', 'Apache', 'SQL Management Studio', 'Watchdoc', 'Émulateur Rumba', 'CFT', 'Serveur FTP'];
 const MAX_CUSTOM_PROGRAMS = 6;
 const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '16 vCPU'];
@@ -468,9 +486,9 @@ function renderTable() {
       const canToggle    = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
       const toggleTarget = ip.status === 'Utilisé' ? 'Réservée' : 'Utilisé';
       const toggleTitle  = ip.status === 'Utilisé' ? 'Passer en Réservée' : 'Passer en Utilisé';
-      const isMetierVlan = (vlan?.description || '').trim().toUpperCase() === 'METIER';
+      const isEligibleVlan = INFO_VLAN_TAGS.includes((vlan?.description || '').trim().toUpperCase());
       const isReservedHostname = (ip.hostname || '').trim().toLowerCase().startsWith('réservée');
-      const showInfo     = isMetierVlan && ip.status !== 'Libre' && !isReservedHostname && !isInfoExcluded(ip.hostname);
+      const showInfo     = isEligibleVlan && ip.status !== 'Libre' && !isReservedHostname && !isInfoExcluded(ip.hostname);
       const infoFilled   = hasInfoData(ip);
       const infoIconStyle = infoFilled
         ? 'background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex'
@@ -747,6 +765,22 @@ function openInfoModal(ipObj) {
   document.getElementById('info-programs-custom').innerHTML = '';
   programs.filter(p => !FIXED_PROGRAMS.includes(p)).slice(0, MAX_CUSTOM_PROGRAMS).forEach(p => addCustomProgramRow(p));
   updateAddProgramBtnState();
+
+  // Pré-remplissage (modifiable) pour les serveurs PROCEF AF21/AF22 dont la fiche est encore vide
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
+  const isProcefAF = (vlan?.description || '').trim().toUpperCase() === 'PROCEF' && /AF21|AF22/i.test(ipObj.hostname || '');
+  if (isProcefAF && !hasInfoData(ipObj)) {
+    setSelectOrCustom('info-role-select', 'info-role-custom', ROLE_OPTIONS, PROCEF_DEFAULTS.role);
+    document.getElementById('info-demandeur').value      = PROCEF_DEFAULTS.demandeur;
+    document.getElementById('info-chef-projet').value    = PROCEF_DEFAULTS.chef_projet;
+    document.getElementById('info-product-owner').value  = PROCEF_DEFAULTS.product_owner;
+    document.getElementById('info-architecte').value     = PROCEF_DEFAULTS.architecte;
+    document.getElementById('info-contact').value        = PROCEF_DEFAULTS.contact;
+    setSelectOrCustom('info-cpu-select', 'info-cpu-custom', CPU_OPTIONS, PROCEF_DEFAULTS.cpu);
+    setSelectOrCustom('info-ram-select', 'info-ram-custom', RAM_OPTIONS, PROCEF_DEFAULTS.ram);
+    document.getElementById('info-disk-size').value = PROCEF_DEFAULTS.disk_size;
+    document.querySelectorAll('.info-program-fixed').forEach(cb => cb.checked = PROCEF_DEFAULTS.programs.includes(cb.value));
+  }
 
   switchInfoTab('contact');
 
