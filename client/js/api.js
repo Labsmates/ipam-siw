@@ -408,6 +408,86 @@ document.addEventListener('click', e => {
 });
 
 // =============================================================================
+// Version — badge sidebar + modale "Nouveautés"
+// Rappel : APP_VERSION est réécrite automatiquement par scripts/bump-version.mjs
+// à chaque commit (hook post-commit). Ne pas éditer ce numéro à la main.
+// =============================================================================
+export const APP_VERSION = '2.2.0';
+
+// Résumé curaté du dernier palier fonctionnel — à mettre à jour manuellement
+// lors d'une nouvelle version majeure/mineure (indépendant du patch auto-incrémenté).
+// Historique complet : Configuration système → Mises à jour.
+const VERSION_INFO = {
+  milestone: 'v3.1',
+  headline: 'Archivage de site, ping rapide & statistiques fiabilisées',
+  points: [
+    'Archivage de site — VLANs/IPs tagués, exclus du Tableau de bord, de Sites IPAM et des statistiques',
+    'Ping en clic droit sur un hostname en statut Utilisé (6 paquets, hors VLAN ADMIN)',
+    'Statistiques avancées : connexions par période, camemberts par rôle',
+    'Unicité VLAN ID / réseau CIDR / hostname — bloquée client et serveur',
+    'Recherche unifiée : site, IP et hostname dans un seul champ',
+  ],
+};
+
+function initVersionBadge() {
+  const subtitle = document.getElementById('app-subtitle');
+  if (!subtitle) return; // page sans sidebar (ex. login)
+
+  const badge = document.createElement('button');
+  badge.type = 'button';
+  badge.textContent = `Version ${APP_VERSION}`;
+  badge.style.cssText = 'margin-left:8px;background:#58a6ff18;color:#58a6ff;border:1px solid #58a6ff40;border-radius:999px;padding:1px 8px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.02em;';
+  badge.addEventListener('mouseenter', () => badge.style.background = '#58a6ff28');
+  badge.addEventListener('mouseleave', () => badge.style.background = '#58a6ff18');
+  badge.addEventListener('click', showVersionModal);
+  subtitle.insertAdjacentElement('afterend', badge);
+  subtitle.style.display = 'inline';
+  badge.style.verticalAlign = 'middle';
+}
+
+function showVersionModal() {
+  const _e = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:9997;display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.innerHTML = `
+    <div style="background:#21262d;border:1px solid #30363d;border-radius:12px;padding:26px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#e6edf3;letter-spacing:-0.01em">IPAM SIW — v${_e(APP_VERSION)}</div>
+          <div style="font-size:12px;color:#8b949e;margin-top:2px">Gestion des adresses IP</div>
+        </div>
+        <button id="_ver-close" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:4px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="background:#238636;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">${_e(VERSION_INFO.milestone)}</span>
+        <span style="font-size:13px;font-weight:600;color:#e6edf3">${_e(VERSION_INFO.headline)}</span>
+      </div>
+      <ul style="margin:0 0 20px;padding-left:18px;font-size:12.5px;color:#c9d1d9;line-height:1.75">
+        ${VERSION_INFO.points.map(p => `<li>${_e(p)}</li>`).join('')}
+      </ul>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <a href="/config.html" style="font-size:12px;color:#58a6ff;text-decoration:none">Voir l'historique complet →</a>
+        <button id="_ver-ok" style="background:#58a6ff;color:#0d1117;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;">Fermer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  function cleanup() { overlay.remove(); }
+  overlay.querySelector('#_ver-close').addEventListener('click', cleanup);
+  overlay.querySelector('#_ver-ok').addEventListener('click', cleanup);
+  overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(); });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initVersionBadge);
+} else {
+  initVersionBadge();
+}
+
+// =============================================================================
 // Recherche IP globale — partagée par dashboard.js et site.js
 // =============================================================================
 export function setupGlobalIpSearch(inputId, dropdownId) {
