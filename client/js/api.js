@@ -469,7 +469,7 @@ function showVersionModal() {
         ${VERSION_INFO.points.map(p => `<li>${_e(p)}</li>`).join('')}
       </ul>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <a href="/config.html" style="font-size:12px;color:#58a6ff;text-decoration:none">Voir l'historique complet →</a>
+        <a href="/config.html#changelog" style="font-size:12px;color:#58a6ff;text-decoration:none">Voir l'historique complet →</a>
         <button id="_ver-ok" style="background:#58a6ff;color:#0d1117;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;">Fermer</button>
       </div>
     </div>`;

@@ -97,11 +97,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Activer le premier onglet (cacher tous les panes, afficher le premier)
+  // Activer l'onglet ciblé par le hash de l'URL (ex: #changelog), sinon le premier
   if (tabs.length) {
+    const hashTab = location.hash.replace('#', '');
+    const target  = [...tabs].find(t => t.dataset.tab === hashTab) || tabs[0];
     panes.forEach(p => p.classList.add('hidden'));
-    setTabActive(tabs[0], true);
-    document.getElementById(`pane-${tabs[0].dataset.tab}`)?.classList.remove('hidden');
+    setTabActive(target, true);
+    document.getElementById(`pane-${target.dataset.tab}`)?.classList.remove('hidden');
   }
 
   // Chargements initiaux
