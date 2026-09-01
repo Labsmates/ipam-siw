@@ -41,7 +41,7 @@ const escapeHtml = s => s
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const line = `              <li><code style="font-size:11px;color:var(--tx-3)">${hash}</code> ${escapeHtml(subject)} <span style="color:var(--tx-3);font-size:11px">(${date})</span></li>`;
+const line = `              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">${hash}</code> ${escapeHtml(subject)} <span style="color:var(--tx-3);font-size:11px">(${date})</span></li>`;
 
 // ── 4. Injecter dans config.html ──────────────────────────────────────────────
 let html = readFileSync(HTML_PATH, 'utf8');

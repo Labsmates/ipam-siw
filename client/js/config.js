@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const user = getUser();
 
   setupElevationMode();
+  setupChangelogCollapse();
 
   // Guard : admin OU utilisateur (role='user') — les viewers sont redirigés
   if (user?.role !== 'admin' && user?.role !== 'user') {
@@ -2124,5 +2125,32 @@ function openServicesKeyModal(onSuccess = null) {
       keyInput.select();
       btnOk.disabled = false; btnOk.textContent = 'Valider';
     }
+  });
+}
+
+// =============================================================================
+// Mises à jour — replie la longue liste de commits bruts par défaut
+// =============================================================================
+function setupChangelogCollapse() {
+  const MAX_VISIBLE = 6;
+  document.querySelectorAll('#pane-changelog ul').forEach(ul => {
+    const items = [...ul.querySelectorAll(':scope > li.changelog-commit-line')];
+    if (items.length <= MAX_VISIBLE) return;
+
+    const hidden = items.slice(MAX_VISIBLE);
+    hidden.forEach(li => li.classList.add('hidden'));
+
+    const toggle = document.createElement('li');
+    toggle.style.cssText = 'list-style:none;margin-top:6px';
+    const label = expanded => expanded ? 'Réduire ▴' : `Voir ${hidden.length} commit(s) de plus ▾`;
+    toggle.innerHTML = `<button type="button" style="background:none;border:none;color:#58a6ff;font-size:12.5px;cursor:pointer;padding:2px 0">${label(false)}</button>`;
+    items[items.length - 1].insertAdjacentElement('afterend', toggle);
+
+    let expanded = false;
+    toggle.querySelector('button').addEventListener('click', () => {
+      expanded = !expanded;
+      hidden.forEach(li => li.classList.toggle('hidden', !expanded));
+      toggle.querySelector('button').textContent = label(expanded);
+    });
   });
 }
