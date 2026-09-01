@@ -1,6 +1,7 @@
 (function () {
-  // Block right-click context menu
+  // Block right-click context menu, sauf sur les hostnames cliquables (menu ping)
   document.addEventListener('contextmenu', function (e) {
+    if (e.target.closest('.hostname-ping-target')) return;
     e.preventDefault();
     return false;
   });
