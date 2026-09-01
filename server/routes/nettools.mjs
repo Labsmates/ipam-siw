@@ -48,9 +48,10 @@ function intToIp(n)  { return [(n>>>24)&0xFF,(n>>>16)&0xFF,(n>>>8)&0xFF,n&0xFF].
 
 // ── POST /api/nettools/ping ───────────────────────────────────────────────────
 router.post('/ping', requireAuth, async (req, res) => {
-  const { target } = req.body;
+  const { target, count } = req.body;
   if (!isValidTarget(target)) return res.status(400).json({ error: 'IP ou FQDN invalide' });
-  const { output, code } = await run('ping', ['-c', '4', '-W', '2', target.trim()]);
+  const c = Math.min(6, Math.max(1, parseInt(count, 10) || 4));
+  const { output, code } = await run('ping', ['-c', String(c), '-W', '2', target.trim()]);
   res.json({ output, success: code === 0 });
 });
 

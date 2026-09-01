@@ -362,6 +362,32 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
   </div>
 </div>
 
+<!-- Menu contextuel — clic droit sur un hostname (statut Utilisé, hors VLAN ADMIN) -->
+<div id="hostname-ctx-menu" class="hidden" style="position:fixed;z-index:1000;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);padding:4px;min-width:200px">
+  <button id="ctx-ping" style="display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;color:var(--tx-1);font-size:13px;padding:8px 10px;border-radius:6px;cursor:pointer;text-align:left" onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background='none'">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    Lancer un ping (6 paquets)
+  </button>
+</div>
+
+<div id="modal-ping" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Ping</div>
+        <div id="ping-modal-subtitle" style="font-size:13px;color:var(--tx-3);margin-top:3px"></div>
+      </div>
+      <button onclick="closeModal('modal-ping')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <pre id="ping-modal-output" style="background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--tx-2);max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0"></pre>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;margin-top:18px">
+      <button type="button" class="btn btn-g" onclick="closeModal('modal-ping')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Release -->
 <div id="modal-release" class="modal-overlay hidden">
   <div class="modal-box">

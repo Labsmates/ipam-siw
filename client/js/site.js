@@ -245,6 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Modals
   setupModals(user);
   setupSiteCodesModal();
+  setupHostnamePingMenu();
   setupGlobalIpSearch('search-ip-global', 'ip-global-dropdown');
 
   await loadSite();
@@ -524,12 +525,13 @@ function renderTable() {
       const infoIconStyle = infoFilled
         ? 'background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex'
         : 'background:none;border:1px solid transparent;border-radius:6px;color:var(--tx-3);cursor:pointer;padding:4px;display:inline-flex';
+      const canPing = ip.status === 'Utilisé' && !!(ip.hostname && ip.hostname.trim()) && vlanTag !== 'ADMIN';
 
       return `
         <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
             onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
           <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
-          <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
+          <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">
             ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
@@ -581,6 +583,55 @@ function renderTable() {
       else if (btn.dataset.action === 'delete-ip') deleteIpRow(ipObj);
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Menu contextuel — ping sur hostname (statut Utilisé, hors VLAN ADMIN)
+// ---------------------------------------------------------------------------
+let _pingCtxIpId = null;
+
+function setupHostnamePingMenu() {
+  const menu = document.getElementById('hostname-ctx-menu');
+  if (!menu) return;
+
+  function hideMenu() { menu.classList.add('hidden'); _pingCtxIpId = null; }
+
+  document.addEventListener('contextmenu', e => {
+    const cell = e.target.closest('.hostname-ping-target');
+    if (!cell) { hideMenu(); return; }
+    e.preventDefault();
+    _pingCtxIpId = cell.dataset.id;
+    const x = Math.min(e.clientX, window.innerWidth  - 220);
+    const y = Math.min(e.clientY, window.innerHeight - 60);
+    menu.style.left = `${Math.max(4, x)}px`;
+    menu.style.top  = `${Math.max(4, y)}px`;
+    menu.classList.remove('hidden');
+  });
+
+  document.addEventListener('click', e => {
+    if (!menu.contains(e.target)) hideMenu();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideMenu(); });
+  document.addEventListener('scroll', hideMenu, true);
+
+  document.getElementById('ctx-ping').addEventListener('click', () => {
+    const ipObj = (siteData.ips || []).find(i => String(i.id) === String(_pingCtxIpId));
+    hideMenu();
+    if (ipObj) openPingModal(ipObj);
+  });
+}
+
+async function openPingModal(ipObj) {
+  document.getElementById('ping-modal-subtitle').textContent = `${ipObj.hostname} (${ipObj.ip_address}) — 6 paquets`;
+  const out = document.getElementById('ping-modal-output');
+  out.textContent = 'Ping en cours…';
+  openModal('modal-ping');
+  try {
+    const data = await post('/api/nettools/ping', { target: ipObj.ip_address, count: 6 });
+    out.textContent = data.output || (data.success ? 'Hôte joignable.' : 'Hôte injoignable.');
+  } catch (err) {
+    out.textContent = `Erreur : ${err.message}`;
+  }
 }
 
 // ---------------------------------------------------------------------------
