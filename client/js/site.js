@@ -265,6 +265,7 @@ async function loadSite() {
     siteData = data;
     document.title = `IPAM — ${data.name}`;
     document.getElementById('site-name').textContent = data.name;
+    renderArchivedBanner(data);
     renderSiteCodes(data);
     renderStats();
     renderVlanTabs();
@@ -274,6 +275,23 @@ async function loadSite() {
     document.getElementById('site-name').textContent = 'Erreur de chargement';
   } finally {
     if (loadEl) loadEl.style.display = 'none';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bandeau "Site archivé"
+// ---------------------------------------------------------------------------
+function renderArchivedBanner(data) {
+  const nameEl = document.getElementById('site-name');
+  if (!nameEl) return;
+  const existing = document.getElementById('site-archived-badge');
+  if (existing) existing.remove();
+  if (data.archived === '1' || data.archived === true) {
+    const badge = document.createElement('span');
+    badge.id = 'site-archived-badge';
+    badge.textContent = 'Site archivé';
+    badge.style.cssText = 'margin-left:10px;vertical-align:middle;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;';
+    nameEl.appendChild(badge);
   }
 }
 

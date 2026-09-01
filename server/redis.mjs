@@ -263,6 +263,7 @@ export async function listSitesWithStats() {
         site_code:    s.site_code    || '',
         code_regate:  s.code_regate  || '',
         code_pst:     s.code_pst     || '',
+        archived:     s.archived === '1',
       };
     })
     .filter(Boolean)
@@ -366,6 +367,32 @@ export async function deleteSite(id) {
   pipe.hdel('sites:idx:name', site.name.toUpperCase());
   pipe.srem('sites', id);
   await pipe.exec();
+}
+
+// Archive/désarchive un site et propage le tag à tous ses VLANs et IPs
+export async function setSiteArchived(id, archived) {
+  const site = await redis.hgetall(`site:${id}`);
+  if (!site?.name) throw new Error('Site introuvable');
+
+  const vlanIds = await redis.smembers(`site:${id}:vlans`);
+  const pipeIps = redis.pipeline();
+  vlanIds.forEach(vid => pipeIps.smembers(`vlan:${vid}:ips`));
+  const ipSets = await pipeIps.exec();
+  const ipIds = ipSets.flatMap(([, v]) => v || []);
+
+  const pipe = redis.pipeline();
+  if (archived) {
+    pipe.hset(`site:${id}`, 'archived', '1');
+    vlanIds.forEach(vid => pipe.hset(`vlan:${vid}`, 'archived', '1'));
+    ipIds.forEach(ipId => pipe.hset(`ip:${ipId}`, 'archived', '1'));
+  } else {
+    pipe.hdel(`site:${id}`, 'archived');
+    vlanIds.forEach(vid => pipe.hdel(`vlan:${vid}`, 'archived'));
+    ipIds.forEach(ipId => pipe.hdel(`ip:${ipId}`, 'archived'));
+  }
+  await pipe.exec();
+
+  return { vlan_count: vlanIds.length, ip_count: ipIds.length };
 }
 
 // =============================================================================
@@ -562,17 +589,19 @@ export async function searchAllIPs(query) {
   const siteIds = await redis.smembers('sites');
   if (!siteIds.length) return [];
 
-  // 1. Noms des sites + liste des VLANs par site
+  // 1. Noms des sites (+ statut archivé) + liste des VLANs par site
   const pipe1 = redis.pipeline();
-  siteIds.forEach(sid => { pipe1.hget(`site:${sid}`, 'name'); pipe1.smembers(`site:${sid}:vlans`); });
+  siteIds.forEach(sid => { pipe1.hget(`site:${sid}`, 'name'); pipe1.hget(`site:${sid}`, 'archived'); pipe1.smembers(`site:${sid}:vlans`); });
   const r1 = await pipe1.exec();
 
   const siteNames  = {};
   const vlanToSite = {};
   const allVlanIds = [];
   siteIds.forEach((sid, i) => {
-    siteNames[sid] = r1[i * 2][1] || '';
-    (r1[i * 2 + 1][1] || []).forEach(vid => { vlanToSite[vid] = sid; allVlanIds.push(vid); });
+    siteNames[sid] = r1[i * 3][1] || '';
+    const archived = r1[i * 3 + 1][1] === '1';
+    if (archived) return; // site archivé — exclu de la recherche globale
+    (r1[i * 3 + 2][1] || []).forEach(vid => { vlanToSite[vid] = sid; allVlanIds.push(vid); });
   });
   if (!allVlanIds.length) return [];
 
@@ -946,7 +975,13 @@ export async function deleteAccountRequest(id) {
 const SERVER_PREFIXES = ['AF', 'ILO-', 'IDRAC-', 'SV01', 'SS01', 'FS10', 'CA'];
 
 export async function listServerHostnames() {
-  const siteIds  = await redis.smembers('sites');
+  const allSiteIds  = await redis.smembers('sites');
+  if (!allSiteIds.length) return [];
+
+  const pipeArchived = redis.pipeline();
+  allSiteIds.forEach(sid => pipeArchived.hget(`site:${sid}`, 'archived'));
+  const archivedFlags = await pipeArchived.exec();
+  const siteIds = allSiteIds.filter((sid, i) => archivedFlags[i][1] !== '1');
   if (!siteIds.length) return [];
 
   const pipe1 = redis.pipeline();

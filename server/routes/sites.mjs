@@ -1,14 +1,16 @@
 import express from 'express';
 import { createSite, getSite, listSitesWithStats, getSiteData,
-         renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog, updateSiteFields, redis } from '../redis.mjs';
+         renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog, updateSiteFields, setSiteArchived, redis } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
 
 // GET /api/sites
-router.get('/', requireAuth, async (_req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
-    const sites = await listSitesWithStats();
+    let sites = await listSitesWithStats();
+    const includeArchived = req.query.all === '1' && req.user.role === 'admin';
+    if (!includeArchived) sites = sites.filter(s => !s.archived);
     try {
       const raw = await redis.get('config:infos');
       const infos = raw ? JSON.parse(raw) : {};
@@ -110,6 +112,20 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (!site) return res.status(404).json({ error: 'Site introuvable' });
     await deleteSite(req.params.id);
     await addLog(req.user.username, 'DEL_SITE', `Site « ${site.name} » supprimé`, 'danger');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/sites/:id/archive (admin)
+router.patch('/:id/archive', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const archived = !!req.body?.archived;
+    const site = await getSite(req.params.id);
+    if (!site) return res.status(404).json({ error: 'Site introuvable' });
+    const { vlan_count, ip_count } = await setSiteArchived(req.params.id, archived);
+    await addLog(req.user.username, archived ? 'ARCHIVE_SITE' : 'UNARCHIVE_SITE',
+      `Site « ${site.name} » ${archived ? 'archivé' : 'désarchivé'} (${vlan_count} VLAN(s), ${ip_count} IP(s))`,
+      archived ? 'info' : 'ok');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

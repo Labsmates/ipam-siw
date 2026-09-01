@@ -347,7 +347,7 @@ let searchSite = '';
 
 async function loadSites() {
   try {
-    const data = await get('/api/sites');
+    const data = await get('/api/sites?all=1');
     allSites = data.sites || [];
     renderSites();
   } catch (err) { showToast(err.message, 'error'); }
@@ -358,13 +358,18 @@ function renderSites() {
   const q = searchSite.toLowerCase();
   const filtered = q ? allSites.filter(s => s.name.toLowerCase().includes(q)) : allSites;
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--tx-3);padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--tx-3);padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map(s => `
     <tr style="border-bottom:1px solid var(--bg-4);"
         onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
       <td style="padding:12px 16px;color:var(--tx-1);font-weight:600;">${esc(s.name)}</td>
+      <td style="padding:12px 16px;">
+        ${s.archived
+          ? `<span style="color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;">Archivé</span>`
+          : `<span style="color:#3fb950;background:#0d2a1a;border:1px solid #1a5c30;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;">En ligne</span>`}
+      </td>
       <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.site_code ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.site_code || '—'}</td>
       <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.code_regate ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.code_regate || '—'}</td>
       <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.code_pst ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.code_pst || '—'}</td>
@@ -379,6 +384,10 @@ function renderSites() {
           style="background:var(--bg-4);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Renommer
         </button>
+        <button data-sid="${s.id}" data-sname="${esc(s.name)}" data-archived="${s.archived ? '1' : '0'}" class="btn-archive-site"
+          style="background:${s.archived ? '#0d2a1a' : '#2e2000'};color:${s.archived ? '#3fb950' : '#d29922'};border:1px solid ${s.archived ? '#1a5c30' : '#5c4200'};border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          ${s.archived ? 'Désarchiver' : 'Archiver Site'}
+        </button>
         <button data-sid="${s.id}" data-sname="${esc(s.name)}" class="btn-del-site"
           style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
           Supprimer
@@ -390,9 +399,29 @@ function renderSites() {
   document.querySelectorAll('.btn-rename-site').forEach(btn => {
     btn.addEventListener('click', () => openRenameSiteModal(btn.dataset.sid, btn.dataset.sname));
   });
+  document.querySelectorAll('.btn-archive-site').forEach(btn => {
+    btn.addEventListener('click', () => toggleSiteArchived(btn.dataset.sid, btn.dataset.sname, btn.dataset.archived === '1'));
+  });
   document.querySelectorAll('.btn-del-site').forEach(btn => {
     btn.addEventListener('click', () => confirmDeleteSite(btn.dataset.sid, btn.dataset.sname));
   });
+}
+
+async function toggleSiteArchived(sid, sname, isCurrentlyArchived) {
+  if (!await showConfirm({
+    title: isCurrentlyArchived ? `Désarchiver ${sname}` : `Archiver ${sname}`,
+    message: isCurrentlyArchived
+      ? `Réactiver le site "${sname}" ? Il redeviendra visible dans le Tableau de bord, Sites IPAM et les statistiques.`
+      : `Archiver le site "${sname}" ? Ses VLANs et IPs seront masqués du Tableau de bord, de Sites IPAM et des statistiques. Cette action est réversible.`,
+    confirmText: isCurrentlyArchived ? 'Désarchiver' : 'Archiver',
+    danger: !isCurrentlyArchived,
+  })) return;
+  try {
+    await patch(`/api/sites/${encodeURIComponent(sid)}/archive`, { archived: !isCurrentlyArchived });
+    showToast(`Site "${sname}" ${isCurrentlyArchived ? 'désarchivé' : 'archivé'}`, 'success');
+    await loadSites();
+    await loadVlans();
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 function setupSiteModals() {
@@ -484,13 +513,14 @@ let searchVlanSite = '';
 
 async function loadVlans() {
   try {
-    if (!allSites.length) { allVlans = []; renderVlans(); return; }
+    const activeSites = allSites.filter(s => !s.archived);
+    if (!activeSites.length) { allVlans = []; renderVlans(); return; }
     const results = await Promise.all(
-      allSites.map(s => get(`/api/sites/${encodeURIComponent(s.id)}`))
+      activeSites.map(s => get(`/api/sites/${encodeURIComponent(s.id)}`))
     );
     allVlans = [];
     results.forEach((data, i) => {
-      (data.vlans || []).forEach(v => allVlans.push({ ...v, site_name: allSites[i].name }));
+      (data.vlans || []).forEach(v => allVlans.push({ ...v, site_name: activeSites[i].name }));
     });
     allVlans.sort((a, b) =>
       a.site_name.localeCompare(b.site_name) || Number(a.vlan_id) - Number(b.vlan_id)
