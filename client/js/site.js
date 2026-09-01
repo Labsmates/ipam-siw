@@ -43,9 +43,9 @@ function osLogo(os, hostname) {
 
 function typeIcon(serverType) {
   if (serverType === 'VM')
-    return `<span title="VM" style="background:#58a6ff18;color:#58a6ff;border:1px solid #58a6ff40;display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;">VM</span>`;
+    return `<span title="VM" style="background:#58a6ff18;color:#58a6ff;border:1px solid #58a6ff40;display:inline-block;padding:1px 6px;border-radius:999px;font-size:9.5px;font-weight:700;white-space:nowrap;">VM</span>`;
   if (serverType === 'Physique')
-    return `<span title="Serveur physique" style="background:#d2992218;color:#d29922;border:1px solid #d2992240;display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;">PHYSIQUE</span>`;
+    return `<span title="Serveur physique" style="background:#d2992218;color:#d29922;border:1px solid #d2992240;display:inline-block;padding:1px 5px;border-radius:999px;font-size:9.5px;font-weight:700;white-space:nowrap;">PHYSIQUE</span>`;
   return '<span style="color:var(--tx-5)">—</span>';
 }
 
@@ -544,7 +544,7 @@ function renderTable() {
           <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
           <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
-          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 10px;text-align:center;width:90px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
+          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 4px;text-align:center;width:68px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">
             ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
               style="${infoIconStyle}">
