@@ -155,7 +155,7 @@ let searchIP   = '';
 let page       = 1;
 const PER_PAGE = 50;
 
-// Tri des colonnes — actif uniquement sur l'onglet VLAN "Tous"
+// Tri des colonnes — actif sur tous les onglets VLAN
 let sortColumn = null;  // 'hostname' | 'os' | 'type' | 'status' | 'vlan' | null
 let sortDir    = 1;     // 1 = ordre défini ci-dessous, -1 = inversé
 
@@ -468,7 +468,6 @@ function renderVlanTabs() {
     btn.addEventListener('click', () => {
       currentVlan = btn.dataset.id;
       page = 1;
-      if (currentVlan !== 'all') { sortColumn = null; sortDir = 1; }
       renderVlanTabs();
       renderTable();
       if (currentVlan !== 'all') {
@@ -520,7 +519,7 @@ function getFilteredIPs() {
       (ip.hostname && ip.hostname.toLowerCase().includes(q))
     );
   }
-  if (currentVlan === 'all' && sortColumn) {
+  if (sortColumn) {
     const vlanNumById = {};
     (siteData.vlans || []).forEach(v => { vlanNumById[String(v.id)] = parseInt(v.vlan_id, 10) || 0; });
     const cmpByColumn = {
@@ -749,12 +748,11 @@ function setupGlobalSearchToggle() {
 }
 
 // ---------------------------------------------------------------------------
-// Tri des colonnes — actif uniquement sur l'onglet VLAN "Tous"
+// Tri des colonnes — actif sur tous les onglets VLAN (y compris "Tous")
 // ---------------------------------------------------------------------------
 function setupColumnSort() {
   document.querySelectorAll('.ip-th-sortable').forEach(th => {
     th.addEventListener('click', () => {
-      if (currentVlan !== 'all') return;
       const col = th.dataset.sort;
       if (sortColumn === col) sortDir *= -1;
       else { sortColumn = col; sortDir = 1; }
@@ -767,9 +765,8 @@ function setupColumnSort() {
 function updateSortHeaderUI() {
   document.querySelectorAll('.ip-th-sortable').forEach(th => {
     const arrow = th.querySelector('.sort-arrow');
-    const isActive = currentVlan === 'all' && sortColumn === th.dataset.sort;
+    const isActive = sortColumn === th.dataset.sort;
     th.classList.toggle('sort-active', isActive);
-    th.style.opacity = currentVlan === 'all' ? '1' : '.5';
     if (arrow) arrow.textContent = isActive ? (sortDir === 1 ? '▲' : '▼') : '';
   });
 }
