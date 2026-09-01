@@ -541,20 +541,20 @@ function renderTable() {
       return `
         <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
             onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
-          <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
-          <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
-          <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
-          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 4px;text-align:center;width:68px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
-          <td style="padding:6px 10px;text-align:center;width:44px;">
+          <td style="padding:10px 14px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13px;">${ip.ip_address}</td>
+          <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 12px;color:var(--tx-3);font-size:13px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
+          <td style="padding:6px 6px;text-align:center;width:40px;">${osLogo(ip.os, ip.hostname)}</td>
+          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 4px;text-align:center;width:58px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
+          <td style="padding:6px 6px;text-align:center;width:40px;">
             ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
               style="${infoIconStyle}">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             </button>` : ''}
           </td>
-          <td style="padding:10px 16px;">${statusBadge(ip.status)}</td>
-          <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
-          <td style="padding:10px 8px;color:var(--tx-4);font-size:11px;width:100px;">${fmtDate(ip.updated_at)}</td>
-          <td style="padding:10px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
+          <td style="padding:10px 10px;">${statusBadge(ip.status)}</td>
+          <td style="padding:10px 10px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
+          <td style="padding:10px 8px;color:var(--tx-4);font-size:11px;width:92px;">${fmtDate(ip.updated_at)}</td>
+          <td style="padding:10px 12px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:4px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
             ${canReserve ? `<button class="btn btn-sm btn-ok btn-action" data-id="${ip.id}" data-action="reserve">Réserver</button>` : ''}
             ${canRelease ? `<button class="btn btn-sm btn-d btn-action" data-id="${ip.id}" data-action="release">Libérer</button>` : ''}
             ${canToggle ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="toggle-status" data-target="${toggleTarget}" title="${toggleTitle}"
