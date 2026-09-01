@@ -553,7 +553,7 @@ function renderTable() {
           </td>
           <td style="padding:10px 16px;">${statusBadge(ip.status)}</td>
           <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
-          <td style="padding:10px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(ip.updated_at)}</td>
+          <td style="padding:10px 8px;color:var(--tx-4);font-size:11px;width:100px;">${fmtDate(ip.updated_at)}</td>
           <td style="padding:10px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
             ${canReserve ? `<button class="btn btn-sm btn-ok btn-action" data-id="${ip.id}" data-action="reserve">Réserver</button>` : ''}
             ${canRelease ? `<button class="btn btn-sm btn-d btn-action" data-id="${ip.id}" data-action="release">Libérer</button>` : ''}
