@@ -270,6 +270,23 @@ export async function listSitesWithStats() {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Auto-classification VM/Physique — calculée et persistée une seule fois par IP
+// (voir getSiteData). Le client se contente d'afficher ip.server_type.
+const SPECIAL_HOSTNAME_RE = /^(Gateway|Broadcast|Réservée)$/i;
+
+function classifyServerType(ip) {
+  const hostname = (ip.hostname || '').trim();
+  if (!hostname) return null;
+  if (ip.status !== 'Utilisé' && ip.status !== 'Réservée') return null;
+  if (SPECIAL_HOSTNAME_RE.test(hostname)) return null;
+  const label = hostname.split('.')[0].toUpperCase();
+  if (/AF1\d|AF2\d/.test(label))   return 'Physique';
+  if (ip.os === 'nutanix')         return 'Physique';
+  if (/FS10/.test(label))          return 'Physique';
+  if (/^(ILO|IDRAC)-/.test(label)) return 'Physique';
+  return 'VM';
+}
+
 export async function getSiteData(id) {
   const site = await redis.hgetall(`site:${id}`);
   if (!site?.name) return null;
@@ -311,6 +328,21 @@ export async function getSiteData(id) {
       if (bcast && ip.ip_address === bcast) return false;
       return true;
     });
+
+  // Auto-classification VM/Physique — auto-cicatrisante : calculée et persistée
+  // au premier chargement pour toute IP éligible dont server_type est vide.
+  // Ne recalcule jamais une valeur déjà renseignée (auto ou manuelle).
+  const pipeType = redis.pipeline();
+  let hasTypeUpdate = false;
+  for (const ip of ips) {
+    if (ip.server_type) continue;
+    const guessed = classifyServerType(ip);
+    if (!guessed) continue;
+    ip.server_type = guessed;
+    pipeType.hset(`ip:${ip.id}`, 'server_type', guessed);
+    hasTypeUpdate = true;
+  }
+  if (hasTypeUpdate) await pipeType.exec();
 
   return {
     site: { id: parseInt(id), ...site },

@@ -41,6 +41,15 @@ function osLogo(os, hostname) {
   return `<img src="/img/os/${os}.svg" width="24" height="24" title="${labels[os] || os}" style="display:block;margin:auto">`;
 }
 
+const VM_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" style="display:block;margin:auto"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
+const PHYSIQUE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" style="display:block;margin:auto"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="15" width="20" height="6" rx="1"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`;
+
+function typeIcon(serverType) {
+  if (serverType === 'VM')       return `<span title="VM">${VM_ICON}</span>`;
+  if (serverType === 'Physique') return `<span title="Serveur physique">${PHYSIQUE_ICON}</span>`;
+  return '<span style="color:var(--tx-5)">—</span>';
+}
+
 // Catégories exclues de la fiche Info (mêmes motifs que osLogo) : Gateway, iLO, iDRAC, Nutanix
 function isInfoExcluded(hostname) {
   const h = (hostname || '').toUpperCase();
@@ -526,6 +535,9 @@ function renderTable() {
         ? 'background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex'
         : 'background:none;border:1px solid transparent;border-radius:6px;color:var(--tx-3);cursor:pointer;padding:4px;display:inline-flex';
       const canPing = ip.status === 'Utilisé' && !!(ip.hostname && ip.hostname.trim()) && vlanTag !== 'ADMIN';
+      const canEditType = !isViewer && !!(ip.hostname && ip.hostname.trim()) &&
+        (ip.status === 'Utilisé' || ip.status === 'Réservée') &&
+        !/^(Gateway|Broadcast|Réservée)$/i.test(ip.hostname.trim());
 
       return `
         <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
@@ -533,6 +545,7 @@ function renderTable() {
           <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
           <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
+          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 10px;text-align:center;width:44px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">
             ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
               style="${infoIconStyle}">
@@ -580,9 +593,26 @@ function renderTable() {
       else if (btn.dataset.action === 'rename') openRenameModal(ipObj);
       else if (btn.dataset.action === 'info') openInfoModal(ipObj);
       else if (btn.dataset.action === 'toggle-status') toggleStatus(ipObj, btn.dataset.target);
+      else if (btn.dataset.action === 'toggle-type') toggleServerType(ipObj);
       else if (btn.dataset.action === 'delete-ip') deleteIpRow(ipObj);
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Toggle type VM ↔ Physique
+// ---------------------------------------------------------------------------
+async function toggleServerType(ipObj) {
+  const current = ipObj.server_type === 'Physique' ? 'Physique' : 'VM';
+  const target  = current === 'VM' ? 'Physique' : 'VM';
+  if (!await showConfirm({ title: 'Changer le type', message: `Changer le type de ${ipObj.hostname} en « ${target} » ?`, confirmText: 'Confirmer' })) return;
+  try {
+    await put(`/api/ips/${encodeURIComponent(ipObj.id)}`, { server_type: target });
+    showToast(`${ipObj.hostname} → ${target}`, 'success');
+    await loadSite();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 // ---------------------------------------------------------------------------
