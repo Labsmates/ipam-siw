@@ -1,6 +1,6 @@
 {
   "name": "ipam-siw",
-  "version": "2.2.10",
+  "version": "2.2.11",
   "description": "IPAM SIW — Gestion des adresses IP avec Redis",
   "type": "module",
   "scripts": {
