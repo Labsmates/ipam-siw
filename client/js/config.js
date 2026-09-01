@@ -1726,8 +1726,8 @@ function setupUserConfig(user) {
   const PX_RE = /^[PX]/i;
   const isPX  = PX_RE.test(user?.username || '');
 
-  // Désactiver tous les onglets non autorisés
-  const UNLOCKED = new Set(['services', ...(isPX ? ['sysinfo', 'cert'] : [])]);
+  // Désactiver tous les onglets non autorisés (changelog = notes de version, non sensible)
+  const UNLOCKED = new Set(['services', 'changelog', ...(isPX ? ['sysinfo', 'cert'] : [])]);
   document.querySelectorAll('.admin-tab').forEach(tab => {
     if (!UNLOCKED.has(tab.dataset.tab)) {
       tab.disabled = true;
@@ -1749,6 +1749,12 @@ function setupUserConfig(user) {
   const servicesTab = document.querySelector('.admin-tab[data-tab="services"]');
   servicesTab?.addEventListener('click', () => {
     switchPane(servicesTab, 'pane-services');
+  });
+
+  // Onglet Mises à jour — notes de version, accessible à tous
+  const changelogTab = document.querySelector('.admin-tab[data-tab="changelog"]');
+  changelogTab?.addEventListener('click', () => {
+    switchPane(changelogTab, 'pane-changelog');
   });
 
   // Boutons actions serveur
@@ -1782,9 +1788,13 @@ function setupUserConfig(user) {
   const existingAccess = getServicesAccess();
   if (existingAccess?.token) _bypassServicesToken = existingAccess.token;
 
-  // Afficher Services par défaut et charger
-  if (servicesTab) setTabActive(servicesTab, true);
-  document.getElementById('pane-services')?.classList.remove('hidden');
+  // Afficher l'onglet ciblé par le hash (#changelog), sinon Services par défaut
+  if (location.hash.replace('#', '') === 'changelog' && changelogTab) {
+    switchPane(changelogTab, 'pane-changelog');
+  } else if (servicesTab) {
+    setTabActive(servicesTab, true);
+    document.getElementById('pane-services')?.classList.remove('hidden');
+  }
   loadServicesForUser().catch(e => showToast(e.message, 'error'));
 
   // Auto-refresh toutes les 10s (utilise bypass token si disponible)
