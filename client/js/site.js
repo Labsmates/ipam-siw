@@ -41,12 +41,11 @@ function osLogo(os, hostname) {
   return `<img src="/img/os/${os}.svg" width="24" height="24" title="${labels[os] || os}" style="display:block;margin:auto">`;
 }
 
-const VM_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" style="display:block;margin:auto"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
-const PHYSIQUE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" style="display:block;margin:auto"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="15" width="20" height="6" rx="1"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`;
-
 function typeIcon(serverType) {
-  if (serverType === 'VM')       return `<span title="VM">${VM_ICON}</span>`;
-  if (serverType === 'Physique') return `<span title="Serveur physique">${PHYSIQUE_ICON}</span>`;
+  if (serverType === 'VM')
+    return `<span title="VM" style="background:#58a6ff18;color:#58a6ff;border:1px solid #58a6ff40;display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;">VM</span>`;
+  if (serverType === 'Physique')
+    return `<span title="Serveur physique" style="background:#d2992218;color:#d29922;border:1px solid #d2992240;display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;">PHYSIQUE</span>`;
   return '<span style="color:var(--tx-5)">—</span>';
 }
 
@@ -545,7 +544,7 @@ function renderTable() {
           <td style="padding:10px 16px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13.5px;">${ip.ip_address}</td>
           <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 16px;color:var(--tx-3);font-size:13px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">${osLogo(ip.os, ip.hostname)}</td>
-          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 10px;text-align:center;width:44px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
+          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 10px;text-align:center;width:90px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
           <td style="padding:6px 10px;text-align:center;width:44px;">
             ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
               style="${infoIconStyle}">
