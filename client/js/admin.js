@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupPasswordChange();
   setupBypassKey();
   setupLoginPopup();
+  setupVlanPopups();
   setupExport();
 
   // Onglet "Stat du site" — super admin uniquement
@@ -102,6 +103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'bypass-key') loadBypassKey();
       if (tab.dataset.tab === 'site-stats') loadSiteStats();
       if (tab.dataset.tab === 'login-popup') loadLoginPopup();
+      if (tab.dataset.tab === 'vlan-popups') loadVlanPopups();
     });
   });
   document.getElementById('btn-refresh-vlan-requests')?.addEventListener('click', loadVlanRequests);
@@ -826,6 +828,68 @@ function setupLoginPopup() {
     try {
       await put('/api/login-popup', { enabled, message });
       showToast('Popup de connexion enregistré', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer';
+    }
+  });
+}
+
+// =============================================================================
+// POPUP DE RÉSERVATION (par tag de VLAN)
+// =============================================================================
+async function loadVlanPopups() {
+  const list = document.getElementById('vp-list');
+  try {
+    const { popups } = await get('/api/vlan-popups');
+    const entries = Object.entries(popups || {}).sort(([a], [b]) => a.localeCompare(b));
+    if (!entries.length) {
+      list.innerHTML = '<p style="color:var(--tx-3);font-size:13px">Aucun message configuré.</p>';
+      return;
+    }
+    list.innerHTML = entries.map(([tag, msg]) => `
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:16px 18px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:700;font-size:13px;color:#58a6ff">VLAN ${esc(tag)}</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-g btn-sm vp-edit" data-tag="${esc(tag)}">Modifier</button>
+            <button class="btn btn-g btn-sm vp-del" data-tag="${esc(tag)}" style="color:#f85149">Supprimer</button>
+          </div>
+        </div>
+        <pre style="white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono','Consolas',monospace;font-size:12px;line-height:1.55;color:var(--tx-2);margin:0">${esc(msg)}</pre>
+      </div>`).join('');
+    list.querySelectorAll('.vp-edit').forEach(b => b.addEventListener('click', () => {
+      document.getElementById('vp-tag').value = b.dataset.tag;
+      document.getElementById('vp-message').value = popups[b.dataset.tag] || '';
+      document.getElementById('vp-message').focus();
+    }));
+    list.querySelectorAll('.vp-del').forEach(b => b.addEventListener('click', async () => {
+      if (!await showConfirm({ title: 'Supprimer le message', message: `Supprimer le message du VLAN ${b.dataset.tag} ?`, confirmText: 'Supprimer', danger: true })) return;
+      try {
+        await put('/api/vlan-popups', { tag: b.dataset.tag, message: '' });
+        showToast('Message supprimé', 'success');
+        loadVlanPopups();
+      } catch (e) { showToast(e.message, 'error'); }
+    }));
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupVlanPopups() {
+  const btn = document.getElementById('btn-save-vlan-popup');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const tag = document.getElementById('vp-tag').value.trim().toUpperCase();
+    const message = document.getElementById('vp-message').value;
+    if (!tag) { showToast('Indiquez un tag de VLAN', 'warn'); return; }
+    if (!message.trim()) { showToast('Le message ne peut pas être vide', 'warn'); return; }
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put('/api/vlan-popups', { tag, message });
+      showToast('Message enregistré', 'success');
+      document.getElementById('vp-tag').value = '';
+      document.getElementById('vp-message').value = '';
+      loadVlanPopups();
     } catch (e) { showToast(e.message, 'error'); }
     finally {
       btn.disabled = false;

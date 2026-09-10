@@ -171,6 +171,7 @@ th{text-align:left}
       <button class="admin-tab" data-tab="export">Export Excel</button>
       <button class="admin-tab" data-tab="password">Mon mot de passe</button>
       <button class="admin-tab" data-tab="login-popup">Popup connexion</button>
+      <button class="admin-tab" data-tab="vlan-popups">Popup réservation</button>
       <button class="admin-tab" data-tab="bypass-key">🔑 Clé de bypass</button>
       <button id="tab-site-stats" class="admin-tab hidden" data-tab="site-stats">📊 Stat du site</button>
     </div>
@@ -503,6 +504,35 @@ th{text-align:left}
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- ══ Popup de réservation (par tag de VLAN) ══ -->
+    <div id="pane-vlan-popups" class="admin-pane hidden" style="max-width:760px">
+      <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 6px">Popup de réservation</h3>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 16px">Message affiché quand un utilisateur clique sur « Réserver » une IP. Le message est associé à un tag de VLAN (METIER, ADMIN, PROCEF…) et s'applique à tous les sites.</p>
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:24px;margin-bottom:18px">
+        <div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-end">
+          <div style="width:180px">
+            <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Tag de VLAN</label>
+            <input id="vp-tag" class="inp" list="vp-tag-list" placeholder="ex : ADMIN" autocomplete="off" style="text-transform:uppercase">
+            <datalist id="vp-tag-list">
+              <option value="METIER"></option><option value="ADMIN"></option><option value="PROCEF"></option>
+              <option value="IPMI"></option><option value="CACI"></option><option value="FLUX"></option>
+            </datalist>
+          </div>
+        </div>
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Message</label>
+        <textarea id="vp-message" rows="8" class="inp" spellcheck="false"
+          style="font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.6;white-space:pre;resize:vertical"
+          placeholder="Message affiché à la réservation pour ce tag de VLAN…"></textarea>
+        <div style="margin-top:14px;display:flex;gap:9px">
+          <button id="btn-save-vlan-popup" class="btn btn-p">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Enregistrer
+          </button>
+        </div>
+      </div>
+      <div id="vp-list"></div>
     </div>
 
     <!-- ══ Stat du site ══ -->

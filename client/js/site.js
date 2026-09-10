@@ -163,6 +163,9 @@ let sortDir    = 1;     // 1 = ordre défini ci-dessous, -1 = inversé
 let _reserveSuffix = null;
 let _renameSuffix  = null;
 
+// Messages de réservation configurés par tag de VLAN (Administration)
+let _vlanPopups = {};
+
 // ---------------------------------------------------------------------------
 // Hostname suffix logic
 // ---------------------------------------------------------------------------
@@ -229,6 +232,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Popup de connexion (tous les rôles sauf viewer)
   if (user?.role !== 'viewer') checkLoginPopup();
+
+  // Messages de réservation par tag de VLAN
+  get('/api/vlan-popups').then(r => { _vlanPopups = r?.popups || {}; }).catch(() => {});
 
   // Password change modal (accessible to all users)
   document.getElementById('btn-change-pw')?.addEventListener('click', () => {
@@ -807,8 +813,34 @@ function updateSortHeaderUI() {
 // ---------------------------------------------------------------------------
 // Reserve modal
 // ---------------------------------------------------------------------------
-function openReserveModal(ipObj) {
+// Affiche le message de réservation configuré pour le tag de VLAN (si présent).
+// Résout true si l'utilisateur clique « Continuer », false s'il annule.
+function showVlanNotice(tag) {
+  return new Promise(resolve => {
+    const msg = _vlanPopups?.[String(tag || '').trim().toUpperCase()];
+    if (!msg) { resolve(true); return; }
+    const modal = document.getElementById('modal-vlan-notice');
+    document.getElementById('vln-title').textContent = `VLAN ${tag}`;
+    document.getElementById('vln-message').textContent = msg;
+    modal.classList.remove('hidden');
+    const done = (ok) => {
+      modal.classList.add('hidden');
+      document.getElementById('btn-ok-vlan-notice').removeEventListener('click', onOk);
+      document.getElementById('btn-cancel-vlan-notice').removeEventListener('click', onCancel);
+      document.getElementById('btn-x-vlan-notice').removeEventListener('click', onCancel);
+      resolve(ok);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    document.getElementById('btn-ok-vlan-notice').addEventListener('click', onOk);
+    document.getElementById('btn-cancel-vlan-notice').addEventListener('click', onCancel);
+    document.getElementById('btn-x-vlan-notice').addEventListener('click', onCancel);
+  });
+}
+
+async function openReserveModal(ipObj) {
   const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
+  if (!(await showVlanNotice(vlan?.description))) return;
   _reserveSuffix = getVlanSuffix(vlan?.description);
   document.getElementById('reserve-ip-display').textContent = ipObj.ip_address;
   document.getElementById('reserve-ip-id').value = ipObj.id;

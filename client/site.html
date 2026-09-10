@@ -786,6 +786,21 @@ function closeModal(id){document.getElementById(id)?.classList.add('hidden')}
   </div>
 </div>
 
+<!-- Popup de réservation (message configurable par tag de VLAN) -->
+<div id="modal-vlan-notice" class="modal-overlay hidden" style="z-index:210">
+  <div class="modal-box" style="width:620px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div id="vln-title" style="font-size:17px;font-weight:700;letter-spacing:-.02em">Information</div>
+      <button id="btn-x-vlan-notice" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <pre id="vln-message" style="white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.65;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:14px;max-height:52vh;overflow:auto;color:var(--tx-1);margin:0 0 18px"></pre>
+    <div style="display:flex;justify-content:flex-end;gap:9px">
+      <button type="button" id="btn-cancel-vlan-notice" class="btn btn-g">Annuler</button>
+      <button type="button" id="btn-ok-vlan-notice" class="btn btn-p">Continuer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Popup de connexion (message configurable dans Administration) -->
 <div id="modal-login-popup" class="modal-overlay hidden">
   <div class="modal-box" style="width:660px">
