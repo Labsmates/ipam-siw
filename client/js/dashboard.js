@@ -154,7 +154,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await loadSites();
   setupGlobalIpSearch('search-unified', 'ip-global-dropdown');
+  checkLoginPopup();
 });
+
+// Popup de connexion configurable (Administration > Popup connexion).
+// La case « Ne plus afficher » est mémorisée par navigateur et liée à la
+// version (hash) du message : un changement de texte la réactive.
+async function checkLoginPopup() {
+  try {
+    const p = await get('/api/login-popup');
+    if (!p?.enabled || !p.message) return;
+
+    let dismissed = null;
+    try { dismissed = localStorage.getItem('ipam-login-popup-dismissed'); } catch { /* ignore */ }
+    if (dismissed === p.version) return;
+
+    const modal = document.getElementById('modal-login-popup');
+    document.getElementById('lp-modal-message').textContent = p.message;
+    document.getElementById('lp-dont-show').checked = false;
+    modal.classList.remove('hidden');
+
+    const close = () => {
+      if (document.getElementById('lp-dont-show').checked) {
+        try { localStorage.setItem('ipam-login-popup-dismissed', p.version); } catch { /* ignore */ }
+      }
+      modal.classList.add('hidden');
+    };
+    document.getElementById('btn-close-login-popup').addEventListener('click', close, { once: true });
+    document.getElementById('btn-x-login-popup').addEventListener('click', close, { once: true });
+  } catch { /* silencieux — le popup ne doit jamais bloquer le dashboard */ }
+}
 
 async function loadSidebar() {
   try {

@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadAccountRequests();
   setupPasswordChange();
   setupBypassKey();
+  setupLoginPopup();
   setupExport();
 
   // Onglet "Stat du site" — super admin uniquement
@@ -100,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'account-requests') loadAccountRequests();
       if (tab.dataset.tab === 'bypass-key') loadBypassKey();
       if (tab.dataset.tab === 'site-stats') loadSiteStats();
+      if (tab.dataset.tab === 'login-popup') loadLoginPopup();
     });
   });
   document.getElementById('btn-refresh-vlan-requests')?.addEventListener('click', loadVlanRequests);
@@ -799,6 +801,36 @@ function setupBypassKey() {
     const key = document.getElementById('bypass-key-display').textContent.trim();
     if (!key || key === '—') { showToast('Aucune clé à copier', 'warn'); return; }
     navigator.clipboard.writeText(key).then(() => showToast('Clé copiée', 'success'));
+  });
+}
+
+// =============================================================================
+// POPUP DE CONNEXION
+// =============================================================================
+async function loadLoginPopup() {
+  try {
+    const d = await get('/api/login-popup');
+    document.getElementById('lp-enabled').checked = !!d.enabled;
+    document.getElementById('lp-message').value   = d.message || '';
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupLoginPopup() {
+  const btn = document.getElementById('btn-save-login-popup');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const enabled = document.getElementById('lp-enabled').checked;
+    const message = document.getElementById('lp-message').value;
+    if (enabled && !message.trim()) { showToast('Le message ne peut pas être vide', 'warn'); return; }
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put('/api/login-popup', { enabled, message });
+      showToast('Popup de connexion enregistré', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer';
+    }
   });
 }
 

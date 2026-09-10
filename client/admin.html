@@ -170,6 +170,7 @@ th{text-align:left}
       <button class="admin-tab" data-tab="logs">Journaux</button>
       <button class="admin-tab" data-tab="export">Export Excel</button>
       <button class="admin-tab" data-tab="password">Mon mot de passe</button>
+      <button class="admin-tab" data-tab="login-popup">Popup connexion</button>
       <button class="admin-tab" data-tab="bypass-key">🔑 Clé de bypass</button>
       <button id="tab-site-stats" class="admin-tab hidden" data-tab="site-stats">📊 Stat du site</button>
     </div>
@@ -479,6 +480,28 @@ th{text-align:left}
             Enregistrer
           </button>
         </form>
+      </div>
+    </div>
+
+    <!-- ══ Popup de connexion ══ -->
+    <div id="pane-login-popup" class="admin-pane hidden" style="max-width:760px">
+      <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 6px">Popup de connexion</h3>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 16px">Message affiché à chaque utilisateur après connexion. La case « Ne plus afficher » de chaque utilisateur est réinitialisée automatiquement dès que le texte du message change.</p>
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:24px">
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;margin-bottom:16px;cursor:pointer">
+          <input type="checkbox" id="lp-enabled" style="accent-color:#58a6ff;width:15px;height:15px">
+          Activer le popup de connexion
+        </label>
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Message</label>
+        <textarea id="lp-message" rows="16" class="inp" spellcheck="false"
+          style="font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.6;white-space:pre;resize:vertical"
+          placeholder="Texte du message affiché aux utilisateurs…"></textarea>
+        <div style="margin-top:16px">
+          <button id="btn-save-login-popup" class="btn btn-p">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Enregistrer
+          </button>
+        </div>
       </div>
     </div>
 
