@@ -786,6 +786,24 @@ function closeModal(id){document.getElementById(id)?.classList.add('hidden')}
   </div>
 </div>
 
+<!-- Popup de connexion (message configurable dans Administration) -->
+<div id="modal-login-popup" class="modal-overlay hidden">
+  <div class="modal-box" style="width:660px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Information</div>
+      <button id="btn-x-login-popup" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <pre id="lp-modal-message" style="white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.65;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:14px;max-height:52vh;overflow:auto;color:var(--tx-1);margin:0 0 16px"></pre>
+    <label style="display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:18px;cursor:pointer">
+      <input type="checkbox" id="lp-dont-show" style="accent-color:#58a6ff;width:15px;height:15px">
+      Ne plus afficher ce message
+    </label>
+    <div style="display:flex;justify-content:flex-end">
+      <button type="button" id="btn-close-login-popup" class="btn btn-p">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="/js/site.js?v=44e8f78"></script>
 </body>
 </html>
