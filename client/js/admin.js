@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupLoginPopup();
   setupVlanPopups();
   setupMigrationOs();
+  setupMigrationPrompt();
   setupExport();
 
   // Onglet "Stat du site" — super admin uniquement
@@ -106,6 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'login-popup') loadLoginPopup();
       if (tab.dataset.tab === 'vlan-popups') loadVlanPopups();
       if (tab.dataset.tab === 'migration-os') loadMigrationOs();
+      if (tab.dataset.tab === 'migration-prompt') loadMigrationPrompt();
     });
   });
   document.getElementById('btn-refresh-vlan-requests')?.addEventListener('click', loadVlanRequests);
@@ -830,6 +832,40 @@ function setupLoginPopup() {
     try {
       await put('/api/login-popup', { enabled, message });
       showToast('Popup de connexion enregistré', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer';
+    }
+  });
+}
+
+// =============================================================================
+// POPUP MIGRATION (post-Réserver/Utiliser)
+// =============================================================================
+async function loadMigrationPrompt() {
+  try {
+    const d = await get('/api/migrations/prompt-config');
+    document.getElementById('mp-enabled').checked = !!d.enabled;
+    document.getElementById('mp-message-reserve').value = d.message_reserve || '';
+    document.getElementById('mp-message-use').value = d.message_use || '';
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupMigrationPrompt() {
+  const btn = document.getElementById('btn-save-migration-prompt');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const enabled = document.getElementById('mp-enabled').checked;
+    const message_reserve = document.getElementById('mp-message-reserve').value;
+    const message_use = document.getElementById('mp-message-use').value;
+    if (enabled && (!message_reserve.trim() || !message_use.trim())) {
+      showToast('Les deux messages ne peuvent pas être vides', 'warn'); return;
+    }
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put('/api/migrations/prompt-config', { enabled, message_reserve, message_use });
+      showToast('Popup Migration enregistré', 'success');
     } catch (e) { showToast(e.message, 'error'); }
     finally {
       btn.disabled = false;

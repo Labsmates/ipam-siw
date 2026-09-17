@@ -162,9 +162,13 @@ let sortDir    = 1;     // 1 = ordre défini ci-dessous, -1 = inversé
 // Active suffix for the currently open hostname modal
 let _reserveSuffix = null;
 let _renameSuffix  = null;
+let _reserveVlanTag = null; // tag du VLAN de l'IP en cours d'assignation (popup migration)
 
 // Messages de réservation configurés par tag de VLAN (Administration)
 let _vlanPopups = {};
+
+// Popup post-Réserver/Utiliser (migration Windows Serveur 2022)
+let _migPrompt = { enabled: false, message_reserve: '', message_use: '' };
 
 // ---------------------------------------------------------------------------
 // Hostname suffix logic
@@ -235,6 +239,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Messages de réservation par tag de VLAN
   get('/api/vlan-popups').then(r => { _vlanPopups = r?.popups || {}; }).catch(() => {});
+
+  // Popup post-Réserver/Utiliser (migration Windows Serveur 2022)
+  get('/api/migrations/prompt-config').then(r => { if (r) _migPrompt = r; }).catch(() => {});
 
   // Password change modal (accessible to all users)
   document.getElementById('btn-change-pw')?.addEventListener('click', () => {
@@ -838,10 +845,28 @@ function showVlanNotice(tag) {
   });
 }
 
+// Après un Réserver/Utiliser réussi dans un VLAN METIER/PROCEF/CACI, demande
+// si l'IP concerne la migration Windows Serveur 2022 en cours et, si oui,
+// renvoie vers Migration Serveurs pour ce site.
+async function maybeShowMigrationPrompt(status) {
+  if (!_migPrompt.enabled) return;
+  if (!INFO_VLAN_TAGS.includes(_reserveVlanTag)) return;
+  const msg = status === 'Réservée' ? _migPrompt.message_reserve : _migPrompt.message_use;
+  if (!msg || !msg.trim()) return;
+  const goToMigration = await showConfirm({
+    title: 'Migration Windows Serveur 2022',
+    message: msg,
+    confirmText: 'Oui',
+    cancelText: 'Non',
+  });
+  if (goToMigration) window.location.href = `/migration.html?id=${encodeURIComponent(siteId)}`;
+}
+
 async function openReserveModal(ipObj) {
   const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
   if (!(await showVlanNotice(vlan?.description))) return;
   _reserveSuffix = getVlanSuffix(vlan?.description);
+  _reserveVlanTag = (vlan?.description || '').trim().toUpperCase();
   document.getElementById('reserve-ip-display').textContent = ipObj.ip_address;
   document.getElementById('reserve-ip-id').value = ipObj.id;
   document.getElementById('reserve-hostname').value = ipObj.hostname || '';
@@ -1140,6 +1165,7 @@ function setupModals(user) {
       closeModal('modal-reserve');
       document.getElementById('form-reserve').reset();
       await loadSite();
+      await maybeShowMigrationPrompt(status);
     } catch (err) {
       await showAlert({ title: 'Conflit détecté', message: err.message });
     } finally {

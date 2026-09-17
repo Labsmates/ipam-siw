@@ -97,6 +97,55 @@ router.put('/os-config', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------------------------------------------------------------------
+// Popup post-Réserver/Utiliser — demande si l'IP concerne la migration en
+// cours, avec redirection vers Migration Serveurs si l'utilisateur confirme.
+// ---------------------------------------------------------------------------
+const PROMPT_KEY = 'config:migration_prompt';
+const DEFAULT_PROMPT = {
+  enabled: true,
+  message_reserve: 'Avez-vous réservé une IP dans le cadre de la migration Windows Serveur 2022 ? Si oui, merci de faire la correspondance dans Migration Serveurs.',
+  message_use: 'Utilisez-vous cette IP dans le cadre de la migration Windows Serveur 2022 ? Si oui, merci de faire la correspondance dans Migration Serveurs.',
+};
+
+async function loadPromptConfig() {
+  const raw = await redis.get(PROMPT_KEY);
+  if (!raw) return DEFAULT_PROMPT;
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: parsed.enabled === true,
+      message_reserve: typeof parsed.message_reserve === 'string' ? parsed.message_reserve : DEFAULT_PROMPT.message_reserve,
+      message_use: typeof parsed.message_use === 'string' ? parsed.message_use : DEFAULT_PROMPT.message_use,
+    };
+  } catch { return DEFAULT_PROMPT; }
+}
+
+// GET /api/migrations/prompt-config
+router.get('/prompt-config', async (req, res) => {
+  try {
+    const cfg = await loadPromptConfig();
+    if (!cfg.enabled) return res.json({ enabled: false, message_reserve: '', message_use: '' });
+    res.json(cfg);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/migrations/prompt-config — admin uniquement
+router.put('/prompt-config', requireAdmin, async (req, res) => {
+  try {
+    const { enabled, message_reserve, message_use } = req.body || {};
+    const data = {
+      enabled: enabled === true,
+      message_reserve: typeof message_reserve === 'string' ? message_reserve.slice(0, 2000) : '',
+      message_use: typeof message_use === 'string' ? message_use.slice(0, 2000) : '',
+      updated_at: new Date().toISOString(),
+    };
+    await redis.set(PROMPT_KEY, JSON.stringify(data));
+    await addLog(req.user.username, 'MIGRATION_PROMPT_UPDATE', { enabled: data.enabled });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Catégories de hostname jamais éligibles à la migration (mêmes motifs que
 // isInfoExcluded() côté client — Gateway, iLO, iDRAC, Nutanix)
 function isDeviceExcluded(hostname) {
