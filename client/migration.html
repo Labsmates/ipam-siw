@@ -105,14 +105,22 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
       Archive
     </a>
-    <a href="/admin.html" id="nav-admin-link" class="hidden" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-top:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Administration
-    </a>
-    <a id="nav-config-link" href="/config.html" class="hidden" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-top:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
-      Configuration système
-    </a>
+    <div id="nav-admin-section">
+      <button id="btn-nav-admin-toggle" class="hidden" title="Masquer / afficher" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;border-top:1px solid var(--brd);padding:5px 12px 5px 14px;cursor:pointer;color:var(--tx-5);margin-top:4px;box-sizing:border-box" onmouseenter="this.style.color='var(--tx-3)'" onmouseleave="this.style.color='var(--tx-5)'">
+        <span style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Admin</span>
+        <svg id="btn-nav-admin-toggle-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+      </button>
+      <div id="nav-admin-links">
+        <a href="/admin.html" id="nav-admin-link" class="hidden" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-top:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Administration
+        </a>
+        <a id="nav-config-link" href="/config.html" class="hidden" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-top:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+          Configuration système
+        </a>
+      </div>
+    </div>
   </div>
 
   <!-- Search -->

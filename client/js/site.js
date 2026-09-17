@@ -6,7 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, patch, del, showToast, showAlert, sortIPs, sortSites, statusBadge, fmtDate,
   openModal, closeModal, cidrToIPs, showConfirm, initTheme, initSidebarCollapse, setupGlobalIpSearch,
-  restoreElevationSession, setupElevationMode,
+  restoreElevationSession, setupElevationMode, setupAdminSectionToggle,
 } from './api.js';
 import { WIN_ROLES, LIN_ROLES, XMB_ROLE_LABEL } from './server-roles.js';
 
@@ -1464,36 +1464,6 @@ function setupModals(user) {
 // ---------------------------------------------------------------------------
 // Sidebar population
 // ---------------------------------------------------------------------------
-function setupAdminSectionToggle() {
-  const adminLink  = document.getElementById('nav-admin-link');
-  const configLink = document.getElementById('nav-config-link');
-  const toggleBtn  = document.getElementById('btn-nav-admin-toggle');
-  const linksDiv   = document.getElementById('nav-admin-links');
-  const icon       = document.getElementById('btn-nav-admin-toggle-icon');
-  if (!toggleBtn || !linksDiv) return;
-
-  // setupElevationMode() a déjà retiré .hidden — vérifier l'état immédiatement
-  const anyVisible = (adminLink && !adminLink.classList.contains('hidden')) ||
-                     (configLink && !configLink.classList.contains('hidden'));
-  if (!anyVisible) return; // viewer/user sans lien admin : rien à faire
-
-  toggleBtn.classList.remove('hidden');
-
-  // Restaurer l'état depuis localStorage
-  const collapsed = localStorage.getItem('ipam_nav_admin_collapsed') === '1';
-  if (collapsed) {
-    linksDiv.style.display = 'none';
-    icon.setAttribute('points', '6 9 12 15 18 9');
-  }
-
-  toggleBtn.addEventListener('click', () => {
-    const isNowHidden = linksDiv.style.display === 'none';
-    linksDiv.style.display = isNowHidden ? '' : 'none';
-    icon.setAttribute('points', isNowHidden ? '18 15 12 9 6 15' : '6 9 12 15 18 9');
-    localStorage.setItem('ipam_nav_admin_collapsed', isNowHidden ? '0' : '1');
-  });
-}
-
 async function loadSidebar() {
   try {
     const data = await get('/api/sites');

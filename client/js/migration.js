@@ -5,7 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
-  restoreElevationSession, setupElevationMode, openModal, closeModal,
+  restoreElevationSession, setupElevationMode, setupAdminSectionToggle, openModal, closeModal,
 } from './api.js';
 
 function esc(s) {
@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   setupElevationMode();
+  setupAdminSectionToggle();
   loadSidebar();
 
   if (!siteId) {

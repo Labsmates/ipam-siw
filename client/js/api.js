@@ -129,6 +129,42 @@ export function initSidebarCollapse() {
 }
 
 // ---------------------------------------------------------------------------
+// Section ADMIN (Administration / Configuration système / Mode SA) — repliée
+// par défaut sur les pages à liste de sites (Site IPAM, Migration Serveurs)
+// pour laisser plus de place à la liste ; l'utilisateur peut la redéployer,
+// son choix est alors mémorisé.
+// ---------------------------------------------------------------------------
+export function setupAdminSectionToggle() {
+  const adminLink  = document.getElementById('nav-admin-link');
+  const configLink = document.getElementById('nav-config-link');
+  const toggleBtn  = document.getElementById('btn-nav-admin-toggle');
+  const linksDiv   = document.getElementById('nav-admin-links');
+  const icon       = document.getElementById('btn-nav-admin-toggle-icon');
+  if (!toggleBtn || !linksDiv) return;
+
+  // setupElevationMode() a déjà retiré .hidden — vérifier l'état immédiatement
+  const anyVisible = (adminLink && !adminLink.classList.contains('hidden')) ||
+                     (configLink && !configLink.classList.contains('hidden'));
+  if (!anyVisible) return; // viewer/user sans lien admin : rien à faire
+
+  toggleBtn.classList.remove('hidden');
+
+  // Repliée par défaut (masquée) tant que l'utilisateur ne l'a pas explicitement déployée
+  const collapsed = localStorage.getItem('ipam_nav_admin_collapsed') !== '0';
+  if (collapsed) {
+    linksDiv.style.display = 'none';
+    icon.setAttribute('points', '6 9 12 15 18 9');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    const isNowHidden = linksDiv.style.display === 'none';
+    linksDiv.style.display = isNowHidden ? '' : 'none';
+    icon.setAttribute('points', isNowHidden ? '18 15 12 9 6 15' : '6 9 12 15 18 9');
+    localStorage.setItem('ipam_nav_admin_collapsed', isNowHidden ? '0' : '1');
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Fetch wrapper
 // ---------------------------------------------------------------------------
 export async function api(method, path, body) {
