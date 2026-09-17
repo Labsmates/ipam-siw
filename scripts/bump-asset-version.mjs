@@ -2,9 +2,12 @@
 /**
  * bump-asset-version.mjs
  * Ajoute/rafraîchit un paramètre ?v=<hash> sur les <script src="/js/...">
- * de tous les fichiers client/*.html — force le navigateur à recharger le JS
- * après chaque déploiement au lieu de servir une version mise en cache.
- * Appelé automatiquement par le hook post-commit.
+ * de tous les fichiers client/*.html, ET sur les `import ... from '...js'`
+ * internes entre fichiers client/js/*.js (ex: site.js → ./api.js) — Apache
+ * sert ces fichiers avec Cache-Control immutable, donc sans ce paramètre de
+ * version le navigateur ne recharge jamais un import ES module déjà en
+ * cache, même après un rechargement forcé. Appelé automatiquement par le
+ * hook post-commit.
  *
  * Usage : node scripts/bump-asset-version.mjs
  */
@@ -17,6 +20,7 @@ import { fileURLToPath } from 'url';
 const __dirname  = dirname(fileURLToPath(import.meta.url));
 const ROOT       = resolve(__dirname, '..');
 const CLIENT_DIR = resolve(ROOT, 'client');
+const CLIENT_JS_DIR = resolve(CLIENT_DIR, 'js');
 
 // ── 1. Récupérer le hash du dernier commit ────────────────────────────────────
 let hash, subject;
@@ -52,3 +56,21 @@ for (const file of htmlFiles) {
 }
 
 console.log(`[assets] Version ${hash} appliquée sur ${changedCount} fichier(s) HTML.`);
+
+// ── 4. Idem pour les imports ES module internes (client/js/*.js) ──────────────
+const IMPORT_RE = /(from '(?:\.\/|\/js\/)[^']+?\.js)(\?v=[a-f0-9]+)?'/g;
+
+const jsFiles = readdirSync(CLIENT_JS_DIR).filter(f => f.endsWith('.js'));
+let changedJsCount = 0;
+
+for (const file of jsFiles) {
+  const path = resolve(CLIENT_JS_DIR, file);
+  const before = readFileSync(path, 'utf8');
+  const after = before.replace(IMPORT_RE, (_, base) => `${base}?v=${hash}'`);
+  if (after !== before) {
+    writeFileSync(path, after, 'utf8');
+    changedJsCount++;
+  }
+}
+
+console.log(`[assets] Version ${hash} appliquée sur ${changedJsCount} import(s) ES module (client/js/*.js).`);
