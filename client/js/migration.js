@@ -53,6 +53,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-add-migration')?.addEventListener('click', () => openMigrationModal(null));
 
   await loadPage();
+
+  // Arrivée depuis le popup post-Réserver/Utiliser (site.html) : ouvre
+  // directement "Ajouter une migration" avec le New Hostname pré-rempli.
+  if (params.get('add') === '1' && user?.role !== 'viewer') {
+    const presetNewHostname = params.get('new_hostname') || '';
+    openMigrationModal(null);
+    if (presetNewHostname) {
+      const newSelect = document.getElementById('mig-new-hostname');
+      if ([...newSelect.options].some(o => o.value === presetNewHostname)) {
+        newSelect.value = presetNewHostname;
+        newSelect.onchange();
+      }
+    }
+    const cleanUrl = new URL(location.href);
+    cleanUrl.searchParams.delete('add');
+    cleanUrl.searchParams.delete('new_hostname');
+    history.replaceState(null, '', cleanUrl);
+  }
 });
 
 async function loadSidebar() {

@@ -848,7 +848,7 @@ function showVlanNotice(tag) {
 // Après un Réserver/Utiliser réussi dans un VLAN dont le tag figure dans la
 // configuration admin, demande si l'IP concerne la migration Windows Serveur
 // 2022 en cours et, si oui, renvoie vers Migration Serveurs pour ce site.
-async function maybeShowMigrationPrompt(status) {
+async function maybeShowMigrationPrompt(status, hostname) {
   if (!_migPrompt.enabled) return;
   if (!(_migPrompt.vlan_tags || []).includes(_reserveVlanTag)) return;
   const msg = status === 'Réservée' ? _migPrompt.message_reserve : _migPrompt.message_use;
@@ -859,7 +859,10 @@ async function maybeShowMigrationPrompt(status) {
     confirmText: 'Oui',
     cancelText: 'Non',
   });
-  if (goToMigration) window.location.href = `/migration.html?id=${encodeURIComponent(siteId)}`;
+  if (goToMigration) {
+    const params = new URLSearchParams({ id: siteId, new_hostname: hostname || '', add: '1' });
+    window.location.href = `/migration.html?${params.toString()}`;
+  }
 }
 
 async function openReserveModal(ipObj) {
@@ -1165,7 +1168,7 @@ function setupModals(user) {
       closeModal('modal-reserve');
       document.getElementById('form-reserve').reset();
       await loadSite();
-      await maybeShowMigrationPrompt(status);
+      await maybeShowMigrationPrompt(status, hostname);
     } catch (err) {
       await showAlert({ title: 'Conflit détecté', message: err.message });
     } finally {
