@@ -396,6 +396,11 @@ export function fmtDate(ts) {
 // ---------------------------------------------------------------------------
 export function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
 export function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
+// Exposées sur window car de nombreux boutons (X, Annuler) les appellent via
+// des attributs onclick="..." inline, qui s'exécutent dans le scope global —
+// inatteignable pour des exports de module ES sans cette affectation.
+window.openModal = openModal;
+window.closeModal = closeModal;
 
 // ---------------------------------------------------------------------------
 // Alert dialog (informational — single OK button)
