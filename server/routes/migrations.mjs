@@ -32,7 +32,7 @@ const DEFAULT_OS = {
   old: [
     { value: '2016', icon: 'win2016', locked: false },
     { value: '2019', icon: 'win2016', locked: false },
-    { value: '2022', icon: 'win2022', locked: false },
+    { value: '2022', icon: 'win2022', locked: true },
   ],
   new: [
     { value: '2022', icon: 'win2022', locked: false },
