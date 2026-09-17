@@ -1160,6 +1160,7 @@ function setupModals(user) {
     const raw      = document.getElementById('reserve-hostname').value.trim();
     const hostname = buildFqdn(raw, _reserveSuffix);
     const os       = document.getElementById('reserve-os').value;
+    if (!os) { showToast('Sélectionnez un OS', 'warn'); return; }
     triggerBtn.disabled = true; triggerBtn.textContent = loadingText;
     try {
       await put(`/api/ips/${encodeURIComponent(id)}`, { status, hostname, os });
