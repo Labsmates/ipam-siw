@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, del, delBody, showToast, sortSites, showConfirm, initTheme,
+  get, post, del, delBody, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
 
@@ -25,7 +25,7 @@ let isSuperAdmin = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
-  checkHttps(); initTheme();
+  checkHttps(); initTheme(); initSidebarCollapse();
   if (!requireAuth()) return;
   startInactivityTimer();
 

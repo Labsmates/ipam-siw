@@ -104,6 +104,31 @@ export function initTheme() {
 }
 
 // ---------------------------------------------------------------------------
+// Barre latérale réduite (icônes seules)
+// ---------------------------------------------------------------------------
+const SIDEBAR_COLLAPSE_KEY = 'ipam_sidebar_collapsed';
+
+export function applySidebarCollapse(collapsed) {
+  const sidebar = document.getElementById('sidebar');
+  const icon    = document.getElementById('btn-sidebar-collapse-icon');
+  const btn     = document.getElementById('btn-sidebar-collapse');
+  if (!sidebar) return;
+  sidebar.classList.toggle('collapsed', collapsed);
+  if (icon) icon.style.transform = collapsed ? 'rotate(180deg)' : '';
+  if (btn)  btn.title = collapsed ? 'Développer le menu' : 'Réduire le menu';
+}
+
+export function initSidebarCollapse() {
+  const collapsed = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === '1';
+  applySidebarCollapse(collapsed);
+  document.getElementById('btn-sidebar-collapse')?.addEventListener('click', () => {
+    const now = !document.getElementById('sidebar')?.classList.contains('collapsed');
+    applySidebarCollapse(now);
+    localStorage.setItem(SIDEBAR_COLLAPSE_KEY, now ? '1' : '0');
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Fetch wrapper
 // ---------------------------------------------------------------------------
 export async function api(method, path, body) {

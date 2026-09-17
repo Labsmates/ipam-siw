@@ -34,6 +34,16 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .site-item:hover{background:var(--bg-3);color:var(--tx-1)}
 #sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:var(--bg-2);border-right:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;z-index:10}
 #app-main{margin-left:260px;height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;overflow:hidden}
+#sidebar{transition:width .15s}
+#sidebar.collapsed{width:64px}
+#sidebar.collapsed~#app-main{margin-left:64px}
+#app-main{transition:margin-left .15s}
+#sidebar.collapsed .sb-text,#sidebar.collapsed #sidebar-search-wrap,#sidebar.collapsed #site-list,#sidebar.collapsed #btn-nav-admin-toggle{display:none!important}
+#sidebar.collapsed #sidebar-nav a{font-size:0!important;justify-content:center!important;padding-left:8px!important;padding-right:8px!important;gap:0!important}
+#sidebar.collapsed #sidebar-header-row{flex-direction:column!important;gap:6px!important}
+#sidebar.collapsed #btn-sidebar-collapse{margin-left:0}
+#sidebar.collapsed #sidebar-user-row{flex-wrap:wrap!important;justify-content:center!important;gap:4px!important;padding:6px!important}
+
 .ipcalc-card{background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px}
 .nt-tab{padding:7px 16px;border-radius:7px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
 .nt-tab:hover{background:var(--bg-hover);color:var(--tx-1)}
@@ -51,7 +61,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 <div id="sidebar">
 
   <div style="padding:18px 16px 12px;border-bottom:1px solid var(--brd)">
-    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px">
+    <div id="sidebar-header-row" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px">
       <div style="width:30px;height:30px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 14px rgba(88,166,255,.35);-ms-flex-negative:0;flex-shrink:0">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="2" width="20" height="8" rx="2"/>
@@ -60,14 +70,17 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
           <line x1="6" y1="18" x2="6.01" y2="18"/>
         </svg>
       </div>
-      <div>
+      <div class="sb-text">
         <div style="font-size:14px;font-weight:700;letter-spacing:-0.02em">IPAM SIW</div>
         <div id="app-subtitle" style="font-size:11px;color:var(--tx-3)">Gestion des adresses IP</div>
       </div>
+    <button id="btn-sidebar-collapse" title="Réduire le menu" style="flex-shrink:0;margin-left:auto;width:22px;height:22px;padding:0;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'">
+          <svg id="btn-sidebar-collapse-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .15s"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
     </div>
   </div>
 
-  <div style="padding:10px 10px 6px;border-bottom:1px solid var(--brd)">
+  <div id="sidebar-nav" style="padding:10px 10px 6px;border-bottom:1px solid var(--brd)">
     <a href="/dashboard.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       Tableau de bord
@@ -110,7 +123,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     </a>
   </div>
 
-  <div style="padding:10px 10px 6px">
+  <div id="sidebar-search-wrap" style="padding:10px 10px 6px">
     <div style="position:relative">
       <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input id="sidebar-search" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher un site…">
@@ -120,8 +133,8 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
   <div id="site-list" style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto"></div>
 
   <div style="padding:12px 14px;border-top:1px solid var(--brd)">
-    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:9px 11px">
-      <div style="min-width:0">
+    <div id="sidebar-user-row" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:9px 11px">
+      <div class="sb-text" style="min-width:0">
         <div id="nav-username" style="font-size:13px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         <div id="nav-role" style="font-size:11px;color:var(--tx-3);margin-top:1px"></div>
       </div>

@@ -4,14 +4,14 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, delBody, patch, showToast, showAlert, fmtDate, openModal, closeModal, sortSites, showConfirm, initTheme,
+  get, post, put, del, delBody, patch, showToast, showAlert, fmtDate, openModal, closeModal, sortSites, showConfirm, initTheme, initSidebarCollapse,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme();
+  initTheme(); initSidebarCollapse();
   if (!requireAuth()) return;
   startInactivityTimer();
 

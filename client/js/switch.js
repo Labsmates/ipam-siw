@@ -1,5 +1,5 @@
 import {
-  requireAuth, getUser, logout, initTheme, startInactivityTimer,
+  requireAuth, getUser, logout, initTheme, initSidebarCollapse, startInactivityTimer,
   get, post, put, del, showToast, sortSites,
 } from '/js/api.js';
 
@@ -19,7 +19,7 @@ if (!requireAuth()) throw new Error('not authenticated');
 user    = getUser();
 isAdmin = user?.role === 'admin';
 
-initTheme();
+initTheme(); initSidebarCollapse();
 startInactivityTimer();
 
 document.getElementById('nav-username').textContent = user?.username || '';

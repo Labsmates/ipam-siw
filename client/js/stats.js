@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, showToast, sortSites, showConfirm, initTheme,
+  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
   restoreElevationSession, setupElevationMode,
 } from './api.js';
 import { WIN_ROLES, LIN_ROLES } from './server-roles.js';
@@ -65,7 +65,7 @@ let _searchIpSite  = '';
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme();
+  initTheme(); initSidebarCollapse();
   if (!requireAuth()) return;
   startInactivityTimer();
 
