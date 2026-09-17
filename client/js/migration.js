@@ -56,15 +56,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Arrivée depuis le popup post-Réserver/Utiliser (site.html) : ouvre
   // directement "Ajouter une migration" avec le New Hostname pré-rempli.
+  // Le hostname vient d'être réservé/utilisé par l'utilisateur lui-même —
+  // on l'ajoute donc à la liste même s'il ne correspond pas au motif de
+  // classification Windows 2022 (usage normal de newCandidates()).
   if (params.get('add') === '1' && user?.role !== 'viewer') {
     const presetNewHostname = params.get('new_hostname') || '';
     openMigrationModal(null);
-    if (presetNewHostname) {
+    if (presetNewHostname && (siteData.ips || []).some(ip => ip.hostname === presetNewHostname)) {
       const newSelect = document.getElementById('mig-new-hostname');
-      if ([...newSelect.options].some(o => o.value === presetNewHostname)) {
-        newSelect.value = presetNewHostname;
-        newSelect.onchange();
+      if (![...newSelect.options].some(o => o.value === presetNewHostname)) {
+        newSelect.insertAdjacentHTML('beforeend', `<option value="${esc(presetNewHostname)}">${esc(presetNewHostname)}</option>`);
       }
+      newSelect.value = presetNewHostname;
+      newSelect.onchange();
     }
     const cleanUrl = new URL(location.href);
     cleanUrl.searchParams.delete('add');
