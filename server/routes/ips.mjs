@@ -1,5 +1,5 @@
 import express from 'express';
-import { getIp, updateIp, deleteIp, searchAllIPs, addLog, getIpHistory, getVlan } from '../redis.mjs';
+import { getIp, updateIp, deleteIp, searchAllIPs, addLog, getIpHistory, getVlan, getSite } from '../redis.mjs';
 import { requireAuth } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -149,9 +149,18 @@ router.put('/:id', requireAuth, requireNonViewer, async (req, res) => {
     }
     // Archive entry when an IP is released and had a hostname
     if (status === 'Libre' && ip.hostname) {
+      let site_id = null, site_name = '';
+      try {
+        const relVlan = await getVlan(ip.vlan_id);
+        if (relVlan) {
+          site_id = relVlan.site_id;
+          const relSite = await getSite(relVlan.site_id);
+          site_name = relSite?.name || '';
+        }
+      } catch { /* ignore — l'archive retombera sur la résolution par IP */ }
       await addLog(req.user.username, 'RELEASE_IP',
-        JSON.stringify({ ip: ip.ip_address, hostname: ip.hostname, comment: (comment || '').slice(0, 300) }), 'info',
-        { ip_address: ip.ip_address });
+        JSON.stringify({ ip: ip.ip_address, hostname: ip.hostname, comment: (comment || '').slice(0, 300), site_id, site_name }),
+        'info', { ip_address: ip.ip_address, site_id });
     }
     res.json({ ok: true });
   } catch (e) {

@@ -72,8 +72,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   document.getElementById('search-input').addEventListener('input', renderFiltered);
+  document.getElementById('site-filter').addEventListener('change', renderFiltered);
+  await populateSiteFilter();
   await loadArchive();
 });
+
+async function populateSiteFilter() {
+  try {
+    const data = await get('/api/sites');
+    const sites = sortSites(data.sites || []);
+    const select = document.getElementById('site-filter');
+    const params = new URLSearchParams(location.search);
+    const preselect = params.get('site') || '';
+    select.insertAdjacentHTML('beforeend',
+      sites.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join(''));
+    if (preselect && sites.some(s => String(s.id) === preselect)) select.value = preselect;
+  } catch { /* filtre non critique */ }
+}
 
 async function loadSidebar() {
   try {
@@ -112,16 +127,28 @@ async function loadArchive() {
   }
 }
 
-function renderFiltered() {
+function getFiltered() {
+  const siteId = document.getElementById('site-filter').value;
   const q = document.getElementById('search-input').value.trim().toLowerCase();
-  const filtered = q
-    ? allReleases.filter(r =>
-        r.hostname?.toLowerCase().includes(q) ||
-        r.ip?.toLowerCase().includes(q) ||
-        r.username?.toLowerCase().includes(q) ||
-        r.comment?.toLowerCase().includes(q)
-      )
-    : allReleases;
+  let rows = siteId ? allReleases.filter(r => String(r.site_id) === siteId) : allReleases;
+  if (q) {
+    rows = rows.filter(r =>
+      r.hostname?.toLowerCase().includes(q) ||
+      r.ip?.toLowerCase().includes(q) ||
+      r.username?.toLowerCase().includes(q) ||
+      r.comment?.toLowerCase().includes(q) ||
+      r.site_name?.toLowerCase().includes(q)
+    );
+  }
+  return rows;
+}
+
+function renderFiltered() {
+  const filtered = getFiltered();
+  const siteId = document.getElementById('site-filter').value;
+
+  // Colonne Site utile uniquement en vue "Tous les sites"
+  document.getElementById('th-site').style.display = siteId ? 'none' : '';
 
   document.getElementById('counter').textContent =
     filtered.length !== allReleases.length
@@ -138,6 +165,7 @@ function renderFiltered() {
   }
 
   empty.classList.add('hidden');
+  const siteFilterActive = !!document.getElementById('site-filter').value;
   tbody.innerHTML = filtered.map((r, i) => {
     const bg = i % 2 === 1 ? 'background:var(--bg-3);' : '';
     const deleteBtn = isSuperAdmin
@@ -145,6 +173,7 @@ function renderFiltered() {
       : '';
     return `
       <tr style="${bg}border-bottom:1px solid var(--brd);">
+        ${siteFilterActive ? '' : `<td style="padding:11px 16px;font-size:13px;color:var(--tx-2);">${esc(r.site_name)}</td>`}
         <td style="padding:11px 16px;font-size:13px;font-family:'Consolas','Courier New',monospace;color:var(--tx-1);">${esc(r.hostname)}</td>
         <td style="padding:11px 16px;font-size:13px;font-family:'Consolas','Courier New',monospace;color:var(--tx-3);">${esc(r.ip)}</td>
         <td style="padding:11px 16px;font-size:13px;color:var(--tx-3);white-space:nowrap;">${fmtDate(r.created_at)}</td>
@@ -190,20 +219,12 @@ async function clearAllArchive() {
 
 function exportCsv() {
   if (!allReleases.length) { showToast('Aucune donnée à exporter', 'warn'); return; }
-  const q = document.getElementById('search-input').value.trim().toLowerCase();
-  const rows = q
-    ? allReleases.filter(r =>
-        r.hostname?.toLowerCase().includes(q) ||
-        r.ip?.toLowerCase().includes(q) ||
-        r.username?.toLowerCase().includes(q) ||
-        r.comment?.toLowerCase().includes(q)
-      )
-    : allReleases;
+  const rows = getFiltered();
 
   const csvEsc = v => `"${String(v || '').replace(/"/g, '""')}"`;
   const lines = [
-    ['Hostname', 'Adresse IP', 'Date', 'Utilisateur', 'Commentaire'].map(csvEsc).join(','),
-    ...rows.map(r => [r.hostname, r.ip, fmtDate(r.created_at), r.username, r.comment || ''].map(csvEsc).join(',')),
+    ['Site', 'Hostname', 'Adresse IP', 'Date', 'Utilisateur', 'Commentaire'].map(csvEsc).join(','),
+    ...rows.map(r => [r.site_name, r.hostname, r.ip, fmtDate(r.created_at), r.username, r.comment || ''].map(csvEsc).join(',')),
   ];
   const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);

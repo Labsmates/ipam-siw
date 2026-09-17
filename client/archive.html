@@ -141,6 +141,9 @@ th{text-align:left}
 
   <!-- Search + counter + actions -->
   <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+    <select id="site-filter" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:8px 12px;color:var(--tx-1);font-size:13px;outline:none;min-width:180px;-ms-flex-negative:0;flex-shrink:0;">
+      <option value="">Tous les sites</option>
+    </select>
     <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;min-width:200px;max-width:360px;">
       <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input id="search-input" placeholder="Filtrer par hostname, IP, utilisateur ou commentaire…" style="width:100%;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:8px 12px 8px 32px;color:var(--tx-1);font-size:13px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s">
@@ -171,6 +174,7 @@ th{text-align:left}
     <table>
       <thead>
         <tr style="border-bottom:1px solid var(--brd);">
+          <th id="th-site" style="padding:12px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.05em;">Site</th>
           <th style="padding:12px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.05em;">Hostname</th>
           <th style="padding:12px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.05em;">Adresse IP</th>
           <th style="padding:12px 16px;font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.05em;">Date</th>

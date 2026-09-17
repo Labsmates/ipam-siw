@@ -1,30 +1,46 @@
 import express from 'express';
-import { getLogs, clearLogs, clearArchiveLogs, deleteLogEntry, redis } from '../redis.mjs';
+import { getLogs, clearLogs, clearArchiveLogs, deleteLogEntry, redis, getIpAddressSiteMap } from '../redis.mjs';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
 
-// GET /api/logs/archive (all authenticated users) — hostname release history
+// GET /api/logs/archive (all authenticated users) — hostname release history,
+// classée par site. Les entrées récentes portent déjà site_id/site_name ;
+// les entrées plus anciennes sont rattachées via l'IP (résolution live).
 router.get('/archive', requireAuth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 2000, 5000);
     const all = await getLogs(limit);
-    const releases = all
+    const parsed = all
       .filter(l => l.action === 'RELEASE_IP')
       .map(l => {
-        try {
-          const d = JSON.parse(l.details);
-          return {
-            username:   l.username,
-            ip:         d.ip,
-            hostname:   d.hostname,
-            comment:    d.comment || '',
-            created_at: l.created_at,
-            _raw:       l._raw,
-          };
-        } catch { return null; }
+        try { return { l, d: JSON.parse(l.details) }; }
+        catch { return null; }
       })
       .filter(Boolean);
+
+    // Rétro-résolution du site uniquement si au moins une entrée n'a pas déjà site_name
+    const needsFallback = parsed.some(({ d }) => !d.site_name);
+    const fallbackMap = needsFallback ? await getIpAddressSiteMap() : null;
+
+    const releases = parsed.map(({ l, d }) => {
+      let site_id   = d.site_id ?? null;
+      let site_name = d.site_name || '';
+      if (!site_name && fallbackMap) {
+        const found = fallbackMap[d.ip];
+        if (found) { site_id = found.site_id; site_name = found.site_name; }
+      }
+      return {
+        username:   l.username,
+        ip:         d.ip,
+        hostname:   d.hostname,
+        comment:    d.comment || '',
+        created_at: l.created_at,
+        site_id,
+        site_name: site_name || 'Site inconnu',
+        _raw: l._raw,
+      };
+    });
     res.json({ releases });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

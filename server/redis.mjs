@@ -688,6 +688,52 @@ export async function searchAllIPs(query) {
   return results.sort((a, b) => toInt(a.ip_address) - toInt(b.ip_address));
 }
 
+// Index adresse IP → { site_id, site_name } sur l'ensemble des sites — sert à
+// rattacher rétroactivement les anciennes entrées d'archive (libération d'IP)
+// qui n'ont pas encore été enregistrées avec leur site.
+export async function getIpAddressSiteMap() {
+  const map = {};
+  const siteIds = await redis.smembers('sites');
+  if (!siteIds.length) return map;
+
+  const pipe1 = redis.pipeline();
+  siteIds.forEach(sid => { pipe1.hget(`site:${sid}`, 'name'); pipe1.smembers(`site:${sid}:vlans`); });
+  const r1 = await pipe1.exec();
+
+  const siteNames  = {};
+  const vlanToSite = {};
+  const allVlanIds = [];
+  siteIds.forEach((sid, i) => {
+    siteNames[sid] = r1[i * 2][1] || '';
+    (r1[i * 2 + 1][1] || []).forEach(vid => { vlanToSite[vid] = sid; allVlanIds.push(vid); });
+  });
+  if (!allVlanIds.length) return map;
+
+  const pipe2 = redis.pipeline();
+  allVlanIds.forEach(vid => pipe2.smembers(`vlan:${vid}:ips`));
+  const r2 = await pipe2.exec();
+
+  const allIpIds  = [];
+  const ipIdToSid = {};
+  allVlanIds.forEach((vid, i) => {
+    const sid = vlanToSite[vid];
+    (r2[i][1] || []).forEach(ipId => { allIpIds.push(ipId); ipIdToSid[ipId] = sid; });
+  });
+  if (!allIpIds.length) return map;
+
+  const pipe3 = redis.pipeline();
+  allIpIds.forEach(ipId => pipe3.hget(`ip:${ipId}`, 'ip_address'));
+  const r3 = await pipe3.exec();
+
+  allIpIds.forEach((ipId, i) => {
+    const addr = r3[i][1];
+    if (!addr) return;
+    const sid = ipIdToSid[ipId];
+    map[addr] = { site_id: parseInt(sid), site_name: siteNames[sid] || '' };
+  });
+  return map;
+}
+
 export async function updateIpStatus(id, status) {
   const VALID = ['Libre', 'Utilisé', 'Réservée'];
   if (!VALID.includes(status)) throw new Error('Statut invalide');
