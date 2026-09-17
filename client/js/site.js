@@ -168,7 +168,7 @@ let _reserveVlanTag = null; // tag du VLAN de l'IP en cours d'assignation (popup
 let _vlanPopups = {};
 
 // Popup post-Réserver/Utiliser (migration Windows Serveur 2022)
-let _migPrompt = { enabled: false, message_reserve: '', message_use: '' };
+let _migPrompt = { enabled: false, message_reserve: '', message_use: '', vlan_tags: [] };
 
 // ---------------------------------------------------------------------------
 // Hostname suffix logic
@@ -845,12 +845,12 @@ function showVlanNotice(tag) {
   });
 }
 
-// Après un Réserver/Utiliser réussi dans un VLAN METIER/PROCEF/CACI, demande
-// si l'IP concerne la migration Windows Serveur 2022 en cours et, si oui,
-// renvoie vers Migration Serveurs pour ce site.
+// Après un Réserver/Utiliser réussi dans un VLAN dont le tag figure dans la
+// configuration admin, demande si l'IP concerne la migration Windows Serveur
+// 2022 en cours et, si oui, renvoie vers Migration Serveurs pour ce site.
 async function maybeShowMigrationPrompt(status) {
   if (!_migPrompt.enabled) return;
-  if (!INFO_VLAN_TAGS.includes(_reserveVlanTag)) return;
+  if (!(_migPrompt.vlan_tags || []).includes(_reserveVlanTag)) return;
   const msg = status === 'Réservée' ? _migPrompt.message_reserve : _migPrompt.message_use;
   if (!msg || !msg.trim()) return;
   const goToMigration = await showConfirm({

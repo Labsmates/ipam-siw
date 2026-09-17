@@ -609,12 +609,21 @@ th{text-align:left}
     <!-- ══ Popup Migration (post-Réserver/Utiliser) ══ -->
     <div id="pane-migration-prompt" class="admin-pane hidden" style="max-width:760px;flex:none;width:100%;margin:0 auto">
       <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 6px">Popup Migration</h3>
-      <p style="color:var(--tx-3);font-size:13px;margin:0 0 16px">Question posée juste après un Réserver ou un Utiliser réussi, sur une IP d'un VLAN tagué METIER, PROCEF ou CACI. Si l'utilisateur répond Oui, il est renvoyé vers Migration Serveurs pour ce site.</p>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 16px">Question posée juste après un Réserver ou un Utiliser réussi, sur une IP d'un VLAN dont le tag est coché ci-dessous. Si l'utilisateur répond Oui, il est renvoyé vers Migration Serveurs pour ce site.</p>
       <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:24px">
         <label style="display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;margin-bottom:16px;cursor:pointer">
           <input type="checkbox" id="mp-enabled" style="accent-color:#58a6ff;width:15px;height:15px">
           Activer le popup Migration
         </label>
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">VLAN concernés (par tag)</label>
+        <div id="mp-vlan-tags" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px;padding:12px 14px;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="mp-tag-cb" value="METIER" style="accent-color:#58a6ff;width:14px;height:14px"> METIER</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="mp-tag-cb" value="ADMIN" style="accent-color:#58a6ff;width:14px;height:14px"> ADMIN</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="mp-tag-cb" value="PROCEF" style="accent-color:#58a6ff;width:14px;height:14px"> PROCEF</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="mp-tag-cb" value="IPMI" style="accent-color:#58a6ff;width:14px;height:14px"> IPMI</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="mp-tag-cb" value="CACI" style="accent-color:#58a6ff;width:14px;height:14px"> CACI</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="mp-tag-cb" value="FLUX" style="accent-color:#58a6ff;width:14px;height:14px"> FLUX</label>
+        </div>
         <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Message — après « Réserver »</label>
         <textarea id="mp-message-reserve" rows="3" class="inp" spellcheck="false"
           style="font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.6;white-space:pre-wrap;resize:vertical;margin-bottom:16px"

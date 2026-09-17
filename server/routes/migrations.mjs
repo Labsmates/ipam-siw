@@ -102,10 +102,13 @@ router.put('/os-config', requireAdmin, async (req, res) => {
 // cours, avec redirection vers Migration Serveurs si l'utilisateur confirme.
 // ---------------------------------------------------------------------------
 const PROMPT_KEY = 'config:migration_prompt';
+// Tags de VLAN connus (mêmes que le datalist de la Popup de réservation)
+const KNOWN_VLAN_TAGS = ['METIER', 'ADMIN', 'PROCEF', 'IPMI', 'CACI', 'FLUX'];
 const DEFAULT_PROMPT = {
   enabled: true,
   message_reserve: 'Avez-vous réservé une IP dans le cadre de la migration Windows Serveur 2022 ? Si oui, merci de faire la correspondance dans Migration Serveurs.',
   message_use: 'Utilisez-vous cette IP dans le cadre de la migration Windows Serveur 2022 ? Si oui, merci de faire la correspondance dans Migration Serveurs.',
+  vlan_tags: ['METIER', 'PROCEF', 'CACI'],
 };
 
 async function loadPromptConfig() {
@@ -117,6 +120,7 @@ async function loadPromptConfig() {
       enabled: parsed.enabled === true,
       message_reserve: typeof parsed.message_reserve === 'string' ? parsed.message_reserve : DEFAULT_PROMPT.message_reserve,
       message_use: typeof parsed.message_use === 'string' ? parsed.message_use : DEFAULT_PROMPT.message_use,
+      vlan_tags: Array.isArray(parsed.vlan_tags) && parsed.vlan_tags.length ? parsed.vlan_tags : DEFAULT_PROMPT.vlan_tags,
     };
   } catch { return DEFAULT_PROMPT; }
 }
@@ -125,7 +129,7 @@ async function loadPromptConfig() {
 router.get('/prompt-config', async (req, res) => {
   try {
     const cfg = await loadPromptConfig();
-    if (!cfg.enabled) return res.json({ enabled: false, message_reserve: '', message_use: '' });
+    if (!cfg.enabled) return res.json({ enabled: false, message_reserve: '', message_use: '', vlan_tags: cfg.vlan_tags });
     res.json(cfg);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -133,15 +137,19 @@ router.get('/prompt-config', async (req, res) => {
 // PUT /api/migrations/prompt-config — admin uniquement
 router.put('/prompt-config', requireAdmin, async (req, res) => {
   try {
-    const { enabled, message_reserve, message_use } = req.body || {};
+    const { enabled, message_reserve, message_use, vlan_tags } = req.body || {};
+    const cleanTags = Array.isArray(vlan_tags)
+      ? [...new Set(vlan_tags.map(t => String(t || '').trim().toUpperCase()).filter(t => KNOWN_VLAN_TAGS.includes(t)))]
+      : [];
     const data = {
       enabled: enabled === true,
       message_reserve: typeof message_reserve === 'string' ? message_reserve.slice(0, 2000) : '',
       message_use: typeof message_use === 'string' ? message_use.slice(0, 2000) : '',
+      vlan_tags: cleanTags.length ? cleanTags : DEFAULT_PROMPT.vlan_tags,
       updated_at: new Date().toISOString(),
     };
     await redis.set(PROMPT_KEY, JSON.stringify(data));
-    await addLog(req.user.username, 'MIGRATION_PROMPT_UPDATE', { enabled: data.enabled });
+    await addLog(req.user.username, 'MIGRATION_PROMPT_UPDATE', { enabled: data.enabled, vlan_tags: data.vlan_tags });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

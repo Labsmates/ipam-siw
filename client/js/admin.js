@@ -849,6 +849,8 @@ async function loadMigrationPrompt() {
     document.getElementById('mp-enabled').checked = !!d.enabled;
     document.getElementById('mp-message-reserve').value = d.message_reserve || '';
     document.getElementById('mp-message-use').value = d.message_use || '';
+    const tags = new Set(d.vlan_tags || []);
+    document.querySelectorAll('.mp-tag-cb').forEach(cb => { cb.checked = tags.has(cb.value); });
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -859,12 +861,16 @@ function setupMigrationPrompt() {
     const enabled = document.getElementById('mp-enabled').checked;
     const message_reserve = document.getElementById('mp-message-reserve').value;
     const message_use = document.getElementById('mp-message-use').value;
+    const vlan_tags = [...document.querySelectorAll('.mp-tag-cb:checked')].map(cb => cb.value);
     if (enabled && (!message_reserve.trim() || !message_use.trim())) {
       showToast('Les deux messages ne peuvent pas être vides', 'warn'); return;
     }
+    if (enabled && !vlan_tags.length) {
+      showToast('Sélectionnez au moins un VLAN', 'warn'); return;
+    }
     btn.disabled = true; btn.textContent = 'Enregistrement…';
     try {
-      await put('/api/migrations/prompt-config', { enabled, message_reserve, message_use });
+      await put('/api/migrations/prompt-config', { enabled, message_reserve, message_use, vlan_tags });
       showToast('Popup Migration enregistré', 'success');
     } catch (e) { showToast(e.message, 'error'); }
     finally {
