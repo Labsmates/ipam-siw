@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupBypassKey();
   setupLoginPopup();
   setupVlanPopups();
+  setupMigrationOs();
   setupExport();
 
   // Onglet "Stat du site" — super admin uniquement
@@ -104,6 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'site-stats') loadSiteStats();
       if (tab.dataset.tab === 'login-popup') loadLoginPopup();
       if (tab.dataset.tab === 'vlan-popups') loadVlanPopups();
+      if (tab.dataset.tab === 'migration-os') loadMigrationOs();
     });
   });
   document.getElementById('btn-refresh-vlan-requests')?.addEventListener('click', loadVlanRequests);
@@ -895,6 +897,75 @@ function setupVlanPopups() {
       btn.disabled = false;
       btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer';
     }
+  });
+}
+
+// =============================================================================
+// MIGRATION SERVEURS — CATALOGUE DES OS
+// =============================================================================
+let migrationOsCache = { old: [], new: [] };
+
+async function loadMigrationOs() {
+  try {
+    migrationOsCache = await get('/api/migrations/os-config');
+    renderMigrationOsList('old');
+    renderMigrationOsList('new');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function renderMigrationOsList(list) {
+  const el = document.getElementById(`mos-list-${list}`);
+  const entries = migrationOsCache[list] || [];
+  if (!entries.length) {
+    el.innerHTML = '<p style="color:var(--tx-3);font-size:12px">Aucune entrée.</p>';
+    return;
+  }
+  el.innerHTML = entries.map((e, i) => `
+    <div style="display:flex;align-items:center;gap:10px;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:8px 10px">
+      <img src="/img/os/${esc(e.icon)}.svg" width="20" height="20" alt="${esc(e.icon)}">
+      <span style="flex:1;font-size:13px;font-weight:600">${esc(e.value)}</span>
+      ${e.locked ? '<span style="font-size:11px;color:#d29922;background:#d2992218;border:1px solid #d2992240;border-radius:5px;padding:1px 7px">Admin</span>' : ''}
+      <button class="mos-del" data-list="${list}" data-i="${i}" title="Supprimer" style="background:none;border:none;color:#f85149;cursor:pointer;padding:3px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+    </div>`).join('');
+  el.querySelectorAll('.mos-del').forEach(b => b.addEventListener('click', () => removeMigrationOsEntry(b.dataset.list, parseInt(b.dataset.i))));
+}
+
+async function saveMigrationOsList(list, entries) {
+  await put('/api/migrations/os-config', { list, entries });
+  migrationOsCache[list] = entries;
+  renderMigrationOsList(list);
+}
+
+async function removeMigrationOsEntry(list, index) {
+  const entries = (migrationOsCache[list] || []).filter((_, i) => i !== index);
+  if (!entries.length) { showToast('Au moins une entrée est requise', 'warn'); return; }
+  try {
+    await saveMigrationOsList(list, entries);
+    showToast('Entrée supprimée', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupMigrationOs() {
+  ['old', 'new'].forEach(list => {
+    const btn = document.getElementById(`btn-mos-add-${list}`);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const value  = document.getElementById(`mos-${list}-value`).value.trim();
+      const icon   = document.getElementById(`mos-${list}-icon`).value;
+      const locked = document.getElementById(`mos-${list}-locked`).checked;
+      if (!value) { showToast('Indiquez une valeur', 'warn'); return; }
+      const entries = [...(migrationOsCache[list] || [])];
+      if (entries.some(e => e.value.toLowerCase() === value.toLowerCase())) {
+        showToast('Cette valeur existe déjà', 'warn'); return;
+      }
+      entries.push({ value, icon, locked });
+      try {
+        await saveMigrationOsList(list, entries);
+        document.getElementById(`mos-${list}-value`).value = '';
+        document.getElementById(`mos-${list}-locked`).checked = false;
+        showToast('Entrée ajoutée', 'success');
+      } catch (e) { showToast(e.message, 'error'); }
+    });
   });
 }
 

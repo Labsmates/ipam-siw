@@ -81,6 +81,10 @@ th{text-align:left}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Sites IPAM
     </a>
+    <a href="/migration.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Migration Serveurs
+    </a>
     <a href="/stats.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Statistiques
@@ -172,6 +176,7 @@ th{text-align:left}
       <button class="admin-tab" data-tab="password">Mon mot de passe</button>
       <button class="admin-tab" data-tab="login-popup">Popup connexion</button>
       <button class="admin-tab" data-tab="vlan-popups">Popup réservation</button>
+      <button class="admin-tab" data-tab="migration-os">Migration OS</button>
       <button class="admin-tab" data-tab="bypass-key">🔑 Clé de bypass</button>
       <button id="tab-site-stats" class="admin-tab hidden" data-tab="site-stats">📊 Stat du site</button>
     </div>
@@ -533,6 +538,58 @@ th{text-align:left}
         </div>
       </div>
       <div id="vp-list"></div>
+    </div>
+
+    <!-- ══ Migration Serveurs — catalogue des OS ══ -->
+    <div id="pane-migration-os" class="admin-pane hidden" style="max-width:760px">
+      <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 6px">Migration Serveurs — Catalogue des OS</h3>
+      <p style="color:var(--tx-3);font-size:13px;margin:0 0 16px">Versions proposées dans les listes OLD OS et NEW OS de la page Migration Serveurs. Une entrée « Réservée aux administrateurs » n'apparaît pas dans le select des utilisateurs standards.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:18px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">Anciens OS (OLD)</div>
+          <div id="mos-list-old" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:6px">
+            <input id="mos-old-value" class="inp" placeholder="ex : 2019" style="flex:1">
+            <select id="mos-old-icon" class="inp" style="width:110px">
+              <option value="win2016">win2016</option>
+              <option value="win2022">win2022</option>
+              <option value="win2025">win2025</option>
+              <option value="redhat">redhat</option>
+              <option value="nutanix">nutanix</option>
+              <option value="hp">hp</option>
+              <option value="dell">dell</option>
+              <option value="gw">gw</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--tx-3);margin-top:8px;cursor:pointer">
+            <input type="checkbox" id="mos-old-locked" style="accent-color:#58a6ff;width:13px;height:13px"> Réservée aux administrateurs
+          </label>
+          <button id="btn-mos-add-old" class="btn btn-g btn-sm" style="margin-top:10px">+ Ajouter</button>
+        </div>
+
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:18px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">Nouveaux OS (NEW)</div>
+          <div id="mos-list-new" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:6px">
+            <input id="mos-new-value" class="inp" placeholder="ex : 2025" style="flex:1">
+            <select id="mos-new-icon" class="inp" style="width:110px">
+              <option value="win2022">win2022</option>
+              <option value="win2025">win2025</option>
+              <option value="win2016">win2016</option>
+              <option value="redhat">redhat</option>
+              <option value="nutanix">nutanix</option>
+              <option value="hp">hp</option>
+              <option value="dell">dell</option>
+              <option value="gw">gw</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--tx-3);margin-top:8px;cursor:pointer">
+            <input type="checkbox" id="mos-new-locked" style="accent-color:#58a6ff;width:13px;height:13px"> Réservée aux administrateurs
+          </label>
+          <button id="btn-mos-add-new" class="btn btn-g btn-sm" style="margin-top:10px">+ Ajouter</button>
+        </div>
+      </div>
     </div>
 
     <!-- ══ Stat du site ══ -->

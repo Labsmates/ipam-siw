@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>IPAM SIW — Migration Serveurs</title>
+<link rel="stylesheet" href="/vendor/fonts.css">
+<link rel="stylesheet" href="/css/theme.css">
+<script src="/js/protect.js"></script>
+<script src="/vendor/tailwind.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg-1)}
+::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
+*{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
+.hidden{display:none!important}
+input,select,textarea,button{-webkit-appearance:none;appearance:none}
+input:focus,select:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.inp{width:100%;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;color:var(--tx-1);font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+.inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+.inp::placeholder{color:var(--tx-3)}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;padding:8px 16px;outline:none}
+.btn:active{transform:scale(.97)}
+.btn-p{background:#58a6ff;color:var(--bg-1)}.btn-p:hover{background:#79b8ff}
+.btn-d{background:#f8514918;color:#f85149;border:1px solid #f8514940}.btn-d:hover{background:#f8514930}
+.btn-g{background:var(--bg-4);color:var(--tx-1);border:1px solid var(--brd)}.btn-g:hover{background:var(--bg-hover)}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px}
+.modal-box{background:var(--bg-4);border:1px solid var(--brd);border-radius:12px;padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
+@keyframes mfade{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
+.site-item{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-left:2px solid transparent;transition:all .1s;font-size:13px;color:var(--tx-2);text-decoration:none}
+.site-item:hover{background:var(--bg-3);color:var(--tx-1)}
+.site-item.on{background:var(--bg-3);border-left-color:#58a6ff;color:var(--tx-1)}
+.spinner{width:30px;height:30px;border:3px solid var(--brd);border-top-color:#58a6ff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:var(--bg-2);border-right:1px solid var(--brd);display:flex;flex-direction:column;z-index:10}
+#app-main{margin-left:260px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.os-btn{background:var(--bg-2);border:1.5px solid var(--brd);border-radius:8px;padding:5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s;outline:none}
+.os-btn:hover{border-color:#58a6ff88;background:var(--bg-3)}
+.os-btn.sel{border-color:#58a6ff;background:#0d224080;box-shadow:0 0 0 3px rgba(88,166,255,.18)}
+#mig-tbody tr:hover td{background:var(--bg-3)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<div id="sidebar">
+
+  <div style="padding:18px 16px 12px;border-bottom:1px solid var(--brd)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:30px;height:30px;background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(88,166,255,.35);flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:14px;font-weight:700;letter-spacing:-0.02em">IPAM SIW</div>
+        <div style="font-size:11px;color:var(--tx-3)">Gestion des adresses IP</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:10px 10px 6px;border-bottom:1px solid var(--brd)">
+    <a href="/dashboard.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Tableau de bord
+    </a>
+    <a href="/site.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Sites IPAM
+    </a>
+    <a href="/migration.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;margin-bottom:4px;box-sizing:border-box">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Migration Serveurs
+    </a>
+    <a href="/stats.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Statistiques
+    </a>
+    <a href="/switch.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="18" y1="6" x2="18.01" y2="6"/><line x1="18" y1="18" x2="18.01" y2="18"/></svg>
+      Switch Config Ports
+    </a>
+    <a href="/archive.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
+      Archive
+    </a>
+    <a href="/admin.html" id="nav-admin-link" class="hidden" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-top:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Administration
+    </a>
+    <a id="nav-config-link" href="/config.html" class="hidden" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-top:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      Configuration système
+    </a>
+  </div>
+
+  <!-- Search -->
+  <div style="padding:10px 10px 6px">
+    <div style="position:relative">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="sidebar-search" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher un site…">
+    </div>
+  </div>
+
+  <!-- Site list -->
+  <div id="site-list" style="flex:1;overflow-y:auto"></div>
+
+  <!-- User info + logout -->
+  <div style="padding:12px 14px;border-top:1px solid var(--brd)">
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:9px 11px">
+      <div style="min-width:0">
+        <div id="nav-username" style="font-size:13px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="nav-role" style="font-size:11px;color:var(--tx-3);margin-top:1px"></div>
+      </div>
+      <button id="btn-logout" title="Déconnexion" style="flex-shrink:0;margin-left:4px;padding:6px 10px;border-radius:6px;border:1px solid #f8514940;background:#f8514918;color:#f85149;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<div id="app-main">
+
+  <!-- Welcome state (no site selected) -->
+  <div id="view-welcome" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px">
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--brd)" stroke-width="1.5"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    <div style="font-size:18px;font-weight:600;color:var(--tx-5)">Sélectionnez un site</div>
+    <div style="font-size:14px;color:var(--brd)">Choisissez un site dans la barre latérale pour voir ses migrations</div>
+  </div>
+
+  <!-- Site migration view -->
+  <div id="view-site" style="display:none;flex-direction:column;height:100%;overflow:hidden">
+
+    <div style="padding:18px 24px 14px;border-bottom:1px solid var(--brd);flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1 id="site-name" style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0"></h1>
+        <div style="font-size:12px;color:var(--tx-3);margin-top:2px">Migration Serveurs — tous VLAN sauf ADMIN (hors iLO/iDRAC, Nutanix)</div>
+      </div>
+      <div id="mig-actions" class="hidden">
+        <button id="btn-add-migration" class="btn btn-p btn-sm">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Ajouter une migration
+        </button>
+      </div>
+    </div>
+
+    <div id="mig-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 24px">
+      <div class="spinner"></div>
+      <p style="color:var(--tx-3);font-size:13px;margin:0">Chargement…</p>
+    </div>
+
+    <div id="mig-content" class="hidden" style="flex:1;overflow:auto;padding:18px 24px">
+      <div id="mig-empty" class="hidden" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:260px">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--brd)" stroke-width="1.5"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        <div style="font-size:14px;color:var(--tx-3)">Aucune migration enregistrée pour ce site</div>
+      </div>
+      <table id="mig-table" style="width:100%;border-collapse:collapse;display:none">
+        <thead>
+          <tr style="border-bottom:1px solid var(--brd)">
+            <th style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Old Hostname</th>
+            <th style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Old IP</th>
+            <th style="text-align:center;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Old OS</th>
+            <th style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">New Hostname</th>
+            <th style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">New IP</th>
+            <th style="text-align:center;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">New OS</th>
+            <th style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Commentaire</th>
+            <th style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Resp. Métier</th>
+            <th style="text-align:right;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="mig-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ajouter/Modifier une migration -->
+<div id="modal-migration" class="modal-overlay hidden">
+  <div class="modal-box" style="width:560px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div id="mig-modal-title" style="font-size:17px;font-weight:700;letter-spacing:-.02em">Ajouter une migration</div>
+      <button type="button" onclick="closeModal('modal-migration')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <form id="form-migration">
+      <input type="hidden" id="mig-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">Old Hostname</label>
+          <select id="mig-old-hostname" class="inp"><option value="">—</option></select>
+          <div style="margin-top:6px;font-size:12px;color:var(--tx-3)">IP : <code id="mig-old-ip-display">—</code></div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">New Hostname</label>
+          <select id="mig-new-hostname" class="inp"><option value="">—</option></select>
+          <div style="margin-top:6px;font-size:12px;color:var(--tx-3)">IP : <code id="mig-new-ip-display">—</code></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">Old OS</label>
+          <div id="mig-old-os-picker" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <input type="hidden" id="mig-old-os">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">New OS</label>
+          <div id="mig-new-os-picker" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <input type="hidden" id="mig-new-os">
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">Commentaire <span style="color:#f85149">*</span></label>
+        <textarea id="mig-comment" class="inp" rows="3" placeholder="Contexte, ticket, fenêtre de migration…" style="resize:none"></textarea>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">Resp. Métier</label>
+        <input type="text" id="mig-resp-metier" class="inp" placeholder="ex : Jean Dupont" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:9px;justify-content:flex-end">
+        <button type="button" class="btn btn-g" onclick="closeModal('modal-migration')">Annuler</button>
+        <button type="submit" id="btn-save-migration" class="btn btn-p">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module" src="/js/migration.js"></script>
+</body>
+</html>
