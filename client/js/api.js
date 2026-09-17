@@ -149,8 +149,11 @@ export function setupAdminSectionToggle() {
 
   toggleBtn.classList.remove('hidden');
 
-  // Repliée par défaut (masquée) tant que l'utilisateur ne l'a pas explicitement déployée
-  const collapsed = localStorage.getItem('ipam_nav_admin_collapsed') !== '0';
+  // Repliée par défaut (masquée) tant que l'utilisateur ne l'a pas explicitement déployée.
+  // Clé dédiée (_v2) pour ne pas hériter d'une ancienne valeur '0' mémorisée avant
+  // l'introduction du repli par défaut (l'ancienne clé signifiait l'inverse).
+  const KEY = 'ipam_nav_admin_collapsed_v2';
+  const collapsed = localStorage.getItem(KEY) !== '0';
   if (collapsed) {
     linksDiv.style.display = 'none';
     icon.setAttribute('points', '6 9 12 15 18 9');
@@ -160,7 +163,7 @@ export function setupAdminSectionToggle() {
     const isNowHidden = linksDiv.style.display === 'none';
     linksDiv.style.display = isNowHidden ? '' : 'none';
     icon.setAttribute('points', isNowHidden ? '18 15 12 9 6 15' : '6 9 12 15 18 9');
-    localStorage.setItem('ipam_nav_admin_collapsed', isNowHidden ? '0' : '1');
+    localStorage.setItem(KEY, isNowHidden ? '0' : '1');
   });
 }
 
