@@ -37,7 +37,7 @@ function osLogo(os, hostname) {
   if (/FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/.test(h)) return `<img src="/img/os/win2022.svg" width="24" height="24" title="Windows Server 2022" style="display:block;margin:auto">`;
   if (!os && /(?:SN|QN)-[A-Z0-9]{2}/i.test(hostname || '')) return `<img src="/img/os/win2016.svg" width="24" height="24" title="Windows Server 2016" style="display:block;margin:auto">`;
   if (!os) return '<span style="color:var(--tx-5)">—</span>';
-  const labels = { redhat: 'RHEL', nutanix: 'Nutanix', win2016: 'WS2016', win2022: 'WS2022', win2025: 'WS2025', hp: 'HP iLO', dell: 'Dell iDRAC' };
+  const labels = { redhat: 'RHEL', nutanix: 'Nutanix', win2016: 'WS2016', win2019: 'WS2019', win2022: 'WS2022', win2025: 'WS2025', hp: 'HP iLO', dell: 'Dell iDRAC' };
   return `<img src="/img/os/${os}.svg" width="24" height="24" title="${labels[os] || os}" style="display:block;margin:auto">`;
 }
 
@@ -53,7 +53,7 @@ function osSortRank(ip) {
   if (/FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/.test(h)) return 1;
   if (!ip.os && /(?:SN|QN)-[A-Z0-9]{2}/i.test(ip.hostname || '')) return 1;
   if (!ip.os) return 5;
-  const RANKS = { win2016: 1, win2022: 1, win2025: 1, redhat: 2, hp: 3, dell: 3, nutanix: 4 };
+  const RANKS = { win2016: 1, win2019: 1, win2022: 1, win2025: 1, redhat: 2, hp: 3, dell: 3, nutanix: 4 };
   return RANKS[ip.os] ?? 5;
 }
 
@@ -924,6 +924,7 @@ function openRenameModal(ipObj) {
   document.getElementById('rename-ip-id').value = ipObj.id;
   document.getElementById('rename-hostname').value = ipObj.hostname || '';
   updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
+  document.querySelectorAll('#rename-os-picker .admin-os-btn').forEach(btn => btn.classList.toggle('hidden', user?.role !== 'admin'));
   setOsPicker('rename-os-picker', 'rename-os', ipObj.os || '');
   openModal('modal-rename');
 }
