@@ -136,6 +136,7 @@ async function loadOverview() {
   const contentEl = document.getElementById('overview-content');
   const emptyEl   = document.getElementById('overview-empty');
   const tableEl   = document.getElementById('overview-table');
+  const totalsEl  = document.getElementById('overview-totals');
   loadEl.style.display = 'flex';
   contentEl.classList.add('hidden');
   try {
@@ -143,9 +144,11 @@ async function loadOverview() {
     if (!sites.length) {
       emptyEl.classList.remove('hidden');
       tableEl.style.display = 'none';
+      totalsEl.style.display = 'none';
     } else {
       emptyEl.classList.add('hidden');
       tableEl.style.display = '';
+      totalsEl.style.display = '';
       const rows = await Promise.all(sortSites(sites).map(async s => {
         try {
           const [data, migRes] = await Promise.all([
@@ -160,6 +163,10 @@ async function loadOverview() {
           };
         } catch { return { id: s.id, name: s.name, done: 0, remaining: 0 }; }
       }));
+      const totalDone = rows.reduce((sum, r) => sum + r.done, 0);
+      const totalServers = rows.reduce((sum, r) => sum + r.done + r.remaining, 0);
+      document.getElementById('overview-total-servers').textContent = totalServers;
+      document.getElementById('overview-total-migrated').textContent = totalDone;
       document.getElementById('overview-tbody').innerHTML = rows.map(r => `
         <tr style="border-bottom:1px solid var(--bg-4);cursor:pointer" onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background=''" onclick="location.href='/migration.html?id=${encodeURIComponent(r.id)}'">
           <td style="padding:10px 12px;font-size:13px">${esc(r.name)}</td>
@@ -255,6 +262,24 @@ function oldCandidates(keepHostname = null) {
 function newCandidates(keepHostname = null) {
   const used = usedHostnames();
   return eligibleIps().filter(ip => isWin2022(ip) && (ip.hostname === keepHostname || !used.has(ip.hostname)));
+}
+
+// Résout l'IP d'un hostname tapé à la main (Old Hostname en saisie manuelle) :
+// cherche d'abord dans Site IPAM (live), puis dans l'archive des libérations —
+// même logique (statut, exclusion ADMIN, appareils exclus) que resolveOldHost()
+// côté serveur (server/routes/migrations.mjs), pour que l'aperçu affiché
+// corresponde à ce que la sauvegarde validera.
+function lookupHostnameIp(hostname) {
+  if (!hostname || isDeviceExcluded(hostname)) return null;
+  const live = (siteData.ips || []).find(i => i.hostname === hostname && (i.status === 'Utilisé' || i.status === 'Réservée'));
+  if (live) {
+    const vlan = (siteData.vlans || []).find(v => String(v.id) === String(live.vlan_id));
+    if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') return null;
+    return live.ip_address;
+  }
+  const archived = archivedReleases.find(r => r.hostname === hostname);
+  if (archived && vlanTagForIp(archived.ip) !== 'ADMIN') return archived.ip;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -417,23 +442,45 @@ function openMigrationModal(row) {
   document.getElementById('mig-id').value = row?.id || '';
 
   const oldSelect = document.getElementById('mig-old-hostname');
+  const oldCustom = document.getElementById('mig-old-hostname-custom');
   const newSelect = document.getElementById('mig-new-hostname');
   const oldCands = oldCandidates(row?.old_hostname);
   const newCands = newCandidates(row?.new_hostname);
-  oldSelect.innerHTML = '<option value="">—</option>' + oldCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}${ip.archived ? ' (archivé)' : ''}</option>`).join('');
+  oldSelect.innerHTML = '<option value="">—</option>' + oldCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}${ip.archived ? ' (archivé)' : ''}</option>`).join('')
+    + '<option value="__custom__">Autre (saisie manuelle)</option>';
   newSelect.innerHTML = '<option value="">—</option>' + newCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}</option>`).join('');
-  oldSelect.value = row?.old_hostname || '';
+
+  const oldIsKnown = !row?.old_hostname || oldCands.some(ip => ip.hostname === row.old_hostname);
+  if (oldIsKnown) {
+    oldSelect.value = row?.old_hostname || '';
+    oldCustom.classList.add('hidden');
+    oldCustom.value = '';
+  } else {
+    oldSelect.value = '__custom__';
+    oldCustom.classList.remove('hidden');
+    oldCustom.value = row.old_hostname;
+  }
   newSelect.value = row?.new_hostname || '';
   oldSelect.disabled = lockOldNew;
+  oldCustom.disabled = lockOldNew;
   newSelect.disabled = lockOldNew;
 
-  document.getElementById('mig-old-ip-display').textContent = row?.old_ip || '—';
+  document.getElementById('mig-old-ip-display').textContent = row?.old_ip || (oldIsKnown ? '—' : lookupHostnameIp(row.old_hostname) || 'introuvable');
   document.getElementById('mig-new-ip-display').textContent = row?.new_ip || '—';
-  oldSelect.onchange = () => {
-    const ip = (siteData.ips || []).find(i => i.hostname === oldSelect.value);
-    const archived = archivedReleases.find(r => r.hostname === oldSelect.value);
-    document.getElementById('mig-old-ip-display').textContent = ip?.ip_address || archived?.ip || '—';
+  const updateOldIpDisplay = () => {
+    const hostname = oldSelect.value === '__custom__' ? oldCustom.value.trim() : oldSelect.value;
+    const display = document.getElementById('mig-old-ip-display');
+    if (!hostname) { display.textContent = '—'; display.style.color = ''; return; }
+    const found = lookupHostnameIp(hostname);
+    display.textContent = found || 'introuvable';
+    display.style.color = found ? '' : 'var(--danger, #f85149)';
   };
+  oldSelect.onchange = () => {
+    oldCustom.classList.toggle('hidden', oldSelect.value !== '__custom__');
+    if (oldSelect.value === '__custom__') oldCustom.focus();
+    updateOldIpDisplay();
+  };
+  oldCustom.oninput = updateOldIpDisplay;
   newSelect.onchange = () => {
     const ip = (siteData.ips || []).find(i => i.hostname === newSelect.value);
     document.getElementById('mig-new-ip-display').textContent = ip?.ip_address || '—';
@@ -461,11 +508,13 @@ function setupMigrationForm() {
 
     const payload = { comment, resp_metier };
     if (!isEdit || isAdmin) {
-      const old_hostname = document.getElementById('mig-old-hostname').value;
+      const oldSelectEl = document.getElementById('mig-old-hostname');
+      const old_hostname = oldSelectEl.value === '__custom__' ? document.getElementById('mig-old-hostname-custom').value.trim() : oldSelectEl.value;
       const new_hostname = document.getElementById('mig-new-hostname').value;
       const old_os = document.getElementById('mig-old-os').value;
       const new_os = document.getElementById('mig-new-os').value;
       if (!old_hostname || !new_hostname) { showToast('Sélectionnez l\'ancien et le nouveau serveur', 'warn'); return; }
+      if (oldSelectEl.value === '__custom__' && WIN2022_HOSTNAME_RE.test(old_hostname)) { showToast('Ce hostname correspond à un serveur 2022 (New Hostname), pas à un Old Hostname', 'warn'); return; }
       if (!old_os || !new_os) { showToast('Sélectionnez l\'ancien et le nouvel OS', 'warn'); return; }
       Object.assign(payload, { old_hostname, new_hostname, old_os, new_os });
       if (!isEdit) payload.site_id = siteId;
