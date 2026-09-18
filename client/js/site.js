@@ -7,8 +7,8 @@ import {
   get, post, put, patch, del, showToast, showAlert, sortIPs, sortSites, statusBadge, fmtDate,
   openModal, closeModal, cidrToIPs, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, setupGlobalIpSearch,
   restoreElevationSession, setupElevationMode, setupAdminSectionToggle,
-} from './api.js?v=52747ce';
-import { WIN_ROLES, LIN_ROLES, XMB_ROLE_LABEL } from './server-roles.js?v=52747ce';
+} from './api.js?v=b3e09d7';
+import { WIN_ROLES, LIN_ROLES, XMB_ROLE_LABEL } from './server-roles.js?v=b3e09d7';
 
 // ---------------------------------------------------------------------------
 // Helpers
