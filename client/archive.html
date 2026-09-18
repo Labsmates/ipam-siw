@@ -19,6 +19,9 @@ body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-app
 ::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
 *{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
 .hidden{display:none!important}
+.pg-btn{padding:5px 11px;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);font-size:13px;cursor:pointer;transition:all .15s}
+.pg-btn:hover:not(:disabled){background:var(--bg-hover);color:var(--tx-1)}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
 input,button{-webkit-appearance:none;appearance:none}
 input:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
 button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
@@ -171,12 +174,6 @@ th{text-align:left}
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exporter CSV
       </button>
-      <div id="archive-admin-controls" class="hidden">
-        <button id="btn-clear-archive" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f8514918;border:1px solid #f8514940;border-radius:8px;color:#f85149;font-size:13px;cursor:pointer;transition:all .15s" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-          Vider l'archive
-        </button>
-      </div>
     </div>
   </div>
 
@@ -202,6 +199,11 @@ th{text-align:left}
       <tbody id="archive-tbody"></tbody>
     </table>
     <div id="archive-empty" class="hidden" style="padding:48px;text-align:center;color:var(--tx-4);font-size:13px;">Aucune libération enregistrée</div>
+    <div id="archive-pagination" style="padding:10px 16px;border-top:1px solid var(--brd);display:flex;align-items:center;gap:7px">
+      <button id="btn-prev" class="pg-btn" disabled>← Précédent</button>
+      <span id="archive-page-info" style="font-size:13px;color:var(--tx-3);margin:0 4px"></span>
+      <button id="btn-next" class="pg-btn">Suivant →</button>
+    </div>
   </div>
 
     </div>

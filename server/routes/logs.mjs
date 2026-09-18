@@ -1,5 +1,5 @@
 import express from 'express';
-import { getLogs, clearLogs, clearArchiveLogs, deleteLogEntry, redis, getIpAddressSiteMap } from '../redis.mjs';
+import { getLogs, clearLogs, deleteLogEntry, redis, getIpAddressSiteMap } from '../redis.mjs';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -42,14 +42,6 @@ router.get('/archive', requireAuth, async (req, res) => {
       };
     });
     res.json({ releases });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// DELETE /api/logs/archive — effacer toutes les entrées de libération (super admin only)
-router.delete('/archive', requireAuth, requireSuperAdmin, async (req, res) => {
-  try {
-    const count = await clearArchiveLogs();
-    res.json({ ok: true, count });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

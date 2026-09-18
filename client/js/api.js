@@ -469,9 +469,11 @@ export function showConfirm({ title = 'Confirmation', message = '', confirmText 
   });
 }
 
-// Close modals when clicking outside
+// Close modals when clicking outside — sauf si verrouillé (ex : Ajouter une
+// migration ouvert depuis le popup post-Réserver/Utiliser, qui doit être
+// finalisé avant de pouvoir se fermer).
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-overlay')) {
+  if (e.target.classList.contains('modal-overlay') && !e.target.classList.contains('locked')) {
     e.target.closest('.modal-overlay')?.classList.add('hidden');
   }
 });

@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, del, delBody, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
+  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
   restoreElevationSession, setupElevationMode,
 } from './api.js?v=22e64c0';
 
@@ -21,7 +21,8 @@ function esc(s) {
 }
 
 let allReleases = [];
-let isSuperAdmin = false;
+let page = 1;
+const PER_PAGE = 50;
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
@@ -60,19 +61,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupElevationMode();
   loadSidebar();
 
-  isSuperAdmin = user?.username === 'ADMIN' || user?.elevated === 'sa';
-
   // Export button — visible to all
   document.getElementById('btn-export-archive')?.addEventListener('click', exportCsv);
 
-  // Super admin controls
-  if (isSuperAdmin) {
-    document.getElementById('archive-admin-controls')?.classList.remove('hidden');
-    document.getElementById('btn-clear-archive')?.addEventListener('click', clearAllArchive);
-  }
-
-  document.getElementById('search-input').addEventListener('input', renderFiltered);
-  document.getElementById('site-filter').addEventListener('change', renderFiltered);
+  document.getElementById('search-input').addEventListener('input', () => { page = 1; renderFiltered(); });
+  document.getElementById('site-filter').addEventListener('change', () => { page = 1; renderFiltered(); });
+  document.getElementById('btn-prev')?.addEventListener('click', () => { page--; renderFiltered(); });
+  document.getElementById('btn-next')?.addEventListener('click', () => { page++; renderFiltered(); });
   await populateSiteFilter();
   await loadArchive();
 });
@@ -158,6 +153,18 @@ function renderFiltered() {
   const tbody = document.getElementById('archive-tbody');
   const empty = document.getElementById('archive-empty');
 
+  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  if (page > pages) page = pages;
+  if (page < 1) page = 1;
+  const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const pageInfo = document.getElementById('archive-page-info');
+  if (pageInfo) pageInfo.textContent = filtered.length ? `Page ${page} / ${pages}` : '';
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  if (btnPrev) btnPrev.disabled = page <= 1;
+  if (btnNext) btnNext.disabled = page >= pages;
+
   if (!filtered.length) {
     tbody.innerHTML = '';
     empty.classList.remove('hidden');
@@ -166,11 +173,8 @@ function renderFiltered() {
 
   empty.classList.add('hidden');
   const siteFilterActive = !!document.getElementById('site-filter').value;
-  tbody.innerHTML = filtered.map((r, i) => {
+  tbody.innerHTML = slice.map((r, i) => {
     const bg = i % 2 === 1 ? 'background:var(--bg-3);' : '';
-    const deleteBtn = isSuperAdmin
-      ? `<button class="btn-del-entry" data-raw="${esc(r._raw)}" title="Supprimer cette entrée" style="background:none;border:none;color:#f85149;cursor:pointer;padding:3px 6px;border-radius:5px;opacity:.6;transition:opacity .15s" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`
-      : '';
     return `
       <tr style="${bg}border-bottom:1px solid var(--brd);">
         ${siteFilterActive ? '' : `<td style="padding:11px 16px;font-size:13px;color:var(--tx-2);">${esc(r.site_name)}</td>`}
@@ -181,40 +185,9 @@ function renderFiltered() {
           <span style="display:inline-block;background:#58a6ff18;border:1px solid #58a6ff44;color:#58a6ff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:600;">${esc(r.username)}</span>
         </td>
         <td style="padding:11px 16px;font-size:13px;color:var(--tx-3);max-width:240px;">${r.comment ? `<span title="${esc(r.comment)}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.comment)}</span>` : '<span style="color:var(--tx-4)">—</span>'}</td>
-        ${isSuperAdmin ? `<td style="padding:6px 12px;white-space:nowrap;">${deleteBtn}</td>` : ''}
       </tr>
     `;
   }).join('');
-
-  // Wire individual delete buttons
-  if (isSuperAdmin) {
-    tbody.querySelectorAll('.btn-del-entry').forEach(btn => {
-      btn.addEventListener('click', () => deleteEntry(btn.dataset.raw));
-    });
-  }
-}
-
-async function deleteEntry(raw) {
-  if (!await showConfirm({ title: 'Supprimer cette entrée', message: 'Supprimer définitivement cette ligne d\'archive ?', confirmText: 'Supprimer', danger: true })) return;
-  try {
-    await delBody('/api/logs/entry', { raw });
-    allReleases = allReleases.filter(r => r._raw !== raw);
-    document.getElementById('archive-subtitle').textContent =
-      `${allReleases.length} libération(s) enregistrée(s) — les plus récentes en premier`;
-    renderFiltered();
-    showToast('Entrée supprimée', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-}
-
-async function clearAllArchive() {
-  if (!await showConfirm({ title: 'Vider l\'archive', message: 'Supprimer définitivement toutes les entrées de libération ? Cette action est irréversible.', confirmText: 'Vider l\'archive', danger: true })) return;
-  try {
-    await del('/api/logs/archive');
-    allReleases = [];
-    document.getElementById('archive-subtitle').textContent = '0 libération(s) enregistrée(s)';
-    renderFiltered();
-    showToast('Archive vidée', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
 }
 
 function exportCsv() {

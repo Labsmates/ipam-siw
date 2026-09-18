@@ -222,7 +222,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
   <div class="modal-box" style="width:560px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
       <div id="mig-modal-title" style="font-size:17px;font-weight:700;letter-spacing:-.02em">Ajouter une migration</div>
-      <button type="button" onclick="closeModal('modal-migration')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button type="button" id="btn-x-migration" onclick="closeModal('modal-migration')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <form id="form-migration">
       <input type="hidden" id="mig-id">
@@ -259,7 +259,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         <input type="text" id="mig-resp-metier" class="inp" placeholder="ex : Jean Dupont" autocomplete="off">
       </div>
       <div style="display:flex;gap:9px;justify-content:flex-end">
-        <button type="button" class="btn btn-g" onclick="closeModal('modal-migration')">Annuler</button>
+        <button type="button" id="btn-cancel-migration" class="btn btn-g" onclick="closeModal('modal-migration')">Annuler</button>
         <button type="submit" id="btn-save-migration" class="btn btn-p">Enregistrer</button>
       </div>
     </form>

@@ -17,6 +17,7 @@ let siteId   = null;
 let siteData = null;      // { site, vlans, ips }
 let migrations = [];
 let osConfig = { old: [], new: [] };
+let archivedReleases = []; // [{hostname, ip}] — libérations du site (Archive), pour garder Old Hostname disponible après une libération dans Site IPAM
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
@@ -62,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (params.get('add') === '1' && user?.role !== 'viewer') {
     const presetNewHostname = params.get('new_hostname') || '';
     openMigrationModal(null);
+    lockMigrationModalClose();
     if (presetNewHostname && (siteData.ips || []).some(ip => ip.hostname === presetNewHostname)) {
       const newSelect = document.getElementById('mig-new-hostname');
       if (![...newSelect.options].some(o => o.value === presetNewHostname)) {
@@ -130,9 +132,43 @@ function usedHostnames() {
   return set;
 }
 
+// Retrouve le tag de VLAN (METIER, ADMIN…) d'une IP en la situant dans les
+// réseaux des VLAN actuels du site — utilisé pour les entrées d'Archive, qui
+// ne portent pas de vlan_id (l'IP a été libérée, donc retirée de siteData.ips).
+function vlanTagForIp(ipAddress) {
+  const parts = (ipAddress || '').split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p))) return null;
+  const ipInt = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+  for (const vlan of siteData.vlans || []) {
+    const [netAddr, bitsStr] = (vlan.network || '').split('/');
+    const prefix = parseInt(bitsStr, 10);
+    const netParts = (netAddr || '').split('.').map(Number);
+    if (netParts.length !== 4 || netParts.some(p => isNaN(p)) || isNaN(prefix)) continue;
+    const netInt = ((netParts[0] << 24) | (netParts[1] << 16) | (netParts[2] << 8) | netParts[3]) >>> 0;
+    const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0;
+    if ((ipInt & mask) === (netInt & mask)) return (vlan.description || '').trim().toUpperCase();
+  }
+  return null;
+}
+
+// Libérations archivées éligibles côté OLD — même classification que les IP
+// live, VLAN ADMIN exclu (retrouvé par plage réseau), hostname pas déjà repris
+// par une IP actuellement vivante (qui prévaut), pas déjà utilisé ailleurs.
+function archivedOldCandidates(keepHostname = null) {
+  const used = usedHostnames();
+  const liveHostnames = new Set((siteData.ips || []).map(ip => ip.hostname).filter(Boolean));
+  return archivedReleases
+    .filter(r => (isWin2016(r.hostname) || isLinuxCft(r.hostname)) && !isDeviceExcluded(r.hostname))
+    .filter(r => vlanTagForIp(r.ip) !== 'ADMIN')
+    .filter(r => !liveHostnames.has(r.hostname))
+    .filter(r => r.hostname === keepHostname || !used.has(r.hostname))
+    .map(r => ({ hostname: r.hostname, ip_address: r.ip, archived: true }));
+}
+
 function oldCandidates(keepHostname = null) {
   const used = usedHostnames();
-  return eligibleIps().filter(ip => (isWin2016(ip.hostname) || isLinuxCft(ip.hostname)) && (ip.hostname === keepHostname || !used.has(ip.hostname)));
+  const live = eligibleIps().filter(ip => (isWin2016(ip.hostname) || isLinuxCft(ip.hostname)) && (ip.hostname === keepHostname || !used.has(ip.hostname)));
+  return [...live, ...archivedOldCandidates(keepHostname)];
 }
 function newCandidates(keepHostname = null) {
   const used = usedHostnames();
@@ -148,14 +184,18 @@ async function loadPage() {
   loadEl.style.display = 'flex';
   contentEl.classList.add('hidden');
   try {
-    const [siteRes, migRes, osRes] = await Promise.all([
+    const [siteRes, migRes, osRes, archiveRes] = await Promise.all([
       get(`/api/sites/${encodeURIComponent(siteId)}/data`),
       get(`/api/migrations?site_id=${encodeURIComponent(siteId)}`),
       get('/api/migrations/os-config'),
+      get('/api/logs/archive?limit=2000').catch(() => ({ releases: [] })),
     ]);
     siteData   = siteRes;
     migrations = migRes.migrations || [];
     osConfig   = osRes;
+    archivedReleases = (archiveRes.releases || [])
+      .filter(r => String(r.site_id) === String(siteId) && r.hostname)
+      .map(r => ({ hostname: r.hostname, ip: r.ip }));
     document.getElementById('site-name').textContent = siteData.site?.name || '';
     renderTable();
   } catch (err) {
@@ -242,11 +282,36 @@ function renderOsPickerInto(containerId, hiddenId, list, value, disabled) {
 // ---------------------------------------------------------------------------
 // Modal Ajouter / Modifier
 // ---------------------------------------------------------------------------
+// Empêche la fermeture du modal (X, Annuler, clic en arrière-plan) — utilisé
+// quand la fiche est ouverte automatiquement depuis le popup post-Réserver/
+// Utiliser : l'utilisateur doit finaliser la saisie avant de pouvoir sortir.
+// La fermeture programmatique (closeModal() appelé après un enregistrement
+// réussi) n'est pas affectée, seuls les boutons et le clic externe le sont.
+function lockMigrationModalClose() {
+  document.getElementById('modal-migration').classList.add('locked');
+  for (const id of ['btn-x-migration', 'btn-cancel-migration']) {
+    const btn = document.getElementById(id);
+    btn.disabled = true;
+    btn.style.opacity = '.35';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+function unlockMigrationModalClose() {
+  document.getElementById('modal-migration').classList.remove('locked');
+  for (const id of ['btn-x-migration', 'btn-cancel-migration']) {
+    const btn = document.getElementById(id);
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  }
+}
+
 function openMigrationModal(row) {
   const isEdit  = !!row;
   const isAdmin = user?.role === 'admin';
   const lockOldNew = isEdit && !isAdmin; // OLD/NEW verrouillés après création, sauf admin
 
+  unlockMigrationModalClose();
   document.getElementById('mig-modal-title').textContent = isEdit ? 'Modifier la migration' : 'Ajouter une migration';
   document.getElementById('mig-id').value = row?.id || '';
 
@@ -254,7 +319,7 @@ function openMigrationModal(row) {
   const newSelect = document.getElementById('mig-new-hostname');
   const oldCands = oldCandidates(row?.old_hostname);
   const newCands = newCandidates(row?.new_hostname);
-  oldSelect.innerHTML = '<option value="">—</option>' + oldCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}</option>`).join('');
+  oldSelect.innerHTML = '<option value="">—</option>' + oldCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}${ip.archived ? ' (archivé)' : ''}</option>`).join('');
   newSelect.innerHTML = '<option value="">—</option>' + newCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}</option>`).join('');
   oldSelect.value = row?.old_hostname || '';
   newSelect.value = row?.new_hostname || '';
@@ -265,7 +330,8 @@ function openMigrationModal(row) {
   document.getElementById('mig-new-ip-display').textContent = row?.new_ip || '—';
   oldSelect.onchange = () => {
     const ip = (siteData.ips || []).find(i => i.hostname === oldSelect.value);
-    document.getElementById('mig-old-ip-display').textContent = ip?.ip_address || '—';
+    const archived = archivedReleases.find(r => r.hostname === oldSelect.value);
+    document.getElementById('mig-old-ip-display').textContent = ip?.ip_address || archived?.ip || '—';
   };
   newSelect.onchange = () => {
     const ip = (siteData.ips || []).find(i => i.hostname === newSelect.value);
