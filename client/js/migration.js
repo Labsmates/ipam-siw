@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
+  get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge,
   restoreElevationSession, setupElevationMode, setupAdminSectionToggle, openModal, closeModal,
 } from './api.js?v=b86a8d8';
 
@@ -30,7 +30,7 @@ let archivedReleases = []; // [{hostname, ip}] — libérations du site (Archive
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme(); initSidebarCollapse();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge();
   if (!requireAuth()) return;
   startInactivityTimer();
 

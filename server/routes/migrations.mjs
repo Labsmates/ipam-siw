@@ -176,6 +176,47 @@ function resolveHost(siteData, hostname) {
   return { ip_address: ip.ip_address, vlan_tag };
 }
 
+// Motifs de classification OLD (Windows 2016 / Linux CFT) — mêmes que
+// isWin2016()/isLinuxCft() côté client (migration.js), utilisés uniquement
+// ici pour compter les serveurs encore éligibles à migrer (badge sidebar).
+const WIN2016_RE = /(?:SN|QN)-[A-Z0-9]{2}/i;
+const LINUX_RE   = /XG/i;
+
+// GET /api/migrations/remaining-count — nombre de serveurs encore éligibles
+// côté OLD (live, hors VLAN ADMIN, pas déjà repris dans une migration),
+// tous sites confondus (hors sites archivés). Badge sidebar.
+router.get('/remaining-count', async (req, res) => {
+  try {
+    const siteIds = await redis.smembers('sites');
+    let remaining = 0;
+    for (const siteId of siteIds) {
+      const siteData = await getSiteData(siteId);
+      if (!siteData || siteData.site?.archived === '1') continue;
+      const migIds = await redis.smembers(`site:${siteId}:migrations`);
+      const used = new Set();
+      if (migIds.length) {
+        const pipe = redis.pipeline();
+        migIds.forEach(id => pipe.hgetall(`migration:${id}`));
+        const rows = await pipe.exec();
+        rows.forEach(([, m]) => {
+          if (m?.old_hostname) used.add(m.old_hostname);
+          if (m?.new_hostname) used.add(m.new_hostname);
+        });
+      }
+      for (const ip of siteData.ips || []) {
+        if (!ip.hostname || (ip.status !== 'Utilisé' && ip.status !== 'Réservée')) continue;
+        if (isDeviceExcluded(ip.hostname)) continue;
+        if (!(WIN2016_RE.test(ip.hostname) || LINUX_RE.test(ip.hostname))) continue;
+        const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
+        if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') continue;
+        if (used.has(ip.hostname)) continue;
+        remaining++;
+      }
+    }
+    res.json({ remaining });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/migrations?site_id=X
 router.get('/', async (req, res) => {
   try {

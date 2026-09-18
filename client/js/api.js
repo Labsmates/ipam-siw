@@ -168,6 +168,20 @@ export function setupAdminSectionToggle() {
 }
 
 // ---------------------------------------------------------------------------
+// Badge "Migration Serveurs" (sidebar) — nombre de serveurs encore éligibles
+// côté OLD, tous sites confondus. Appel non bloquant, silencieux en cas
+// d'échec (le badge reste simplement masqué).
+// ---------------------------------------------------------------------------
+export function loadMigrationBadge() {
+  get('/api/migrations/remaining-count').then(r => {
+    const badge = document.getElementById('nav-migration-badge');
+    if (!badge) return;
+    const n = r?.remaining || 0;
+    if (n > 0) { badge.textContent = n; badge.classList.remove('hidden'); }
+  }).catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
 // Fetch wrapper
 // ---------------------------------------------------------------------------
 export async function api(method, path, body) {
