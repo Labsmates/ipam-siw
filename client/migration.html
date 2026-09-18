@@ -165,10 +165,30 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 <div id="app-main">
 
   <!-- Welcome state (no site selected) -->
-  <div id="view-welcome" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px">
-    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--brd)" stroke-width="1.5"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-    <div style="font-size:18px;font-weight:600;color:var(--tx-5)">Sélectionnez un site</div>
-    <div style="font-size:14px;color:var(--brd)">Choisissez un site dans la barre latérale pour voir ses migrations</div>
+  <div id="view-welcome" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <div style="padding:18px 24px 14px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0">Vue d'ensemble — Migration Serveurs</h1>
+      <div style="font-size:12px;color:var(--tx-3);margin-top:2px">Progression par site — cliquez un site pour voir le détail, ou choisissez-le dans la barre latérale</div>
+    </div>
+    <div id="overview-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 24px">
+      <div class="spinner"></div>
+      <p style="color:var(--tx-3);font-size:13px;margin:0">Chargement…</p>
+    </div>
+    <div id="overview-content" class="hidden" style="flex:1;overflow:auto;padding:18px 24px">
+      <div id="overview-empty" class="hidden" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:260px">
+        <div style="font-size:14px;color:var(--tx-3)">Aucun site</div>
+      </div>
+      <table id="overview-table" style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--brd)">
+            <th style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Site</th>
+            <th style="text-align:center;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Migrations enregistrées</th>
+            <th style="text-align:center;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Serveurs restants à migrer</th>
+          </tr>
+        </thead>
+        <tbody id="overview-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Site migration view -->

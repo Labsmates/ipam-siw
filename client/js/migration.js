@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!siteId) {
     document.getElementById('view-welcome').style.display = 'flex';
     document.getElementById('view-site').style.display = 'none';
+    await loadOverview();
     return;
   }
   document.getElementById('view-welcome').style.display = 'none';
@@ -108,6 +109,70 @@ async function loadSidebar() {
     searchEl?.addEventListener('input', e => renderList(e.target.value.trim()));
     renderList();
   } catch { /* sidebar non critique */ }
+}
+
+// ---------------------------------------------------------------------------
+// Vue d'ensemble (aucun site sélectionné) — migrations enregistrées vs
+// serveurs encore éligibles côté OLD (live, non utilisés dans une migration)
+// pour chaque site. Réutilise isDeviceExcluded/isWin2016/isLinuxCft, qui ne
+// dépendent pas du site actuellement chargé.
+// ---------------------------------------------------------------------------
+function countEligibleOldRemaining(ips, vlans, siteMigrations) {
+  const used = new Set();
+  siteMigrations.forEach(m => { if (m.old_hostname) used.add(m.old_hostname); if (m.new_hostname) used.add(m.new_hostname); });
+  return (ips || []).filter(ip => {
+    if (!ip.hostname || (ip.status !== 'Utilisé' && ip.status !== 'Réservée')) return false;
+    if (isDeviceExcluded(ip.hostname)) return false;
+    if (!(isWin2016(ip.hostname) || isLinuxCft(ip.hostname))) return false;
+    const vlan = (vlans || []).find(v => String(v.id) === String(ip.vlan_id));
+    if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') return false;
+    return !used.has(ip.hostname);
+  }).length;
+}
+
+async function loadOverview() {
+  const loadEl    = document.getElementById('overview-loading');
+  const contentEl = document.getElementById('overview-content');
+  const emptyEl   = document.getElementById('overview-empty');
+  const tableEl   = document.getElementById('overview-table');
+  loadEl.style.display = 'flex';
+  contentEl.classList.add('hidden');
+  try {
+    const { sites } = await get('/api/sites');
+    if (!sites.length) {
+      emptyEl.classList.remove('hidden');
+      tableEl.style.display = 'none';
+    } else {
+      emptyEl.classList.add('hidden');
+      tableEl.style.display = '';
+      const rows = await Promise.all(sortSites(sites).map(async s => {
+        try {
+          const [data, migRes] = await Promise.all([
+            get(`/api/sites/${encodeURIComponent(s.id)}/data`),
+            get(`/api/migrations?site_id=${encodeURIComponent(s.id)}`),
+          ]);
+          const siteMigrations = migRes.migrations || [];
+          return {
+            id: s.id, name: s.name,
+            done: siteMigrations.length,
+            remaining: countEligibleOldRemaining(data.ips, data.vlans, siteMigrations),
+          };
+        } catch { return { id: s.id, name: s.name, done: 0, remaining: 0 }; }
+      }));
+      document.getElementById('overview-tbody').innerHTML = rows.map(r => `
+        <tr style="border-bottom:1px solid var(--bg-4);cursor:pointer" onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background=''" onclick="location.href='/migration.html?id=${encodeURIComponent(r.id)}'">
+          <td style="padding:10px 12px;font-size:13px">${esc(r.name)}</td>
+          <td style="padding:10px 12px;text-align:center;font-size:13px;color:#3fb950;font-weight:600">${r.done}</td>
+          <td style="padding:10px 12px;text-align:center;font-size:13px;color:${r.remaining > 0 ? '#d29922' : 'var(--tx-4)'};font-weight:600">${r.remaining}</td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    loadEl.style.display = 'none';
+    contentEl.classList.remove('hidden');
+  }
 }
 
 // ---------------------------------------------------------------------------
