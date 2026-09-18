@@ -163,6 +163,7 @@ let sortDir    = 1;     // 1 = ordre défini ci-dessous, -1 = inversé
 let _reserveSuffix = null;
 let _renameSuffix  = null;
 let _reserveVlanTag = null; // tag du VLAN de l'IP en cours d'assignation (popup migration)
+let _reserveHostnameMandatory = false; // Hostname obligatoire pour cette IP (hors VLAN IPMI et IP .1/.3)
 
 // Messages de réservation configurés par tag de VLAN (Administration)
 let _vlanPopups = {};
@@ -181,6 +182,23 @@ function getVlanSuffix(vlanDesc) {
   if (d === 'ADMIN') return SUFFIX_ADMIN;
   if (d === 'METIER' || d === 'FLUX' || d === 'PROCEF' || d.includes('PROCEF')) return SUFFIX_METIER;
   return null; // IPMI ou inconnu → hostname saisi tel quel
+}
+
+// Hostname obligatoire sur toutes les IP, sauf VLAN IPMI et adresses .1/.3
+// (généralement Gateway / infrastructure, jamais un nom de serveur).
+function isRegateExemptIp(ipAddress) {
+  const last = (ipAddress || '').split('.').pop();
+  return last === '1' || last === '3';
+}
+function isHostnameMandatoryFor(ipObj, vlanTag) {
+  if (vlanTag === 'IPMI') return false;
+  if (isRegateExemptIp(ipObj.ip_address)) return false;
+  return true;
+}
+// Préfixe suggéré à partir du Code Regate du site (ex : ICV → "942270SN-")
+function regateHostnamePrefix() {
+  const code = (siteData?.code_regate || '').trim().toUpperCase();
+  return code ? `${code}SN-` : '';
 }
 
 // Hostnames spéciaux qui ne doivent jamais recevoir de suffixe de domaine
@@ -870,9 +888,14 @@ async function openReserveModal(ipObj) {
   if (!(await showVlanNotice(vlan?.description))) return;
   _reserveSuffix = getVlanSuffix(vlan?.description);
   _reserveVlanTag = (vlan?.description || '').trim().toUpperCase();
+  _reserveHostnameMandatory = isHostnameMandatoryFor(ipObj, _reserveVlanTag);
+  const requiredMark = document.getElementById('reserve-hostname-required-mark');
+  requiredMark.textContent = _reserveHostnameMandatory ? '*' : '(optionnel)';
+  requiredMark.style.color = _reserveHostnameMandatory ? '#f85149' : 'var(--tx-3)';
   document.getElementById('reserve-ip-display').textContent = ipObj.ip_address;
   document.getElementById('reserve-ip-id').value = ipObj.id;
-  document.getElementById('reserve-hostname').value = ipObj.hostname || '';
+  const hostnameInput = document.getElementById('reserve-hostname');
+  hostnameInput.value = ipObj.hostname || (_reserveHostnameMandatory ? regateHostnamePrefix() : '');
   updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
   setOsPicker('reserve-os-picker', 'reserve-os', ipObj.os || '');
   const pr = document.getElementById('ping-result');
@@ -1156,8 +1179,17 @@ function setupModals(user) {
   });
 
   async function _assignIp(status, triggerBtn, loadingText) {
-    const id       = document.getElementById('reserve-ip-id').value;
-    const raw      = document.getElementById('reserve-hostname').value.trim();
+    const id  = document.getElementById('reserve-ip-id').value;
+    let   raw = document.getElementById('reserve-hostname').value.trim();
+    if (_reserveHostnameMandatory && !raw) {
+      const prefix = regateHostnamePrefix();
+      if (!prefix) {
+        showToast('Renseignez le Code Regate du site avant de réserver (bouton « Modifier le code site »)', 'warn');
+        return;
+      }
+      raw = prefix;
+      document.getElementById('reserve-hostname').value = raw;
+    }
     const hostname = buildFqdn(raw, _reserveSuffix);
     const os       = document.getElementById('reserve-os').value;
     if (!os) { showToast('Sélectionnez un OS', 'warn'); return; }
