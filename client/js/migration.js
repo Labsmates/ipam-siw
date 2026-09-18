@@ -148,7 +148,7 @@ async function loadOverview() {
     } else {
       emptyEl.classList.add('hidden');
       tableEl.style.display = '';
-      totalsEl.style.display = '';
+      totalsEl.style.display = 'flex';
       const rows = await Promise.all(sortSites(sites).map(async s => {
         try {
           const [data, migRes] = await Promise.all([
