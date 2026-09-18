@@ -12,6 +12,14 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+}
+
 let user     = null;
 let siteId   = null;
 let siteData = null;      // { site, vlans, ips }
@@ -52,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupMigrationForm();
   document.getElementById('btn-add-migration')?.addEventListener('click', () => openMigrationModal(null));
+  document.getElementById('btn-export-migrations')?.addEventListener('click', exportCsv);
 
   await loadPage();
 
@@ -204,6 +213,25 @@ async function loadPage() {
     loadEl.style.display = 'none';
     contentEl.classList.remove('hidden');
   }
+}
+
+function exportCsv() {
+  if (!migrations.length) { showToast('Aucune migration à exporter', 'warn'); return; }
+  const csvEsc = v => `"${String(v || '').replace(/"/g, '""')}"`;
+  const lines = [
+    ['Old Hostname', 'Old IP', 'Old OS', 'New Hostname', 'New IP', 'New OS', 'Commentaire', 'Resp. Métier', 'Créé par', 'Date création'].map(csvEsc).join(','),
+    ...migrations.map(m => [
+      m.old_hostname, m.old_ip, m.old_os, m.new_hostname, m.new_ip, m.new_os,
+      m.comment, m.resp_metier, m.created_by, fmtDate(m.created_at),
+    ].map(csvEsc).join(',')),
+  ];
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `migrations-${(siteData.site?.name || siteId).replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function osBadge(list, value) {
