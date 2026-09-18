@@ -124,6 +124,7 @@ function countEligibleOldRemaining(ips, vlans, siteMigrations) {
     if (!ip.hostname || (ip.status !== 'Utilisé' && ip.status !== 'Réservée')) return false;
     if (isDeviceExcluded(ip.hostname)) return false;
     if (!(isWin2016(ip.hostname) || isLinuxCft(ip.hostname))) return false;
+    if (isWin2022(ip)) return false;
     const vlan = (vlans || []).find(v => String(v.id) === String(ip.vlan_id));
     if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') return false;
     return !used.has(ip.hostname);

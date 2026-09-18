@@ -223,6 +223,9 @@ async function resolveOldHost(siteData, siteId, hostname) {
 // ici pour compter les serveurs encore éligibles à migrer (badge sidebar).
 const WIN2016_RE = /(?:SN|QN)-[A-Z0-9]{2}/i;
 const LINUX_RE   = /XG/i;
+// Un hostname matchant aussi le motif NEW (win2022) n'est jamais compté côté
+// OLD — mêmes règles que oldCandidates()/isWin2022() côté client.
+const WIN2022_RE = /FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/;
 
 // GET /api/migrations/remaining-count — nombre de serveurs encore éligibles
 // côté OLD (live, hors VLAN ADMIN, pas déjà repris dans une migration),
@@ -249,6 +252,7 @@ router.get('/remaining-count', async (req, res) => {
         if (!ip.hostname || (ip.status !== 'Utilisé' && ip.status !== 'Réservée')) continue;
         if (isDeviceExcluded(ip.hostname)) continue;
         if (!(WIN2016_RE.test(ip.hostname) || LINUX_RE.test(ip.hostname))) continue;
+        if (ip.os === 'win2022' || WIN2022_RE.test(ip.hostname)) continue;
         const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
         if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') continue;
         if (used.has(ip.hostname)) continue;
