@@ -176,8 +176,13 @@ export function loadMigrationBadge() {
   get('/api/migrations/remaining-count').then(r => {
     const badge = document.getElementById('nav-migration-badge');
     if (!badge) return;
-    const n = r?.remaining || 0;
-    if (n > 0) { badge.textContent = n; badge.classList.remove('hidden'); }
+    const n = r?.migrated || 0;
+    if (n > 0) {
+      badge.textContent = n;
+      badge.title = `${n} serveur${n !== 1 ? 's' : ''} migré${n !== 1 ? 's' : ''}`;
+      badge.style.background = '#3fb950';
+      badge.classList.remove('hidden');
+    }
   }).catch(() => {});
 }
 

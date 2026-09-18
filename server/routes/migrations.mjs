@@ -227,17 +227,20 @@ const LINUX_RE   = /XG/i;
 // OLD — mêmes règles que oldCandidates()/isWin2022() côté client.
 const WIN2022_RE = /FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/;
 
-// GET /api/migrations/remaining-count — nombre de serveurs encore éligibles
-// côté OLD (live, hors VLAN ADMIN, pas déjà repris dans une migration),
-// tous sites confondus (hors sites archivés). Badge sidebar.
+// GET /api/migrations/remaining-count — nombre de serveurs déjà migrés
+// (migrated, lignes créées) et encore éligibles côté OLD (remaining, live,
+// hors VLAN ADMIN, pas déjà repris dans une migration), tous sites confondus
+// (hors sites archivés). Badge sidebar (affiche "migrated").
 router.get('/remaining-count', async (req, res) => {
   try {
     const siteIds = await redis.smembers('sites');
     let remaining = 0;
+    let migrated = 0;
     for (const siteId of siteIds) {
       const siteData = await getSiteData(siteId);
       if (!siteData || siteData.site?.archived === '1') continue;
       const migIds = await redis.smembers(`site:${siteId}:migrations`);
+      migrated += migIds.length;
       const used = new Set();
       if (migIds.length) {
         const pipe = redis.pipeline();
@@ -259,7 +262,7 @@ router.get('/remaining-count', async (req, res) => {
         remaining++;
       }
     }
-    res.json({ remaining });
+    res.json({ remaining, migrated });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
