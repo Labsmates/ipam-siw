@@ -12,7 +12,7 @@
 // =============================================================================
 
 import express from 'express';
-import { redis, addLog, getSiteData } from '../redis.mjs';
+import { redis, addLog, getSiteData, getLogs } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
@@ -176,6 +176,48 @@ function resolveHost(siteData, hostname) {
   return { ip_address: ip.ip_address, vlan_tag };
 }
 
+// Retrouve le tag de VLAN d'une IP en la situant dans les réseaux des VLAN
+// actuels du site — même logique que vlanTagForIp() côté client
+// (client/js/migration.js), utilisée pour les IP archivées (libérées, donc
+// absentes de siteData.ips).
+function vlanTagForIp(siteData, ipAddress) {
+  const parts = (ipAddress || '').split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p))) return null;
+  const ipInt = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+  for (const vlan of siteData.vlans || []) {
+    const [netAddr, bitsStr] = (vlan.network || '').split('/');
+    const prefix = parseInt(bitsStr, 10);
+    const netParts = (netAddr || '').split('.').map(Number);
+    if (netParts.length !== 4 || netParts.some(p => isNaN(p)) || isNaN(prefix)) continue;
+    const netInt = ((netParts[0] << 24) | (netParts[1] << 16) | (netParts[2] << 8) | netParts[3]) >>> 0;
+    const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0;
+    if ((ipInt & mask) === (netInt & mask)) return (vlan.description || '').trim().toUpperCase();
+  }
+  return null;
+}
+
+// Résout un hostname OLD soit en live (resolveHost), soit dans les
+// libérations archivées du site (Archive) si l'IP a depuis été libérée —
+// maintient la correspondance même après un "Libérer" dans Site IPAM
+// (cohérent avec archivedOldCandidates() côté client).
+async function resolveOldHost(siteData, siteId, hostname) {
+  const live = resolveHost(siteData, hostname);
+  if (live) return live;
+  if (isDeviceExcluded(hostname)) return null;
+  const all = await getLogs(2000);
+  for (const l of all) {
+    if (l.action !== 'RELEASE_IP') continue;
+    let d;
+    try { d = JSON.parse(l.details); } catch { continue; }
+    if (d.hostname !== hostname) continue;
+    if (d.site_id && String(d.site_id) !== String(siteId)) continue;
+    const vlan_tag = vlanTagForIp(siteData, d.ip);
+    if (vlan_tag === 'ADMIN') continue;
+    return { ip_address: d.ip, vlan_tag };
+  }
+  return null;
+}
+
 // Motifs de classification OLD (Windows 2016 / Linux CFT) — mêmes que
 // isWin2016()/isLinuxCft() côté client (migration.js), utilisés uniquement
 // ici pour compter les serveurs encore éligibles à migrer (badge sidebar).
@@ -251,7 +293,7 @@ router.post('/', requireNonViewer, async (req, res) => {
     const siteData = await getSiteData(site_id);
     if (!siteData) return res.status(404).json({ error: 'Site introuvable' });
 
-    const oldHost = resolveHost(siteData, old_hostname);
+    const oldHost = await resolveOldHost(siteData, site_id, old_hostname);
     const newHost = resolveHost(siteData, new_hostname);
     if (!oldHost) return res.status(400).json({ error: `Hostname "${old_hostname}" introuvable ou non éligible (VLAN ADMIN, iLO/iDRAC/Nutanix exclus)` });
     if (!newHost) return res.status(400).json({ error: `Hostname "${new_hostname}" introuvable ou non éligible (VLAN ADMIN, iLO/iDRAC/Nutanix exclus)` });
@@ -306,7 +348,7 @@ router.put('/:id', requireNonViewer, async (req, res) => {
       if (old_hostname !== undefined || new_hostname !== undefined) {
         const siteData = await getSiteData(row.site_id);
         if (old_hostname !== undefined) {
-          const h = resolveHost(siteData, old_hostname);
+          const h = await resolveOldHost(siteData, row.site_id, old_hostname);
           if (!h) return res.status(400).json({ error: `Hostname "${old_hostname}" invalide` });
           patch.old_hostname = old_hostname; patch.old_ip = h.ip_address;
         }

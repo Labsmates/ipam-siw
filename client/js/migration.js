@@ -228,11 +228,18 @@ function vlanTagForIp(ipAddress) {
 // Libérations archivées éligibles côté OLD — même classification que les IP
 // live, VLAN ADMIN exclu (retrouvé par plage réseau), hostname pas déjà repris
 // par une IP actuellement vivante (qui prévaut), pas déjà utilisé ailleurs.
+// Un hostname matchant à la fois le motif OLD (SN-/QN-/XG) et le motif NEW
+// (FS22/AF21/...) est traité comme NEW uniquement (motif plus spécifique) —
+// jamais proposé côté OLD, pour éviter qu'un même hostname apparaisse dans
+// les deux listes.
+const WIN2022_HOSTNAME_RE = /FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/;
+
 function archivedOldCandidates(keepHostname = null) {
   const used = usedHostnames();
   const liveHostnames = new Set((siteData.ips || []).map(ip => ip.hostname).filter(Boolean));
   return archivedReleases
     .filter(r => (isWin2016(r.hostname) || isLinuxCft(r.hostname)) && !isDeviceExcluded(r.hostname))
+    .filter(r => !WIN2022_HOSTNAME_RE.test(r.hostname || ''))
     .filter(r => vlanTagForIp(r.ip) !== 'ADMIN')
     .filter(r => !liveHostnames.has(r.hostname))
     .filter(r => r.hostname === keepHostname || !used.has(r.hostname))
@@ -241,7 +248,7 @@ function archivedOldCandidates(keepHostname = null) {
 
 function oldCandidates(keepHostname = null) {
   const used = usedHostnames();
-  const live = eligibleIps().filter(ip => (isWin2016(ip.hostname) || isLinuxCft(ip.hostname)) && (ip.hostname === keepHostname || !used.has(ip.hostname)));
+  const live = eligibleIps().filter(ip => (isWin2016(ip.hostname) || isLinuxCft(ip.hostname)) && !isWin2022(ip) && (ip.hostname === keepHostname || !used.has(ip.hostname)));
   return [...live, ...archivedOldCandidates(keepHostname)];
 }
 function newCandidates(keepHostname = null) {
