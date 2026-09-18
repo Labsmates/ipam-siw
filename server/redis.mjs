@@ -753,7 +753,7 @@ export async function deleteIp(id) {
   return true;
 }
 
-const VALID_OS = ['redhat', 'nutanix', 'win2022', 'win2025', ''];
+const VALID_OS = ['redhat', 'nutanix', 'win2016', 'win2019', 'win2022', 'win2025', ''];
 
 export async function updateIp(id, { status, hostname, os, role, demandeur, chef_projet, direction, product_owner, architecte, contact, notes, created_by, server_type, cpu, ram, disk_size, programs }) {
   const VALID = ['Libre', 'Utilisé', 'Réservée'];
