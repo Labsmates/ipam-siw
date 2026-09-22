@@ -315,15 +315,20 @@ function eligibleIp(ip, siteData) {
   const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
   return (vlan?.description || '').trim().toUpperCase() !== 'ADMIN';
 }
+// Un même label/motif peut correspondre à plusieurs IP (ex. le serveur
+// réel en VLAN METIER/PROCEF ET son miroir en VLAN ADMIN, ou son
+// interface IDRAC/iLO) — on cherche parmi TOUTES les IP qui matchent
+// celle qui est éligible, plutôt que de s'arrêter à la première trouvée
+// (l'ordre de siteData.ips dépend de SMEMBERS Redis, non garanti).
 function findByLabel(siteData, label) {
-  const ip = (siteData.ips || []).find(i => i.hostname && i.hostname.split('.')[0].toUpperCase() === label
+  const candidates = (siteData.ips || []).filter(i => i.hostname && i.hostname.split('.')[0].toUpperCase() === label
     && (i.status === 'Utilisé' || i.status === 'Réservée'));
-  return eligibleIp(ip, siteData) ? ip : null;
+  return candidates.find(ip => eligibleIp(ip, siteData)) || null;
 }
 function findByCode(siteData, code) {
-  const ip = (siteData.ips || []).find(i => i.hostname && i.hostname.toUpperCase().includes(code)
+  const candidates = (siteData.ips || []).filter(i => i.hostname && i.hostname.toUpperCase().includes(code)
     && (i.status === 'Utilisé' || i.status === 'Réservée'));
-  return eligibleIp(ip, siteData) ? ip : null;
+  return candidates.find(ip => eligibleIp(ip, siteData)) || null;
 }
 
 async function autoBackfillMigrations(siteId, siteData) {
