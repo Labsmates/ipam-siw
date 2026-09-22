@@ -310,25 +310,31 @@ const FICHIERS_PAIRS = [
   ['974880SN-FS12', '974880SN-FS22'],
 ];
 
+function vlanTag(ip, siteData) {
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
+  return (vlan?.description || '').trim().toUpperCase();
+}
 function eligibleIp(ip, siteData) {
   if (!ip || isDeviceExcluded(ip.hostname)) return false;
-  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
-  return (vlan?.description || '').trim().toUpperCase() !== 'ADMIN';
+  return vlanTag(ip, siteData) !== 'ADMIN';
 }
 // Un même label/motif peut correspondre à plusieurs IP (ex. le serveur
 // réel en VLAN METIER/PROCEF ET son miroir en VLAN ADMIN, ou son
 // interface IDRAC/iLO) — on cherche parmi TOUTES les IP qui matchent
-// celle qui est éligible, plutôt que de s'arrêter à la première trouvée
-// (l'ordre de siteData.ips dépend de SMEMBERS Redis, non garanti).
+// celle qui est réellement éligible, au lieu de s'arrêter à la première
+// trouvée (l'ordre de siteData.ips dépend de SMEMBERS Redis, non
+// garanti). Priorité au VLAN METIER quand plusieurs IP éligibles
+// matchent (ex. FICHIERS en METIER + PROCEF en VLAN PROCEF partageant
+// un motif) — c'est l'IP METIER qui doit remonter en priorité.
 function findByLabel(siteData, label) {
   const candidates = (siteData.ips || []).filter(i => i.hostname && i.hostname.split('.')[0].toUpperCase() === label
-    && (i.status === 'Utilisé' || i.status === 'Réservée'));
-  return candidates.find(ip => eligibleIp(ip, siteData)) || null;
+    && (i.status === 'Utilisé' || i.status === 'Réservée') && eligibleIp(i, siteData));
+  return candidates.find(ip => vlanTag(ip, siteData) === 'METIER') || candidates[0] || null;
 }
 function findByCode(siteData, code) {
   const candidates = (siteData.ips || []).filter(i => i.hostname && i.hostname.toUpperCase().includes(code)
-    && (i.status === 'Utilisé' || i.status === 'Réservée'));
-  return candidates.find(ip => eligibleIp(ip, siteData)) || null;
+    && (i.status === 'Utilisé' || i.status === 'Réservée') && eligibleIp(i, siteData));
+  return candidates.find(ip => vlanTag(ip, siteData) === 'METIER') || candidates[0] || null;
 }
 
 async function autoBackfillMigrations(siteId, siteData) {
