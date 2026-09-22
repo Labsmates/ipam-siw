@@ -289,6 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!siteId) {
     document.getElementById('view-welcome').style.display = 'flex';
     document.getElementById('view-site').style.display = 'none';
+    await loadSiteRecap();
     return;
   }
 
@@ -357,6 +358,38 @@ async function checkLoginPopup() {
     document.getElementById('btn-close-login-popup').addEventListener('click', close, { once: true });
     document.getElementById('btn-x-login-popup').addEventListener('click', close, { once: true });
   } catch { /* silencieux — le popup ne doit jamais bloquer la page */ }
+}
+
+// ---------------------------------------------------------------------------
+// Vue d'accueil "Sites IPAM" (aucun site sélectionné) — récap Windows/
+// Linux/Cluster Nutanix (VLAN METIER uniquement, sans doublon — voir
+// GET /api/sites/metier-recap) + grille des sites triés par ordre
+// alphanumérique, chacun cliquable vers sa fiche.
+// ---------------------------------------------------------------------------
+async function loadSiteRecap() {
+  const loadEl    = document.getElementById('welcome-loading');
+  const contentEl = document.getElementById('welcome-content');
+  loadEl.style.display = 'flex';
+  contentEl.classList.add('hidden');
+  try {
+    const { totals, sites: siteCounts } = await get('/api/sites/metier-recap');
+    document.getElementById('welcome-total-windows').textContent = totals.windows;
+    document.getElementById('welcome-total-linux').textContent = totals.linux;
+    document.getElementById('welcome-total-nutanix').textContent = totals.nutanix_clusters;
+
+    const sorted = [...siteCounts].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
+    document.getElementById('welcome-sites-grid').innerHTML = sorted.map(s => `
+      <a href="/site.html?id=${encodeURIComponent(s.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+        <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+        <span style="flex-shrink:0;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${s.count}</span>
+      </a>`).join('');
+
+    contentEl.classList.remove('hidden');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    loadEl.style.display = 'none';
+  }
 }
 
 // ---------------------------------------------------------------------------

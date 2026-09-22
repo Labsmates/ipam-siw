@@ -95,6 +95,47 @@ router.get('/os-summary', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/sites/metier-recap — récap Windows/Linux/Cluster Nutanix +
+// nombre de serveurs par site, pour la vue d'accueil de Site IPAM (aucun
+// site sélectionné). Périmètre volontairement restreint au VLAN METIER
+// (seul VLAN qui « remonte » des serveurs pour cette vue) ; déduplication
+// par site (un même hostname compté une seule fois au sein d'un site).
+// "Cluster Nutanix" est un décompte à part de classifyHostname() : les
+// hostnames de cluster contiennent la sous-chaîne "CLU" (convention métier),
+// indépendant de la détection SPHY (nœuds individuels) utilisée ailleurs.
+router.get('/metier-recap', requireAuth, async (req, res) => {
+  try {
+    const sites = (await listSitesWithStats()).filter(s => !s.archived);
+    let windows = 0, linux = 0, nutanixClusters = 0;
+    const siteCounts = [];
+    for (const s of sites) {
+      const data = await getSiteData(s.id);
+      const metierVlanIds = new Set(
+        (data?.vlans || [])
+          .filter(v => (v.description || '').trim().toUpperCase() === 'METIER')
+          .map(v => String(v.id))
+      );
+      let siteWin = 0, siteLin = 0, siteClu = 0;
+      const seen = new Set();
+      for (const ip of (data?.ips || [])) {
+        if (!ip.hostname || ip.status === 'Libre') continue;
+        if (!metierVlanIds.has(String(ip.vlan_id))) continue;
+        const key = ip.hostname.split('.')[0].toUpperCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (/CLU/i.test(key)) { siteClu++; continue; }
+        const result = classifyHostname(ip.hostname);
+        if (!result) continue;
+        if (result.type === 'windows' && result.role !== 'IDRAC') siteWin++;
+        else if (result.type === 'linux') siteLin++;
+      }
+      windows += siteWin; linux += siteLin; nutanixClusters += siteClu;
+      siteCounts.push({ id: s.id, name: s.name, count: siteWin + siteLin + siteClu });
+    }
+    res.json({ totals: { windows, linux, nutanix_clusters: nutanixClusters }, sites: siteCounts });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/sites/:id  — detail plat pour le frontend site.js
 router.get('/:id([0-9]+)', requireAuth, async (req, res) => {
   try {

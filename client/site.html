@@ -195,10 +195,32 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 <div id="app-main">
 
   <!-- Welcome state (no site selected) -->
-  <div id="view-welcome" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;height:100%;gap:14px">
-    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--brd)" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-    <div style="font-size:18px;font-weight:600;color:var(--tx-5)">Sélectionnez un site</div>
-    <div style="font-size:14px;color:var(--brd)">Choisissez un site dans la barre latérale</div>
+  <div id="view-welcome" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <div style="padding:18px 24px 14px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0">Sites IPAM</h1>
+      <div style="font-size:12px;color:var(--tx-3);margin-top:2px">Récapitulatif — VLAN METIER uniquement, sans doublon — cliquez un site pour l'ouvrir</div>
+    </div>
+    <div id="welcome-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 24px">
+      <div class="spinner"></div>
+      <p style="color:var(--tx-3);font-size:13px;margin:0">Chargement…</p>
+    </div>
+    <div id="welcome-content" class="hidden" style="flex:1;overflow:auto;padding:18px 24px">
+      <div id="welcome-totals" style="display:flex;gap:16px;margin-bottom:22px">
+        <div style="flex:1;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;display:flex;align-items:baseline;gap:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Serveurs Windows</div>
+          <div id="welcome-total-windows" style="font-size:24px;font-weight:700;color:#58a6ff">—</div>
+        </div>
+        <div style="flex:1;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;display:flex;align-items:baseline;gap:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Serveurs Linux</div>
+          <div id="welcome-total-linux" style="font-size:24px;font-weight:700;color:#f85149">—</div>
+        </div>
+        <div style="flex:1;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;display:flex;align-items:baseline;gap:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Cluster Nutanix</div>
+          <div id="welcome-total-nutanix" style="font-size:24px;font-weight:700;color:#a371f7">—</div>
+        </div>
+      </div>
+      <div id="welcome-sites-grid" style="display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px"></div>
+    </div>
   </div>
 
   <!-- Site detail view -->
