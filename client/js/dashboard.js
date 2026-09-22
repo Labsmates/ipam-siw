@@ -4,14 +4,14 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, setupGlobalIpSearch,
+  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, setupGlobalIpSearch,
   restoreElevationSession, setupElevationMode,
 } from './api.js?v=e5f2078';
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme(); initSidebarCollapse(); loadMigrationBadge();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
   if (!requireAuth()) return;
   startInactivityTimer();
 

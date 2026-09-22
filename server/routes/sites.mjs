@@ -30,6 +30,71 @@ router.get('/', requireAuth, async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------------------------------------------------------------------
+// Classification Windows/Linux — même logique que classifyHostname() côté
+// client (client/js/stats.js), utilisée uniquement ici pour les pastilles
+// du menu "Sites IPAM" (badge bleu = Windows, rouge = Linux). IDRAC/iLO
+// exclus du total (ce sont des interfaces de management, pas des OS).
+// ---------------------------------------------------------------------------
+const WIN_DOMAIN  = '.dct.adt.local';
+const LIN_DOMAINS = ['.hdcadmin.sf.intra.laposte.fr', '.sf.intra.laposte.fr'];
+
+function classifyHostname(raw) {
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  const label = raw.split('.')[0];
+
+  if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
+
+  const lastDash = label.lastIndexOf('-');
+  if (lastDash >= 0) {
+    const prefix = label.slice(0, lastDash);
+    if (/ZN$/i.test(prefix)) return { type: 'windows', role: 'ZN' };
+    if (/QN$/i.test(prefix)) return { type: 'windows', role: 'QN' };
+  }
+
+  const isWindows = lower.endsWith(WIN_DOMAIN);
+  const isLinux   = LIN_DOMAINS.some(d => lower.endsWith(d));
+  if (!isWindows && !isLinux) return null;
+
+  if (isLinux) {
+    if (/^SP/i.test(label)) return { type: 'nutanix', role: 'SPHY' };
+    if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
+    if (label.match(/^[A-Z]{2}XD\d+$/i)) return { type: 'linux', role: 'XG' };
+    return null;
+  }
+
+  if (lastDash < 0) return null;
+  const suffix = label.slice(lastDash + 1);
+  const m = suffix.match(/^([A-Z]{2})\d+$/i);
+  if (!m) return null;
+  return { type: 'windows', role: m[1].toUpperCase() };
+}
+
+// GET /api/sites/os-summary — total Windows/Linux distincts, tous sites
+// confondus (hors sites archivés) — pastilles du menu "Sites IPAM".
+router.get('/os-summary', requireAuth, async (req, res) => {
+  try {
+    const sites = (await listSitesWithStats()).filter(s => !s.archived);
+    let windows = 0, linux = 0;
+    const seen = new Set();
+    for (const s of sites) {
+      const data = await getSiteData(s.id);
+      for (const ip of (data?.ips || [])) {
+        if (!ip.hostname || ip.status === 'Libre') continue;
+        const key = ip.hostname.split('.')[0].toUpperCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const result = classifyHostname(ip.hostname);
+        if (!result) continue;
+        if (result.type === 'windows' && result.role !== 'IDRAC') windows++;
+        else if (result.type === 'linux') linux++;
+      }
+    }
+    res.json({ windows, linux });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/sites/:id  — detail plat pour le frontend site.js
 router.get('/:id([0-9]+)', requireAuth, async (req, res) => {
   try {

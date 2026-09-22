@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge,
+  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
   restoreElevationSession, setupElevationMode,
 } from './api.js?v=e5f2078';
 
@@ -26,7 +26,7 @@ const PER_PAGE = 50;
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
-  checkHttps(); initTheme(); initSidebarCollapse(); loadMigrationBadge();
+  checkHttps(); initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
   if (!requireAuth()) return;
   startInactivityTimer();
 

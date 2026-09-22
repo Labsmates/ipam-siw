@@ -5,7 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, getToken, logout,
   get, post, put, del,
-  showToast, fmtDate, openModal, closeModal, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, sortSites,
+  showToast, fmtDate, openModal, closeModal, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, sortSites,
   restoreElevationSession, setupElevationMode,
 } from './api.js?v=e5f2078';
 
@@ -24,7 +24,7 @@ let _isUserMode          = false;
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme(); initSidebarCollapse(); loadMigrationBadge();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
   if (!requireAuth()) return;
   startInactivityTimer();
 

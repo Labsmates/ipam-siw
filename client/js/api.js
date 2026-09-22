@@ -187,6 +187,30 @@ export function loadMigrationBadge() {
 }
 
 // ---------------------------------------------------------------------------
+// Pastilles "Sites IPAM" (sidebar) — nombre de serveurs Windows (bleu) et
+// Linux (rouge) distincts, tous sites confondus. Appel non bloquant,
+// silencieux en cas d'échec (les pastilles restent simplement masquées).
+// ---------------------------------------------------------------------------
+export function loadSiteOsBadges() {
+  get('/api/sites/os-summary').then(r => {
+    const winBadge = document.getElementById('nav-site-win-badge');
+    const linBadge = document.getElementById('nav-site-lin-badge');
+    const w = r?.windows || 0;
+    const l = r?.linux || 0;
+    if (winBadge && w > 0) {
+      winBadge.textContent = w;
+      winBadge.title = `${w} serveur${w !== 1 ? 's' : ''} Windows`;
+      winBadge.classList.remove('hidden');
+    }
+    if (linBadge && l > 0) {
+      linBadge.textContent = l;
+      linBadge.title = `${l} serveur${l !== 1 ? 's' : ''} Linux`;
+      linBadge.classList.remove('hidden');
+    }
+  }).catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
 // Fetch wrapper
 // ---------------------------------------------------------------------------
 export async function api(method, path, body) {

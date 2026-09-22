@@ -87,7 +87,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     </a>
     <a href="/site.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;box-sizing:border-box;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      Sites IPAM
+      Sites IPAM <span id="nav-site-win-badge" class="hidden" style="display:inline-block;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:auto;line-height:18px;vertical-align:middle;"></span><span id="nav-site-lin-badge" class="hidden" style="display:inline-block;background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:4px;line-height:18px;vertical-align:middle;"></span>
     </a>
     <a href="/migration.html" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;margin-bottom:4px;box-sizing:border-box">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -272,6 +272,7 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         <div>
           <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">New Hostname</label>
           <select id="mig-new-hostname" class="inp"><option value="">—</option></select>
+          <input type="text" id="mig-new-hostname-custom" class="inp hidden" style="margin-top:8px" placeholder="ex: 942270SN-FS22.dct.adt.local">
           <div style="margin-top:6px;font-size:12px;color:var(--tx-3)">IP : <code id="mig-new-ip-display">—</code></div>
         </div>
       </div>

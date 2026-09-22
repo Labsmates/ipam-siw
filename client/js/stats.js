@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge,
+  get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
   restoreElevationSession, setupElevationMode,
 } from './api.js?v=e5f2078';
 import { WIN_ROLES, LIN_ROLES } from './server-roles.js?v=e5f2078';
@@ -65,7 +65,7 @@ let _searchIpSite  = '';
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme(); initSidebarCollapse(); loadMigrationBadge();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -187,7 +187,9 @@ async function loadStats() {
           if (!linRoleHostnames[result.role]) linRoleHostnames[result.role] = [];
           linRoleHostnames[result.role].push(ip.hostname);
         } else if (result.type === 'windows') {
-          winTotal++;
+          // IDRAC/iLO : comptés dans le détail par rôle mais pas dans le total
+          // "Serveurs Windows" (ce sont des interfaces de management, pas des OS).
+          if (result.role !== 'IDRAC') winTotal++;
           winRoleCounts[result.role] = (winRoleCounts[result.role] || 0) + 1;
           if (!winRoleHostnames[result.role]) winRoleHostnames[result.role] = [];
           winRoleHostnames[result.role].push(ip.hostname);

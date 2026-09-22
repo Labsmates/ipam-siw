@@ -240,7 +240,6 @@ router.get('/remaining-count', async (req, res) => {
       const siteData = await getSiteData(siteId);
       if (!siteData || siteData.site?.archived === '1') continue;
       const migIds = await redis.smembers(`site:${siteId}:migrations`);
-      migrated += migIds.length;
       const used = new Set();
       if (migIds.length) {
         const pipe = redis.pipeline();
@@ -249,6 +248,9 @@ router.get('/remaining-count', async (req, res) => {
         rows.forEach(([, m]) => {
           if (m?.old_hostname) used.add(m.old_hostname);
           if (m?.new_hostname) used.add(m.new_hostname);
+          // Les saisies manuelles (Old/New "Autre") ne comptent pas comme
+          // "migré" — voir client/js/migration.js (old_manual/new_manual).
+          if (m?.old_manual !== '1' && m?.new_manual !== '1') migrated++;
         });
       }
       for (const ip of siteData.ips || []) {
@@ -266,11 +268,114 @@ router.get('/remaining-count', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------------------------------------------------------------------
+// Backfill automatique — serveurs PROCEF et FICHIERS déjà migrés dans les
+// faits (OLD et NEW tous deux présents et éligibles dans Site IPAM) mais
+// sans ligne de migration enregistrée. Idempotent (vérifie les hostnames
+// déjà engagés avant de créer) — exécuté à chaque GET /?site_id=X, donc à
+// chaque ouverture de la page Migration Serveurs d'un site (et de la vue
+// d'ensemble, qui appelle cette route pour tous les sites).
+// ---------------------------------------------------------------------------
+
+// PROCEF — détection générique par motif de rôle (les deux doivent être
+// présents sur le même site pour créer la paire).
+const PROCEF_PAIRS = [
+  { old: 'AF11', new: 'AF21' },
+  { old: 'AF12', new: 'AF22' },
+];
+
+// FICHIERS — table exacte fournie par site (hostname complet sans domaine).
+// 458100SN-FS04 migre vers le même NEW que 458100SN-FS12 (« mutualisé sur
+// le FS22 ») ; 458100SN-FS03 (décommissionné) n'a volontairement pas de
+// pendant NEW et n'apparaît donc pas ici.
+const FICHIERS_PAIRS = [
+  ['518100SN-FS12', '518100SN-FS22'], ['518100SN-FS14', '518100SN-FS24'],
+  ['348100SN-FS14', '348100SN-FS24'],
+  ['218100SN-FS12', '218100SN-FS22'], ['218100SN-FS14', '218100SN-FS24'],
+  ['768100SN-FS12', '768100SN-FS22'],
+  ['445490SN-FS01', '445490SN-FS21'],
+  ['448100SN-FS06', '448100SN-FS26'], ['448100SN-FS12', '448100SN-FS22'],
+  ['311810SN-FS14', '311810SN-FS24'], ['311810SN-FS15', '311810SN-FS25'], ['311810SN-FS16', '311810SN-FS26'],
+  ['972880SN-FS12', '972880SN-FS22'],
+  ['758100SN-FS12', '758100SN-FS22'], ['758100SN-FS14', '758100SN-FS24'], ['758100SN-FS20', '758100SN-FS26'],
+  ['758100ZN-FS12', '758100ZN-FS22'],
+  ['358100SN-FS12', '358100SN-FS22'], ['358100SN-FS14', '358100SN-FS24'],
+  ['138100SN-FS12', '138100SN-FS22'], ['138100SN-FS14', '138100SN-FS24'],
+  ['318100SN-FS12', '318100SN-FS22'], ['318100SN-FS14', '318100SN-FS24'],
+  ['458100SN-FS05', '458100SN-FS25'], ['458100SN-FS12', '458100SN-FS22'], ['458100SN-FS04', '458100SN-FS22'],
+  ['543560SN-FS02', '543560SN-FS22'],
+  ['548100SN-FS06', '548100SN-FS26'], ['548100SN-FS12', '548100SN-FS22'],
+  ['971880SN-FS12', '971880SN-FS22'],
+  ['973880SN-FS12', '973880SN-FS22'],
+  ['974880SN-FS12', '974880SN-FS22'],
+];
+
+function eligibleIp(ip, siteData) {
+  if (!ip || isDeviceExcluded(ip.hostname)) return false;
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
+  return (vlan?.description || '').trim().toUpperCase() !== 'ADMIN';
+}
+function findByLabel(siteData, label) {
+  const ip = (siteData.ips || []).find(i => i.hostname && i.hostname.split('.')[0].toUpperCase() === label
+    && (i.status === 'Utilisé' || i.status === 'Réservée'));
+  return eligibleIp(ip, siteData) ? ip : null;
+}
+function findByCode(siteData, code) {
+  const ip = (siteData.ips || []).find(i => i.hostname && i.hostname.toUpperCase().includes(code)
+    && (i.status === 'Utilisé' || i.status === 'Réservée'));
+  return eligibleIp(ip, siteData) ? ip : null;
+}
+
+async function autoBackfillMigrations(siteId, siteData) {
+  const existingIds = await redis.smembers(`site:${siteId}:migrations`);
+  const used = new Set();
+  if (existingIds.length) {
+    const pipe = redis.pipeline();
+    existingIds.forEach(id => pipe.hmget(`migration:${id}`, 'old_hostname', 'new_hostname'));
+    const results = await pipe.exec();
+    results.forEach(([, v]) => { (v || []).forEach(h => h && used.add(h)); });
+  }
+
+  const toCreate = [];
+  for (const { old: oldCode, new: newCode } of PROCEF_PAIRS) {
+    const oldIp = findByCode(siteData, oldCode);
+    const newIp = findByCode(siteData, newCode);
+    if (!oldIp || !newIp || used.has(oldIp.hostname) || used.has(newIp.hostname)) continue;
+    toCreate.push({ old: oldIp, new: newIp });
+    used.add(oldIp.hostname); used.add(newIp.hostname);
+  }
+  for (const [oldLabel, newLabel] of FICHIERS_PAIRS) {
+    const oldIp = findByLabel(siteData, oldLabel);
+    const newIp = findByLabel(siteData, newLabel);
+    // Le NEW n'est volontairement pas ajouté à `used` : autorise un même NEW
+    // (ex. FS22) à recevoir deux OLD distincts (cas « mutualisé »).
+    if (!oldIp || !newIp || used.has(oldIp.hostname)) continue;
+    toCreate.push({ old: oldIp, new: newIp });
+    used.add(oldIp.hostname);
+  }
+  if (!toCreate.length) return;
+
+  const now = new Date().toISOString();
+  for (const { old: oldIp, new: newIp } of toCreate) {
+    const id = String(await redis.incr('seq:migrations'));
+    await redis.hset(`migration:${id}`, {
+      site_id: String(siteId),
+      old_hostname: oldIp.hostname, old_ip: oldIp.ip_address, old_os: '2016',
+      new_hostname: newIp.hostname, new_ip: newIp.ip_address, new_os: '2022',
+      comment: 'Ajout automatique (correspondance PROCEF/FICHIERS connue)',
+      resp_metier: '', created_by: 'SYSTEM', created_at: now, updated_at: now,
+    });
+    await redis.sadd(`site:${siteId}:migrations`, id);
+  }
+}
+
 // GET /api/migrations?site_id=X
 router.get('/', async (req, res) => {
   try {
     const siteId = req.query.site_id;
     if (!siteId) return res.status(400).json({ error: 'site_id requis' });
+    const siteData = await getSiteData(siteId);
+    if (siteData && siteData.site?.archived !== '1') await autoBackfillMigrations(siteId, siteData);
     const ids = await redis.smembers(`site:${siteId}:migrations`);
     if (!ids.length) return res.json({ migrations: [] });
     const pipe = redis.pipeline();
@@ -287,7 +392,7 @@ router.get('/', async (req, res) => {
 // POST /api/migrations — crée une ligne (tous sauf viewer)
 router.post('/', requireNonViewer, async (req, res) => {
   try {
-    const { site_id, old_hostname, old_os, new_hostname, new_os, comment, resp_metier } = req.body || {};
+    const { site_id, old_hostname, old_os, new_hostname, new_os, comment, resp_metier, old_manual, new_manual } = req.body || {};
     if (!site_id) return res.status(400).json({ error: 'site_id requis' });
     if (!old_hostname || !new_hostname) return res.status(400).json({ error: "L'ancien et le nouveau hostname sont requis" });
     if (!comment?.trim()) return res.status(400).json({ error: 'Le commentaire est obligatoire' });
@@ -305,14 +410,16 @@ router.post('/', requireNonViewer, async (req, res) => {
     if (!oldHost) return res.status(400).json({ error: `Hostname "${old_hostname}" introuvable ou non éligible (VLAN ADMIN, iLO/iDRAC/Nutanix exclus)` });
     if (!newHost) return res.status(400).json({ error: `Hostname "${new_hostname}" introuvable ou non éligible (VLAN ADMIN, iLO/iDRAC/Nutanix exclus)` });
 
-    // Un hostname déjà engagé dans une migration active de ce site ne peut pas être repris
+    // Un hostname déjà engagé dans une migration active de ce site ne peut pas
+    // être repris — sauf en saisie manuelle (old_manual/new_manual), où le
+    // but explicite est de pouvoir remonter l'IP d'un serveur déjà engagé.
     const existingIds = await redis.smembers(`site:${site_id}:migrations`);
     if (existingIds.length) {
       const pipe = redis.pipeline();
       existingIds.forEach(id => pipe.hmget(`migration:${id}`, 'old_hostname', 'new_hostname'));
       const results = await pipe.exec();
       const used = new Set(results.flatMap(([, v]) => v || []));
-      if (used.has(old_hostname) || used.has(new_hostname))
+      if ((!old_manual && used.has(old_hostname)) || (!new_manual && used.has(new_hostname)))
         return res.status(409).json({ error: 'Un de ces serveurs est déjà engagé dans une migration' });
     }
 
@@ -322,6 +429,7 @@ router.post('/', requireNonViewer, async (req, res) => {
       site_id: String(site_id),
       old_hostname, old_ip: oldHost.ip_address, old_os,
       new_hostname, new_ip: newHost.ip_address, new_os,
+      old_manual: old_manual ? '1' : '0', new_manual: new_manual ? '1' : '0',
       comment: comment.trim(), resp_metier: (resp_metier || '').trim(),
       created_by: req.user.username, created_at: now, updated_at: now,
     };
@@ -349,7 +457,7 @@ router.put('/:id', requireNonViewer, async (req, res) => {
     if (req.body?.resp_metier !== undefined) patch.resp_metier = String(req.body.resp_metier).trim();
 
     if (isAdmin) {
-      const { old_hostname, new_hostname, old_os, new_os } = req.body || {};
+      const { old_hostname, new_hostname, old_os, new_os, old_manual, new_manual } = req.body || {};
       if (old_os !== undefined) { await validateOs('old', old_os, true); patch.old_os = old_os; }
       if (new_os !== undefined) { await validateOs('new', new_os, true); patch.new_os = new_os; }
       if (old_hostname !== undefined || new_hostname !== undefined) {
@@ -358,11 +466,13 @@ router.put('/:id', requireNonViewer, async (req, res) => {
           const h = await resolveOldHost(siteData, row.site_id, old_hostname);
           if (!h) return res.status(400).json({ error: `Hostname "${old_hostname}" invalide` });
           patch.old_hostname = old_hostname; patch.old_ip = h.ip_address;
+          patch.old_manual = old_manual ? '1' : '0';
         }
         if (new_hostname !== undefined) {
           const h = resolveHost(siteData, new_hostname);
           if (!h) return res.status(400).json({ error: `Hostname "${new_hostname}" invalide` });
           patch.new_hostname = new_hostname; patch.new_ip = h.ip_address;
+          patch.new_manual = new_manual ? '1' : '0';
         }
       }
       // Correction manuelle de l'IP (prime sur l'auto-résolution ci-dessus si les deux sont envoyées)

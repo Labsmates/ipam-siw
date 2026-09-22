@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge,
+  get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
   restoreElevationSession, setupElevationMode, setupAdminSectionToggle, openModal, closeModal,
 } from './api.js?v=e5f2078';
 
@@ -30,7 +30,7 @@ let archivedReleases = []; // [{hostname, ip}] — libérations du site (Archive
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme(); initSidebarCollapse(); loadMigrationBadge();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
   if (!requireAuth()) return;
   startInactivityTimer();
 
@@ -158,7 +158,7 @@ async function loadOverview() {
           const siteMigrations = migRes.migrations || [];
           return {
             id: s.id, name: s.name,
-            done: siteMigrations.length,
+            done: siteMigrations.filter(m => m.old_manual !== '1' && m.new_manual !== '1').length,
             remaining: countEligibleOldRemaining(data.ips, data.vlans, siteMigrations),
           };
         } catch { return { id: s.id, name: s.name, done: 0, remaining: 0 }; }
@@ -264,12 +264,15 @@ function newCandidates(keepHostname = null) {
   return eligibleIps().filter(ip => isWin2022(ip) && (ip.hostname === keepHostname || !used.has(ip.hostname)));
 }
 
-// Résout l'IP d'un hostname tapé à la main (Old Hostname en saisie manuelle) :
-// cherche d'abord dans Site IPAM (live), puis dans l'archive des libérations —
-// même logique (statut, exclusion ADMIN, appareils exclus) que resolveOldHost()
-// côté serveur (server/routes/migrations.mjs), pour que l'aperçu affiché
-// corresponde à ce que la sauvegarde validera.
-function lookupHostnameIp(hostname) {
+// Résout l'IP d'un hostname tapé à la main (Old/New Hostname en saisie
+// manuelle) : cherche d'abord dans Site IPAM (live), puis — pour OLD
+// uniquement (includeArchive) — dans l'archive des libérations — même
+// logique (statut, exclusion ADMIN, appareils exclus) que
+// resolveOldHost()/resolveHost() côté serveur (server/routes/migrations.mjs),
+// pour que l'aperçu affiché corresponde à ce que la sauvegarde validera.
+// Ignore volontairement usedHostnames() : une saisie manuelle doit remonter
+// l'IP même si le hostname est déjà engagé dans une autre migration.
+function lookupHostnameIp(hostname, includeArchive = true) {
   if (!hostname || isDeviceExcluded(hostname)) return null;
   const live = (siteData.ips || []).find(i => i.hostname === hostname && (i.status === 'Utilisé' || i.status === 'Réservée'));
   if (live) {
@@ -277,6 +280,7 @@ function lookupHostnameIp(hostname) {
     if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') return null;
     return live.ip_address;
   }
+  if (!includeArchive) return null;
   const archived = archivedReleases.find(r => r.hostname === hostname);
   if (archived && vlanTagForIp(archived.ip) !== 'ADMIN') return archived.ip;
   return null;
@@ -367,7 +371,9 @@ function renderTable() {
       <td style="padding:9px 12px;font-size:13px;color:var(--tx-2);max-width:220px">${esc(m.comment)}</td>
       <td style="padding:9px 12px;font-size:13px;color:var(--tx-2)">${m.resp_metier ? esc(m.resp_metier) : '<span style="color:var(--tx-5)">—</span>'}</td>
       <td style="padding:9px 12px;text-align:right;white-space:nowrap">
-        ${canEdit ? `<button class="btn btn-g btn-sm mig-edit" data-id="${m.id}">Modifier</button>` : ''}
+        ${canEdit ? `<button class="btn btn-g btn-sm mig-edit" data-id="${m.id}" title="Modifier">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>` : ''}
         ${isAdmin ? `<button class="btn btn-sm mig-del" data-id="${m.id}" style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;margin-left:6px" title="Supprimer">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
         </button>` : ''}
@@ -444,11 +450,13 @@ function openMigrationModal(row) {
   const oldSelect = document.getElementById('mig-old-hostname');
   const oldCustom = document.getElementById('mig-old-hostname-custom');
   const newSelect = document.getElementById('mig-new-hostname');
+  const newCustom = document.getElementById('mig-new-hostname-custom');
   const oldCands = oldCandidates(row?.old_hostname);
   const newCands = newCandidates(row?.new_hostname);
   oldSelect.innerHTML = '<option value="">—</option>' + oldCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}${ip.archived ? ' (archivé)' : ''}</option>`).join('')
     + '<option value="__custom__">Autre (saisie manuelle)</option>';
-  newSelect.innerHTML = '<option value="">—</option>' + newCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}</option>`).join('');
+  newSelect.innerHTML = '<option value="">—</option>' + newCands.map(ip => `<option value="${esc(ip.hostname)}">${esc(ip.hostname)}</option>`).join('')
+    + '<option value="__custom__">Autre (saisie manuelle)</option>';
 
   const oldIsKnown = !row?.old_hostname || oldCands.some(ip => ip.hostname === row.old_hostname);
   if (oldIsKnown) {
@@ -460,18 +468,36 @@ function openMigrationModal(row) {
     oldCustom.classList.remove('hidden');
     oldCustom.value = row.old_hostname;
   }
-  newSelect.value = row?.new_hostname || '';
+  const newIsKnown = !row?.new_hostname || newCands.some(ip => ip.hostname === row.new_hostname);
+  if (newIsKnown) {
+    newSelect.value = row?.new_hostname || '';
+    newCustom.classList.add('hidden');
+    newCustom.value = '';
+  } else {
+    newSelect.value = '__custom__';
+    newCustom.classList.remove('hidden');
+    newCustom.value = row.new_hostname;
+  }
   oldSelect.disabled = lockOldNew;
   oldCustom.disabled = lockOldNew;
   newSelect.disabled = lockOldNew;
+  newCustom.disabled = lockOldNew;
 
   document.getElementById('mig-old-ip-display').textContent = row?.old_ip || (oldIsKnown ? '—' : lookupHostnameIp(row.old_hostname) || 'introuvable');
-  document.getElementById('mig-new-ip-display').textContent = row?.new_ip || '—';
+  document.getElementById('mig-new-ip-display').textContent = row?.new_ip || (newIsKnown ? '—' : lookupHostnameIp(row.new_hostname, false) || 'introuvable');
   const updateOldIpDisplay = () => {
     const hostname = oldSelect.value === '__custom__' ? oldCustom.value.trim() : oldSelect.value;
     const display = document.getElementById('mig-old-ip-display');
     if (!hostname) { display.textContent = '—'; display.style.color = ''; return; }
     const found = lookupHostnameIp(hostname);
+    display.textContent = found || 'introuvable';
+    display.style.color = found ? '' : 'var(--danger, #f85149)';
+  };
+  const updateNewIpDisplay = () => {
+    const hostname = newSelect.value === '__custom__' ? newCustom.value.trim() : newSelect.value;
+    const display = document.getElementById('mig-new-ip-display');
+    if (!hostname) { display.textContent = '—'; display.style.color = ''; return; }
+    const found = lookupHostnameIp(hostname, false);
     display.textContent = found || 'introuvable';
     display.style.color = found ? '' : 'var(--danger, #f85149)';
   };
@@ -482,12 +508,16 @@ function openMigrationModal(row) {
   };
   oldCustom.oninput = updateOldIpDisplay;
   newSelect.onchange = () => {
-    const ip = (siteData.ips || []).find(i => i.hostname === newSelect.value);
-    document.getElementById('mig-new-ip-display').textContent = ip?.ip_address || '—';
+    newCustom.classList.toggle('hidden', newSelect.value !== '__custom__');
+    if (newSelect.value === '__custom__') newCustom.focus();
+    updateNewIpDisplay();
   };
+  newCustom.oninput = updateNewIpDisplay;
 
-  renderOsPickerInto('mig-old-os-picker', 'mig-old-os', osConfig.old, row?.old_os || '', lockOldNew);
-  renderOsPickerInto('mig-new-os-picker', 'mig-new-os', osConfig.new, row?.new_os || '', lockOldNew);
+  // Par défaut (nouvelle ligne) : OLD présélectionné sur Windows 2016, NEW
+  // sur Windows 2022 — cas de loin le plus fréquent pour cette migration.
+  renderOsPickerInto('mig-old-os-picker', 'mig-old-os', osConfig.old, row?.old_os || (isEdit ? '' : '2016'), lockOldNew);
+  renderOsPickerInto('mig-new-os-picker', 'mig-new-os', osConfig.new, row?.new_os || (isEdit ? '' : '2022'), lockOldNew);
 
   document.getElementById('mig-comment').value = row?.comment || '';
   document.getElementById('mig-resp-metier').value = row?.resp_metier || '';
@@ -509,14 +539,18 @@ function setupMigrationForm() {
     const payload = { comment, resp_metier };
     if (!isEdit || isAdmin) {
       const oldSelectEl = document.getElementById('mig-old-hostname');
-      const old_hostname = oldSelectEl.value === '__custom__' ? document.getElementById('mig-old-hostname-custom').value.trim() : oldSelectEl.value;
-      const new_hostname = document.getElementById('mig-new-hostname').value;
+      const newSelectEl = document.getElementById('mig-new-hostname');
+      const old_manual = oldSelectEl.value === '__custom__';
+      const new_manual = newSelectEl.value === '__custom__';
+      const old_hostname = old_manual ? document.getElementById('mig-old-hostname-custom').value.trim() : oldSelectEl.value;
+      const new_hostname = new_manual ? document.getElementById('mig-new-hostname-custom').value.trim() : newSelectEl.value;
       const old_os = document.getElementById('mig-old-os').value;
       const new_os = document.getElementById('mig-new-os').value;
       if (!old_hostname || !new_hostname) { showToast('Sélectionnez l\'ancien et le nouveau serveur', 'warn'); return; }
-      if (oldSelectEl.value === '__custom__' && WIN2022_HOSTNAME_RE.test(old_hostname)) { showToast('Ce hostname correspond à un serveur 2022 (New Hostname), pas à un Old Hostname', 'warn'); return; }
+      if (old_manual && WIN2022_HOSTNAME_RE.test(old_hostname)) { showToast('Ce hostname correspond à un serveur 2022 (New Hostname), pas à un Old Hostname', 'warn'); return; }
+      if (new_manual && !WIN2022_HOSTNAME_RE.test(new_hostname)) { showToast('Ce hostname ne correspond pas à un serveur 2022 (New Hostname)', 'warn'); return; }
       if (!old_os || !new_os) { showToast('Sélectionnez l\'ancien et le nouvel OS', 'warn'); return; }
-      Object.assign(payload, { old_hostname, new_hostname, old_os, new_os });
+      Object.assign(payload, { old_hostname, new_hostname, old_os, new_os, old_manual, new_manual });
       if (!isEdit) payload.site_id = siteId;
     }
 
