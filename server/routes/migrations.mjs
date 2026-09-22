@@ -284,6 +284,14 @@ const PROCEF_PAIRS = [
   { old: 'AF12', new: 'AF22' },
 ];
 
+// AP — détection générique par motif de rôle, même principe que PROCEF
+// (toujours IP en VLAN METIER — voir findByCode()).
+const AP_PAIRS = [
+  { old: 'AP99', new: 'AP89' },
+  { old: 'AP98', new: 'AP88' },
+  { old: 'AP97', new: 'AP87' },
+];
+
 // FICHIERS — table exacte fournie par site (hostname complet sans domaine).
 // 458100SN-FS04 migre vers le même NEW que 458100SN-FS12 (« mutualisé sur
 // le FS22 ») ; 458100SN-FS03 (décommissionné) n'a volontairement pas de
@@ -348,7 +356,7 @@ async function autoBackfillMigrations(siteId, siteData) {
   }
 
   const toCreate = [];
-  for (const { old: oldCode, new: newCode } of PROCEF_PAIRS) {
+  for (const { old: oldCode, new: newCode } of [...PROCEF_PAIRS, ...AP_PAIRS]) {
     const oldIp = findByCode(siteData, oldCode);
     const newIp = findByCode(siteData, newCode);
     if (!oldIp || !newIp || used.has(oldIp.hostname) || used.has(newIp.hostname)) continue;
