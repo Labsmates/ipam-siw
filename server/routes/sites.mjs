@@ -100,9 +100,12 @@ router.get('/os-summary', requireAuth, async (req, res) => {
 // site sélectionné).
 // - totals.windows / totals.linux : mêmes chiffres que la page Statistiques
 //   (tous VLAN, dédupliqué globalement — identique à GET /os-summary).
-// - totals.nutanix_clusters et sites[].count : restreints au VLAN METIER,
-//   dédupliqués par site — les clusters sont détectés par la sous-chaîne
-//   "CLU" dans le hostname (indépendant de la détection SPHY des nœuds).
+// - totals.nutanix_clusters : hostnames contenant "CLU" (ex.
+//   SPHXXXXCLU.hdcadmin.sf.intra.laposte.fr), qui ne vivent QUE dans le
+//   VLAN ADMIN — dédupliqués par site.
+// - sites[].count : nombre de serveurs par site, VLAN METIER uniquement
+//   (seul VLAN qui « remonte » un nom de serveur pour cette liste),
+//   dédupliqué par site.
 router.get('/metier-recap', requireAuth, async (req, res) => {
   try {
     const sites = (await listSitesWithStats()).filter(s => !s.archived);
@@ -124,13 +127,32 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
         else if (result.type === 'linux') linux++;
       }
 
-      // Cluster Nutanix + compte par site — VLAN METIER uniquement, dédup par site
       const metierVlanIds = new Set(
         (data?.vlans || [])
           .filter(v => (v.description || '').trim().toUpperCase() === 'METIER')
           .map(v => String(v.id))
       );
-      let siteWin = 0, siteLin = 0, siteClu = 0;
+      const adminVlanIds = new Set(
+        (data?.vlans || [])
+          .filter(v => (v.description || '').trim().toUpperCase() === 'ADMIN')
+          .map(v => String(v.id))
+      );
+
+      // Cluster Nutanix — VLAN ADMIN uniquement, dédup par site
+      let siteClu = 0;
+      const seenClu = new Set();
+      for (const ip of (data?.ips || [])) {
+        if (!ip.hostname || ip.status === 'Libre') continue;
+        if (!adminVlanIds.has(String(ip.vlan_id))) continue;
+        const key = ip.hostname.split('.')[0].toUpperCase();
+        if (!/CLU/.test(key) || seenClu.has(key)) continue;
+        seenClu.add(key);
+        siteClu++;
+      }
+      nutanixClusters += siteClu;
+
+      // Compte par site — VLAN METIER uniquement, dédup par site
+      let siteCount = 0;
       const seenSite = new Set();
       for (const ip of (data?.ips || [])) {
         if (!ip.hostname || ip.status === 'Libre') continue;
@@ -138,14 +160,11 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
         const key = ip.hostname.split('.')[0].toUpperCase();
         if (seenSite.has(key)) continue;
         seenSite.add(key);
-        if (/CLU/i.test(key)) { siteClu++; continue; }
         const result = classifyHostname(ip.hostname);
         if (!result) continue;
-        if (result.type === 'windows' && result.role !== 'IDRAC') siteWin++;
-        else if (result.type === 'linux') siteLin++;
+        if ((result.type === 'windows' && result.role !== 'IDRAC') || result.type === 'linux') siteCount++;
       }
-      nutanixClusters += siteClu;
-      siteCounts.push({ id: s.id, name: s.name, count: siteWin + siteLin + siteClu });
+      siteCounts.push({ id: s.id, name: s.name, count: siteCount });
     }
     res.json({ totals: { windows, linux, nutanix_clusters: nutanixClusters }, sites: siteCounts });
   } catch (e) { res.status(500).json({ error: e.message }); }
