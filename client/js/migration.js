@@ -519,7 +519,7 @@ function openMigrationModal(row) {
   renderOsPickerInto('mig-old-os-picker', 'mig-old-os', osConfig.old, row?.old_os || (isEdit ? '' : '2016'), lockOldNew);
   renderOsPickerInto('mig-new-os-picker', 'mig-new-os', osConfig.new, row?.new_os || (isEdit ? '' : '2022'), lockOldNew);
 
-  document.getElementById('mig-comment').value = row?.comment || '';
+  document.getElementById('mig-comment').value = row?.comment || (isEdit ? '' : 'Migration Windows 2022');
   document.getElementById('mig-resp-metier').value = row?.resp_metier || '';
 
   openModal('modal-migration');
