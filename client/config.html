@@ -8,7 +8,7 @@
 <title>IPAM SIW — Configuration système</title>
 <link rel="stylesheet" href="/vendor/fonts.css">
 <link rel="stylesheet" href="/css/theme.css">
-<script src="/js/protect.js?v=8eeae9f"></script>
+<script src="/js/protect.js?v=9e91c09"></script>
 <script src="/vendor/tailwind.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -826,6 +826,7 @@ th{text-align:left}
             </div>
             <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
               <!-- CHANGELOG_INSERT -->
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9e91c09</code> fix: le backfill PROCEF/FICHIERS ignorait parfois la bonne IP en cas de hostname dupliqué entre VLAN <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
               <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8eeae9f</code> feat: commentaire par défaut &quot;Migration Windows 2022&quot; à la création d'une migration <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
               <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">a8f09ff</code> fix: les clusters Nutanix sont détectés dans le VLAN ADMIN, pas METIER <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
               <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">35a98c6</code> fix: les totaux Windows/Linux du récap Site IPAM reprennent les chiffres de Statistiques <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
@@ -1226,6 +1227,6 @@ th{text-align:left}
     </div>
   </div>
 
-<script type="module" src="/js/config.js?v=8eeae9f"></script>
+<script type="module" src="/js/config.js?v=9e91c09"></script>
 </body>
 </html>
