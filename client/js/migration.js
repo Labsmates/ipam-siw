@@ -233,6 +233,20 @@ function vlanTagForIp(ipAddress) {
   return null;
 }
 
+// Tag VLAN d'un hostname (live d'abord, sinon archive) — utilisé pour
+// adapter le commentaire par défaut du modal (PROCEF → "Changement
+// Serveurs", sinon "Migration Windows 2022").
+function vlanTagForHostname(hostname) {
+  if (!hostname) return null;
+  const live = (siteData.ips || []).find(i => i.hostname === hostname);
+  if (live) {
+    const vlan = (siteData.vlans || []).find(v => String(v.id) === String(live.vlan_id));
+    return (vlan?.description || '').trim().toUpperCase();
+  }
+  const archived = archivedReleases.find(r => r.hostname === hostname);
+  return archived ? vlanTagForIp(archived.ip) : null;
+}
+
 // Libérations archivées éligibles côté OLD — même classification que les IP
 // live, VLAN ADMIN exclu (retrouvé par plage réseau), hostname pas déjà repris
 // par une IP actuellement vivante (qui prévaut), pas déjà utilisé ailleurs.
@@ -501,12 +515,23 @@ function openMigrationModal(row) {
     display.textContent = found || 'introuvable';
     display.style.color = found ? '' : 'var(--danger, #f85149)';
   };
+  // Commentaire par défaut adapté au VLAN de l'OLD hostname sélectionné —
+  // "Changement Serveurs" pour PROCEF, "Migration Windows 2022" sinon.
+  // N'écrase jamais un commentaire déjà personnalisé par l'utilisateur.
+  const DEFAULT_COMMENTS = new Set(['Migration Windows 2022', 'Changement Serveurs']);
+  const updateCommentDefault = () => {
+    const commentEl = document.getElementById('mig-comment');
+    if (!DEFAULT_COMMENTS.has(commentEl.value)) return;
+    const hostname = oldSelect.value === '__custom__' ? oldCustom.value.trim() : oldSelect.value;
+    commentEl.value = vlanTagForHostname(hostname) === 'PROCEF' ? 'Changement Serveurs' : 'Migration Windows 2022';
+  };
   oldSelect.onchange = () => {
     oldCustom.classList.toggle('hidden', oldSelect.value !== '__custom__');
     if (oldSelect.value === '__custom__') oldCustom.focus();
     updateOldIpDisplay();
+    updateCommentDefault();
   };
-  oldCustom.oninput = updateOldIpDisplay;
+  oldCustom.oninput = () => { updateOldIpDisplay(); updateCommentDefault(); };
   newSelect.onchange = () => {
     newCustom.classList.toggle('hidden', newSelect.value !== '__custom__');
     if (newSelect.value === '__custom__') newCustom.focus();

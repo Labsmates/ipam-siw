@@ -356,11 +356,18 @@ async function autoBackfillMigrations(siteId, siteData) {
   }
 
   const toCreate = [];
-  for (const { old: oldCode, new: newCode } of [...PROCEF_PAIRS, ...AP_PAIRS]) {
+  for (const { old: oldCode, new: newCode } of PROCEF_PAIRS) {
     const oldIp = findByCode(siteData, oldCode);
     const newIp = findByCode(siteData, newCode);
     if (!oldIp || !newIp || used.has(oldIp.hostname) || used.has(newIp.hostname)) continue;
-    toCreate.push({ old: oldIp, new: newIp });
+    toCreate.push({ old: oldIp, new: newIp, comment: 'Changement Serveurs' });
+    used.add(oldIp.hostname); used.add(newIp.hostname);
+  }
+  for (const { old: oldCode, new: newCode } of AP_PAIRS) {
+    const oldIp = findByCode(siteData, oldCode);
+    const newIp = findByCode(siteData, newCode);
+    if (!oldIp || !newIp || used.has(oldIp.hostname) || used.has(newIp.hostname)) continue;
+    toCreate.push({ old: oldIp, new: newIp, comment: 'Migration Windows 2022' });
     used.add(oldIp.hostname); used.add(newIp.hostname);
   }
   for (const [oldLabel, newLabel] of FICHIERS_PAIRS) {
@@ -369,19 +376,19 @@ async function autoBackfillMigrations(siteId, siteData) {
     // Le NEW n'est volontairement pas ajouté à `used` : autorise un même NEW
     // (ex. FS22) à recevoir deux OLD distincts (cas « mutualisé »).
     if (!oldIp || !newIp || used.has(oldIp.hostname)) continue;
-    toCreate.push({ old: oldIp, new: newIp });
+    toCreate.push({ old: oldIp, new: newIp, comment: 'Migration Windows 2022' });
     used.add(oldIp.hostname);
   }
   if (!toCreate.length) return;
 
   const now = new Date().toISOString();
-  for (const { old: oldIp, new: newIp } of toCreate) {
+  for (const { old: oldIp, new: newIp, comment } of toCreate) {
     const id = String(await redis.incr('seq:migrations'));
     await redis.hset(`migration:${id}`, {
       site_id: String(siteId),
       old_hostname: oldIp.hostname, old_ip: oldIp.ip_address, old_os: '2016',
       new_hostname: newIp.hostname, new_ip: newIp.ip_address, new_os: '2022',
-      comment: 'Ajout automatique (correspondance PROCEF/FICHIERS connue)',
+      comment,
       resp_metier: '', created_by: 'SYSTEM', created_at: now, updated_at: now,
     });
     await redis.sadd(`site:${siteId}:migrations`, id);
