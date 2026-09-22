@@ -7,7 +7,7 @@ import {
   get, post, put, del,
   showToast, fmtDate, openModal, closeModal, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, sortSites,
   restoreElevationSession, setupElevationMode,
-} from './api.js?v=35a98c6';
+} from './api.js?v=a8f09ff';
 
 // ---------------------------------------------------------------------------
 // État mode utilisateur (role='user') — services visibles sans bypass,
