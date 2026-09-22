@@ -6,7 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
   restoreElevationSession, setupElevationMode,
-} from './api.js?v=5cb221b';
+} from './api.js?v=35a98c6';
 
 // ---------------------------------------------------------------------------
 // Init
