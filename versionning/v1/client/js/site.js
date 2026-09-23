@@ -1,0 +1,1605 @@
+// =============================================================================
+// IPAM SIW — site.js  (site detail: VLANs, IP table, reserve/release/import)
+// =============================================================================
+
+import {
+  requireAuth, startInactivityTimer, checkHttps, getUser, logout,
+  get, post, put, patch, del, showToast, showAlert, sortIPs, sortSites, statusBadge, fmtDate,
+  openModal, closeModal, cidrToIPs, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, setupGlobalIpSearch,
+  restoreElevationSession, setupElevationMode, setupAdminSectionToggle,
+} from './api.js?v=3fbfc2f';
+import { WIN_ROLES, LIN_ROLES, XMB_ROLE_LABEL } from './server-roles.js?v=3fbfc2f';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function _normalizeNetwork(net) {
+  if (!net) return '';
+  const s = net.trim();
+  if (!s.includes('/')) return s.toLowerCase();
+  const [addr, bits] = s.split('/');
+  const prefix = parseInt(bits, 10);
+  if (isNaN(prefix) || prefix < 0 || prefix > 32) return s.toLowerCase();
+  const parts = addr.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return s.toLowerCase();
+  const mask32 = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+  const base   = (((parts[0]<<24)|(parts[1]<<16)|(parts[2]<<8)|parts[3]) >>> 0) & mask32;
+  return `${(base>>>24)&0xFF}.${(base>>>16)&0xFF}.${(base>>>8)&0xFF}.${base&0xFF}/${prefix}`;
+}
+
+function osLogo(os, hostname) {
+  const h = (hostname || '').toUpperCase();
+  if (h.startsWith('GATEWAY'))       return `<img src="/img/os/gw.svg"    width="24" height="24" title="Gateway"             style="display:block;margin:auto">`;
+  if (h.startsWith('ILO-'))          return `<img src="/img/os/hp.svg"     width="24" height="24" title="HP iLO"              style="display:block;margin:auto">`;
+  if (h.startsWith('IDRAC-'))       return `<img src="/img/os/dell.svg"   width="24" height="24" title="Dell iDRAC"          style="display:block;margin:auto">`;
+  if (/XG/.test(h))                 return `<img src="/img/os/redhat.svg"  width="24" height="24" title="Red Hat"             style="display:block;margin:auto">`;
+  if (/^(?:SPH|SPY|SQH)/.test(h))  return `<img src="/img/os/nutanix.svg" width="24" height="24" title="Nutanix"            style="display:block;margin:auto">`;
+  if (/FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/.test(h)) return `<img src="/img/os/win2022.svg" width="24" height="24" title="Windows Server 2022" style="display:block;margin:auto">`;
+  if (!os && /(?:SN|QN)-[A-Z0-9]{2}/i.test(hostname || '')) return `<img src="/img/os/win2016.svg" width="24" height="24" title="Windows Server 2016" style="display:block;margin:auto">`;
+  if (!os) return '<span style="color:var(--tx-5)">—</span>';
+  const labels = { redhat: 'RHEL', nutanix: 'Nutanix', win2016: 'WS2016', win2019: 'WS2019', win2022: 'WS2022', win2025: 'WS2025', hp: 'HP iLO', dell: 'Dell iDRAC' };
+  return `<img src="/img/os/${os}.svg" width="24" height="24" title="${labels[os] || os}" style="display:block;margin:auto">`;
+}
+
+// Rangs de tri — répliquent exactement la logique de classification d'osLogo()
+// pour que l'ordre corresponde au logo réellement affiché.
+function osSortRank(ip) {
+  const h = (ip.hostname || '').toUpperCase();
+  if (h.startsWith('GATEWAY'))       return 0;
+  if (h.startsWith('ILO-'))          return 3;
+  if (h.startsWith('IDRAC-'))       return 3;
+  if (/XG/.test(h))                 return 2;
+  if (/^(?:SPH|SPY|SQH)/.test(h))  return 4;
+  if (/FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/.test(h)) return 1;
+  if (!ip.os && /(?:SN|QN)-[A-Z0-9]{2}/i.test(ip.hostname || '')) return 1;
+  if (!ip.os) return 5;
+  const RANKS = { win2016: 1, win2019: 1, win2022: 1, win2025: 1, redhat: 2, hp: 3, dell: 3, nutanix: 4 };
+  return RANKS[ip.os] ?? 5;
+}
+
+// Gateway (hostname) toujours en tête, puis Utilisé, Réservée, Libre
+function statusSortRank(ip) {
+  if ((ip.hostname || '').trim().toUpperCase().startsWith('GATEWAY')) return 0;
+  if (ip.status === 'Utilisé')  return 1;
+  if (ip.status === 'Réservée') return 2;
+  return 3;
+}
+
+function typeSortRank(ip) {
+  if (ip.server_type === 'VM')       return 0;
+  if (ip.server_type === 'Physique') return 1;
+  return 2;
+}
+
+function typeIcon(serverType) {
+  if (serverType === 'VM')
+    return `<span title="VM" style="background:#58a6ff18;color:#58a6ff;border:1px solid #58a6ff40;display:inline-block;padding:1px 6px;border-radius:999px;font-size:9.5px;font-weight:700;white-space:nowrap;">VM</span>`;
+  if (serverType === 'Physique')
+    return `<span title="Serveur physique" style="background:#d2992218;color:#d29922;border:1px solid #d2992240;display:inline-block;padding:1px 5px;border-radius:999px;font-size:9.5px;font-weight:700;white-space:nowrap;">PHYSIQUE</span>`;
+  return '<span style="color:var(--tx-5)">—</span>';
+}
+
+// Catégories exclues de la fiche Info (mêmes motifs que osLogo) : Gateway, iLO, iDRAC, Nutanix
+function isInfoExcluded(hostname) {
+  const h = (hostname || '').toUpperCase();
+  if (!h) return false;
+  return h.startsWith('GATEWAY') || h.startsWith('ILO-') || h.startsWith('IDRAC-') || /^(?:SPH|SPY|SQH)/.test(h);
+}
+
+// Vrai si au moins un champ de la fiche serveur a été renseigné (icône Info verte vs grise)
+function hasInfoData(ip) {
+  return !!(ip.role || ip.demandeur || ip.chef_projet || ip.direction || ip.product_owner || ip.architecte ||
+    ip.contact || ip.notes || ip.server_type || ip.cpu || ip.ram || ip.disk_size ||
+    (ip.programs && ip.programs !== '[]'));
+}
+
+// VLANs pour lesquels l'icône Info est proposée (fiche pertinente uniquement sur ces tags)
+const INFO_VLAN_TAGS = ['METIER', 'PROCEF', 'CACI'];
+
+// Valeurs par défaut pré-remplies (mais modifiables) pour les serveurs PROCEF
+// dont le hostname contient AF21/AF22 — appliquées uniquement si la fiche est encore vide.
+const PROCEF_DEFAULTS = {
+  role: 'Serveurs PROCEF',
+  demandeur: 'LBP DOSB SOLU PART EXP',
+  chef_projet: 'Florence MENARD',
+  direction: 'Services Généraux du CREC',
+  product_owner: 'Leila BOUHOUT',
+  architecte: 'Francois-Hugues M.',
+  contact: 'leila.bouhout@labanquepostale.fr',
+  server_type: 'Physique',
+  cpu: '12 vCPU',
+  ram: '64 Go',
+  disk_size: '24 To',
+  programs: ['SQL Server', 'SQL Management Studio', 'SMI Server', 'IIS'],
+};
+
+const FIXED_PROGRAMS = ['SQL Server', 'IIS', 'SMI Server', 'Apache', 'SQL Management Studio', 'Watchdoc', 'Émulateur Rumba', 'CFT', 'Serveur FTP'];
+const MAX_CUSTOM_PROGRAMS = 6;
+const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '12 vCPU', '16 vCPU'];
+const RAM_OPTIONS = ['1 Go', '2 Go', '4 Go', '6 Go', '8 Go', '16 Go', '64 Go'];
+// Rôles repris des Statistiques serveurs (Windows par rôle, Linux par rôle, XMB) —
+// la sélection "Autre (saisie manuelle)" couvre les futurs rôles non encore catalogués.
+const ROLE_OPTIONS = [...WIN_ROLES.map(r => r.label), ...LIN_ROLES.map(r => r.label), XMB_ROLE_LABEL];
+
+function setOsPicker(pickerId, hiddenId, value) {
+  const picker = document.getElementById(pickerId);
+  const hidden = document.getElementById(hiddenId);
+  if (!picker || !hidden) return;
+  hidden.value = value || '';
+  picker.querySelectorAll('.os-btn').forEach(btn => {
+    btn.classList.toggle('sel', btn.dataset.os === value);
+  });
+}
+
+function wireOsPicker(pickerId, hiddenId) {
+  const picker = document.getElementById(pickerId);
+  if (!picker) return;
+  picker.addEventListener('click', e => {
+    const btn = e.target.closest('.os-btn');
+    if (!btn) return;
+    const current = document.getElementById(hiddenId).value;
+    const next = btn.dataset.os === current ? '' : btn.dataset.os;
+    setOsPicker(pickerId, hiddenId, next);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let user       = null;   // set in DOMContentLoaded, used by module-level functions
+let siteId     = null;
+let siteData   = null;
+let currentVlan = 'all'; // 'all' or vlan id
+let filterStatus = 'all';
+let searchIP   = '';
+let page       = 1;
+const PER_PAGE = 50;
+
+// Tri des colonnes — actif sur tous les onglets VLAN
+let sortColumn = null;  // 'hostname' | 'os' | 'type' | 'status' | 'vlan' | null
+let sortDir    = 1;     // 1 = ordre défini ci-dessous, -1 = inversé
+
+// Active suffix for the currently open hostname modal
+let _reserveSuffix = null;
+let _renameSuffix  = null;
+let _reserveVlanTag = null; // tag du VLAN de l'IP en cours d'assignation (popup migration)
+let _reserveHostnameMandatory = false; // Hostname obligatoire pour cette IP (hors VLAN IPMI et IP .1/.3)
+
+// Messages de réservation configurés par tag de VLAN (Administration)
+let _vlanPopups = {};
+
+// Popup post-Réserver/Utiliser (migration Windows Serveur 2022)
+let _migPrompt = { enabled: false, message_reserve: '', message_use: '', vlan_tags: [] };
+
+// ---------------------------------------------------------------------------
+// Hostname suffix logic
+// ---------------------------------------------------------------------------
+const SUFFIX_METIER = '.dct.adt.local';
+const SUFFIX_ADMIN  = '.hdcadmin.sf.intra.laposte.fr';
+
+function getVlanSuffix(vlanDesc) {
+  const d = (vlanDesc || '').trim().toUpperCase();
+  if (d === 'ADMIN') return SUFFIX_ADMIN;
+  if (d === 'METIER' || d === 'FLUX' || d === 'PROCEF' || d.includes('PROCEF')) return SUFFIX_METIER;
+  return null; // IPMI ou inconnu → hostname saisi tel quel
+}
+
+// Hostname obligatoire sur toutes les IP, sauf VLAN IPMI et adresses .1/.3
+// (généralement Gateway / infrastructure, jamais un nom de serveur).
+function isRegateExemptIp(ipAddress) {
+  const last = (ipAddress || '').split('.').pop();
+  return last === '1' || last === '3';
+}
+function isHostnameMandatoryFor(ipObj, vlanTag) {
+  if (vlanTag === 'IPMI') return false;
+  if (isRegateExemptIp(ipObj.ip_address)) return false;
+  return true;
+}
+// Préfixe suggéré à partir du Code Regate du site (ex : ICV → "942270SN-")
+function regateHostnamePrefix() {
+  const code = (siteData?.code_regate || '').trim().toUpperCase();
+  return code ? `${code}SN-` : '';
+}
+
+// Hostnames spéciaux qui ne doivent jamais recevoir de suffixe de domaine
+function isSpecialHostname(hostname) {
+  const h = hostname.trim();
+  return /^(Gateway|Broadcast|Réservée)$/i.test(h) || /^(IDRAC|ILO)-/i.test(h);
+}
+
+function buildFqdn(hostname, suffix) {
+  if (!hostname) return '';
+  const h = hostname.trim();
+  if (h.includes('.')) return h;       // déjà un FQDN
+  if (isSpecialHostname(h)) return h;  // Gateway, Broadcast, Réservée, IDRAC-*, ILO-*
+  return suffix ? h + suffix : h;
+}
+
+function updateHostnameHint(inputId, hintId, suffix) {
+  const hint = document.getElementById(hintId);
+  if (!hint) return;
+  const raw = (document.getElementById(inputId)?.value || '').trim();
+  if (!raw || !suffix || raw.includes('.') || isSpecialHostname(raw)) {
+    hint.style.display = 'none';
+    return;
+  }
+  hint.style.display = 'block';
+  hint.innerHTML = `→ <span style="color:var(--tx-1);font-weight:600">${esc(raw + suffix)}</span>`;
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
+  checkHttps();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
+  if (!requireAuth()) return;
+  startInactivityTimer();
+
+  const params = new URLSearchParams(location.search);
+  siteId = params.get('id');
+
+  user = getUser();
+  document.getElementById('nav-username').textContent = user?.username || '';
+  document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : user?.role === 'admin' ? 'Administrateur' : user?.role === 'viewer' ? 'Lecteur' : 'Utilisateur';
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
+  });
+
+  // Populate sidebar
+  setupElevationMode();
+  setupAdminSectionToggle();
+  loadSidebar();
+
+  // Popup de connexion (tous les rôles sauf viewer)
+  if (user?.role !== 'viewer') checkLoginPopup();
+
+  // Messages de réservation par tag de VLAN
+  get('/api/vlan-popups').then(r => { _vlanPopups = r?.popups || {}; }).catch(() => {});
+
+  // Popup post-Réserver/Utiliser (migration Windows Serveur 2022)
+  get('/api/migrations/prompt-config').then(r => { if (r) _migPrompt = r; }).catch(() => {});
+
+  // Password change modal (accessible to all users)
+  document.getElementById('btn-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.remove('hidden');
+  });
+  document.getElementById('btn-cancel-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.add('hidden');
+  });
+  document.getElementById('form-change-pw')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const current = document.getElementById('cpw-current').value;
+    const newpw   = document.getElementById('cpw-new').value;
+    const confirm2 = document.getElementById('cpw-confirm').value;
+    if (newpw !== confirm2) { showToast('Les mots de passe ne correspondent pas', 'warn'); return; }
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Mise à jour…';
+    try {
+      await post('/api/me/password', { currentPassword: current, newPassword: newpw });
+      showToast('Mot de passe modifié avec succès', 'success');
+      document.getElementById('modal-change-pw').classList.add('hidden');
+      e.target.reset();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Modifier'; }
+  });
+
+  // If no site selected, show welcome state
+  if (!siteId) {
+    document.getElementById('view-welcome').style.display = 'flex';
+    document.getElementById('view-site').style.display = 'none';
+    await loadSiteRecap();
+    return;
+  }
+
+  // Show site view
+  document.getElementById('view-welcome').style.display = 'none';
+  const viewSite = document.getElementById('view-site');
+  viewSite.style.display = 'flex';
+  viewSite.style['-webkit-box-orient'] = 'vertical';
+  viewSite.style['-ms-flex-direction'] = 'column';
+  viewSite.style['flex-direction'] = 'column';
+
+  if (user?.role === 'admin') {
+    document.getElementById('admin-actions').classList.remove('hidden');
+  } else if (user?.role === 'user') {
+    document.getElementById('user-actions').classList.remove('hidden');
+  }
+
+  // Search & filter
+  document.getElementById('search-ip').addEventListener('input', e => {
+    searchIP = e.target.value.trim();
+    page = 1;
+    renderTable();
+  });
+  document.getElementById('filter-status').addEventListener('change', e => {
+    filterStatus = e.target.value;
+    page = 1;
+    renderTable();
+  });
+
+  // Modals
+  setupModals(user);
+  setupSiteCodesModal();
+  setupHostnamePingMenu();
+  setupGlobalIpSearch('search-ip-global', 'ip-global-dropdown');
+  setupGlobalSearchToggle();
+  setupColumnSort();
+
+  await loadSite();
+});
+
+// ---------------------------------------------------------------------------
+// Popup de connexion configurable (Administration > Popup connexion).
+// La case « Ne plus afficher » est mémorisée par navigateur et liée à la
+// version (hash) du message : un changement de texte la réactive.
+// ---------------------------------------------------------------------------
+async function checkLoginPopup() {
+  try {
+    const p = await get('/api/login-popup');
+    if (!p?.enabled || !p.message) return;
+
+    let dismissed = null;
+    try { dismissed = localStorage.getItem('ipam-login-popup-dismissed'); } catch { /* ignore */ }
+    if (dismissed === p.version) return;
+
+    const modal = document.getElementById('modal-login-popup');
+    document.getElementById('lp-modal-message').textContent = p.message;
+    document.getElementById('lp-dont-show').checked = false;
+    modal.classList.remove('hidden');
+
+    const close = () => {
+      if (document.getElementById('lp-dont-show').checked) {
+        try { localStorage.setItem('ipam-login-popup-dismissed', p.version); } catch { /* ignore */ }
+      }
+      modal.classList.add('hidden');
+    };
+    document.getElementById('btn-close-login-popup').addEventListener('click', close, { once: true });
+    document.getElementById('btn-x-login-popup').addEventListener('click', close, { once: true });
+  } catch { /* silencieux — le popup ne doit jamais bloquer la page */ }
+}
+
+// ---------------------------------------------------------------------------
+// Vue d'accueil "Sites IPAM" (aucun site sélectionné) — récap Windows/
+// Linux/Cluster Nutanix (VLAN METIER uniquement, sans doublon — voir
+// GET /api/sites/metier-recap) + grille des sites triés par ordre
+// alphanumérique, chacun cliquable vers sa fiche.
+// ---------------------------------------------------------------------------
+let _recapSiteCounts = []; // [{id, name, count}] — pour filtrage par la recherche sidebar
+
+function renderWelcomeSitesGrid(q = '') {
+  const gridEl = document.getElementById('welcome-sites-grid');
+  if (!gridEl) return;
+  const query = q.trim().toLowerCase();
+  const filtered = query ? _recapSiteCounts.filter(s => s.name.toLowerCase().includes(query)) : _recapSiteCounts;
+  const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
+  gridEl.innerHTML = sorted.map(s => `
+    <a href="/site.html?id=${encodeURIComponent(s.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+      <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+      <span style="flex-shrink:0;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${s.count}</span>
+    </a>`).join('');
+}
+
+async function loadSiteRecap() {
+  const loadEl    = document.getElementById('welcome-loading');
+  const contentEl = document.getElementById('welcome-content');
+  loadEl.style.display = 'flex';
+  contentEl.classList.add('hidden');
+  try {
+    const { totals, sites: siteCounts } = await get('/api/sites/metier-recap');
+    document.getElementById('welcome-total-windows').textContent = totals.windows;
+    document.getElementById('welcome-total-linux').textContent = totals.linux;
+    document.getElementById('welcome-total-nutanix').textContent = totals.nutanix_clusters;
+
+    _recapSiteCounts = siteCounts;
+    renderWelcomeSitesGrid(document.getElementById('sidebar-search')?.value || '');
+
+    contentEl.classList.remove('hidden');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    loadEl.style.display = 'none';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Load site data
+// ---------------------------------------------------------------------------
+async function loadSite() {
+  const loadEl  = document.getElementById('tbl-loading');
+  const tableEl = document.getElementById('ip-table');
+  const emptyEl = document.getElementById('tbl-empty');
+  if (loadEl)  loadEl.style.display  = 'flex';
+  if (tableEl) tableEl.style.display = 'none';
+  if (emptyEl) emptyEl.style.display = 'none';
+  try {
+    const data = await get(`/api/sites/${encodeURIComponent(siteId)}`);
+    siteData = data;
+    document.title = `IPAM — ${data.name}`;
+    document.getElementById('site-name').textContent = data.name;
+    renderArchivedBanner(data);
+    renderSiteCodes(data);
+    renderStats();
+    renderVlanTabs();
+    renderTable();
+  } catch (err) {
+    showToast(err.message, 'error');
+    document.getElementById('site-name').textContent = 'Erreur de chargement';
+  } finally {
+    if (loadEl) loadEl.style.display = 'none';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bandeau "Site archivé"
+// ---------------------------------------------------------------------------
+function renderArchivedBanner(data) {
+  const nameEl = document.getElementById('site-name');
+  if (!nameEl) return;
+  const existing = document.getElementById('site-archived-badge');
+  if (existing) existing.remove();
+  if (data.archived === '1' || data.archived === true) {
+    const badge = document.createElement('span');
+    badge.id = 'site-archived-badge';
+    badge.textContent = 'Site archivé';
+    badge.style.cssText = 'margin-left:10px;vertical-align:middle;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;';
+    nameEl.appendChild(badge);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Codes site (Code Regate / Code PST)
+// ---------------------------------------------------------------------------
+function renderSiteCodes(data) {
+  const el = document.getElementById('site-codes');
+  if (!el) return;
+
+  const dim = '#7d8590';
+  const val = '#58a6ff';
+  let html = '';
+
+  if (data.site_code) {
+    html += `<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid #58a6ff40;background:#58a6ff12;border-radius:6px;padding:2px 10px;font-size:12px;line-height:1.6">
+      <span style="color:${dim};font-size:11px;font-weight:600;letter-spacing:.04em">Code</span>
+      <span style="font-weight:700;font-family:monospace;color:${val}">${esc(data.site_code)}</span>
+    </span>`;
+  }
+
+  html += mkBadge('Regate', data.code_regate || '—', !!data.code_regate, dim, val)
+        + mkBadge('PST',    data.code_pst    || '—', !!data.code_pst,    dim, val);
+
+  el.innerHTML = html;
+}
+
+function mkBadge(label, value, hasValue, dim, val) {
+  return `<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid #30363d;border-radius:6px;padding:2px 9px;font-size:12px;line-height:1.6">
+    <span style="color:${dim}">${esc(label)} :</span>
+    <span style="font-weight:700;font-family:monospace;color:${hasValue ? val : dim}">${esc(value)}</span>
+  </span>`;
+}
+
+function setupSiteCodesModal() {
+  document.getElementById('btn-edit-site-codes')?.addEventListener('click', openSiteCodesModal);
+  document.getElementById('btn-cancel-site-codes')?.addEventListener('click', closeSiteCodesModal);
+  document.getElementById('btn-save-site-codes')?.addEventListener('click', saveSiteCodes);
+  document.getElementById('modal-site-codes')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-site-codes')) closeSiteCodesModal();
+  });
+  for (const id of ['modal-code-regate', 'modal-code-pst']) {
+    document.getElementById(id)?.addEventListener('input', e => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+  }
+}
+
+function openSiteCodesModal() {
+  document.getElementById('modal-code-regate').value = siteData?.code_regate || '';
+  document.getElementById('modal-code-pst').value    = siteData?.code_pst    || '';
+  document.getElementById('modal-site-codes').classList.remove('hidden');
+  document.getElementById('modal-code-regate').focus();
+}
+
+function closeSiteCodesModal() {
+  document.getElementById('modal-site-codes').classList.add('hidden');
+}
+
+async function saveSiteCodes() {
+  const code_regate = document.getElementById('modal-code-regate').value.trim().toUpperCase().slice(0, 10);
+  const code_pst    = document.getElementById('modal-code-pst').value.trim().toUpperCase().slice(0, 10);
+  const btn = document.getElementById('btn-save-site-codes');
+  btn.disabled = true;
+  try {
+    await patch(`/api/sites/${encodeURIComponent(siteId)}/codes`, { code_regate, code_pst });
+    siteData.code_regate = code_regate;
+    siteData.code_pst    = code_pst;
+    renderSiteCodes(siteData);
+    closeSiteCodesModal();
+    showToast('Codes mis à jour', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stats bar
+// ---------------------------------------------------------------------------
+function renderStats() {
+  const ips = siteData.ips || [];
+  const total   = ips.length;
+  const libre   = ips.filter(i => i.status === 'Libre').length;
+  const utilise = ips.filter(i => i.status === 'Utilisé').length;
+  const reserve = ips.filter(i => i.status === 'Réservée').length;
+
+  document.getElementById('stat-total').textContent   = total.toLocaleString('fr');
+  document.getElementById('stat-libre').textContent   = libre.toLocaleString('fr');
+  document.getElementById('stat-utilise').textContent = utilise.toLocaleString('fr');
+  document.getElementById('stat-reserve').textContent = reserve.toLocaleString('fr');
+
+  const pct = total ? Math.round((utilise + reserve) / total * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+// ---------------------------------------------------------------------------
+// VLAN tabs
+// ---------------------------------------------------------------------------
+function renderVlanTabs() {
+  const vlans   = siteData.vlans || [];
+  const tabsEl  = document.getElementById('vlan-tabs');
+  const infoEl  = document.getElementById('vlan-info');
+  const tabs = [
+    { id: 'all', label: 'Tous', network: '', description: '' },
+    ...vlans.map(v => ({ id: v.id, vlan_id: v.vlan_id, label: `VLAN ${v.vlan_id}`, network: v.network || '', description: v.description || '', v })),
+  ];
+
+  tabsEl.innerHTML = tabs.map(t => {
+    const networkPart = t.network
+      ? ` <span style="font-size:11px;font-weight:400;color:var(--tx-4);margin-left:4px;">(${t.network})</span>`
+      : '';
+    const isActive = String(currentVlan) === String(t.id);
+
+    let descLine = '';
+    if (t.id !== 'all') {
+      if (t.description) {
+        descLine = `<span style="display:block;line-height:1.4;margin-top:2px;"><span style="font-size:10px;color:var(--tx-3);font-weight:400;">${esc(t.description)}</span></span>`;
+      }
+    }
+
+    return `<button class="vlan-tab${isActive ? ' on' : ''}" data-id="${t.id}" style="display:flex;flex-direction:column;align-items:flex-start;padding-top:6px;padding-bottom:6px;">
+      <span>${t.label}${networkPart}</span>${descLine}
+    </button>`;
+  }).join('');
+
+  tabsEl.querySelectorAll('.vlan-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentVlan = btn.dataset.id;
+      page = 1;
+      renderVlanTabs();
+      renderTable();
+      if (currentVlan !== 'all') {
+        const v = vlans.find(v => v.id === currentVlan);
+        if (v) {
+          infoEl.textContent = `Réseau : ${v.network || '—'}  |  Gateway : ${v.gateway || '—'}  |  Masque : ${v.mask || '—'}`;
+          infoEl.classList.remove('hidden');
+        }
+      } else {
+        infoEl.classList.add('hidden');
+      }
+    });
+  });
+
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Broadcast helper
+// ---------------------------------------------------------------------------
+function computeBroadcast(network, mask) {
+  if (!network || !mask) return null;
+  const n = network.split('.').map(Number);
+  const m = mask.split('.').map(Number);
+  if (n.length !== 4 || m.length !== 4 || n.some(isNaN) || m.some(isNaN)) return null;
+  return n.map((b, i) => (b | (~m[i] & 0xFF))).join('.');
+}
+
+function getBroadcastSet() {
+  return new Set(
+    (siteData.vlans || []).map(v => computeBroadcast(v.network, v.mask)).filter(Boolean)
+  );
+}
+
+// IP Table
+// ---------------------------------------------------------------------------
+function getFilteredIPs() {
+  const broadcasts = getBroadcastSet();
+  let ips = (siteData.ips || []).filter(ip =>
+    !broadcasts.has(ip.ip_address) &&
+    !(ip.hostname && ip.hostname.trim().toLowerCase().includes('broadcast'))
+  );
+  if (currentVlan !== 'all') ips = ips.filter(ip => String(ip.vlan_id) === String(currentVlan));
+  if (filterStatus !== 'all') ips = ips.filter(ip => ip.status === filterStatus);
+  if (searchIP) {
+    const q = searchIP.toLowerCase();
+    ips = ips.filter(ip =>
+      ip.ip_address.includes(searchIP) ||
+      (ip.hostname && ip.hostname.toLowerCase().includes(q))
+    );
+  }
+  if (sortColumn) {
+    const vlanNumById = {};
+    (siteData.vlans || []).forEach(v => { vlanNumById[String(v.id)] = parseInt(v.vlan_id, 10) || 0; });
+    const cmpByColumn = {
+      hostname: (a, b) => (a.hostname || '').localeCompare(b.hostname || '', 'fr', { numeric: true, sensitivity: 'base' }),
+      os:     (a, b) => osSortRank(a) - osSortRank(b),
+      type:   (a, b) => typeSortRank(a) - typeSortRank(b),
+      status: (a, b) => statusSortRank(a) - statusSortRank(b),
+      vlan:   (a, b) => (vlanNumById[String(a.vlan_id)] || 0) - (vlanNumById[String(b.vlan_id)] || 0),
+    };
+    const cmp = cmpByColumn[sortColumn];
+    if (cmp) {
+      return [...ips].sort((a, b) => {
+        // Hostname vide toujours en dernier, quel que soit le sens du tri
+        if (sortColumn === 'hostname') {
+          const ea = !a.hostname, eb = !b.hostname;
+          if (ea && eb) return 0;
+          if (ea) return 1;
+          if (eb) return -1;
+        }
+        return cmp(a, b) * sortDir;
+      });
+    }
+  }
+  return sortIPs(ips);
+}
+
+function renderTable() {
+  const ips    = getFilteredIPs();
+  const total  = ips.length;
+  const pages  = Math.max(1, Math.ceil(total / PER_PAGE));
+  if (page > pages) page = pages;
+
+  const slice   = ips.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const tableEl = document.getElementById('ip-table');
+  const emptyEl = document.getElementById('tbl-empty');
+  const tbody   = document.getElementById('ip-tbody');
+
+  if (!slice.length) {
+    if (tableEl) tableEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = '-webkit-box';
+    if (emptyEl) emptyEl.style.display = 'flex';
+    tbody.innerHTML = '';
+  } else {
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (tableEl) tableEl.style.display = '';
+    const isCrecOrleansBuffon = (siteData.site?.name || '').trim().toUpperCase() === 'CREC ORLEANS BUFFON';
+    tbody.innerHTML = slice.map(ip => {
+      const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
+      const vlanLabel = vlan ? `VLAN ${vlan.vlan_id}` : '—';
+      const isViewer     = user?.role === 'viewer';
+      const isBroadcast255 = ip.ip_address.endsWith('.255');
+      const canReserve   = !isViewer && ip.status === 'Libre';
+      const canRelease   = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
+      const canToggle    = !isViewer && (ip.status === 'Utilisé' || ip.status === 'Réservée');
+      const toggleTarget = ip.status === 'Utilisé' ? 'Réservée' : 'Utilisé';
+      const toggleTitle  = ip.status === 'Utilisé' ? 'Passer en Réservée' : 'Passer en Utilisé';
+      const vlanTag = (vlan?.description || '').trim().toUpperCase();
+      const isEligibleVlan = INFO_VLAN_TAGS.includes(vlanTag);
+      const isReservedHostname = (ip.hostname || '').trim().toLowerCase().startsWith('réservée');
+      const hostnameLower = (ip.hostname || '').toLowerCase();
+      const hasWindowsDomain = hostnameLower.includes('dct.adt.local');
+      const hasLinuxDomain   = hostnameLower.includes('sf.intra.laposte.fr');
+      // Statut "Réservée" normalement exclu, sauf hostname classifié Windows/Linux (domaine connu)
+      const reservedButClassified = ip.status === 'Réservée' && (hasWindowsDomain || hasLinuxDomain);
+      const metierProcefCaciOk = isEligibleVlan && (ip.status === 'Utilisé' || reservedButClassified) && !isReservedHostname && !isInfoExcluded(ip.hostname);
+      // Exception : site CREC ORLEANS BUFFON, VLAN ADMIN, serveurs Windows
+      const adminException = isCrecOrleansBuffon && vlanTag === 'ADMIN' && hasWindowsDomain && ip.status !== 'Libre' && !isReservedHostname;
+      const showInfo     = metierProcefCaciOk || adminException;
+      const isProcefAF   = vlanTag === 'PROCEF' && /AF21|AF22/i.test(ip.hostname || '');
+      const infoFilled   = hasInfoData(ip) || isProcefAF;
+      const infoIconStyle = infoFilled
+        ? 'background:#3fb95018;border:1px solid #3fb95040;border-radius:6px;color:#3fb950;cursor:pointer;padding:4px;display:inline-flex'
+        : 'background:none;border:1px solid transparent;border-radius:6px;color:var(--tx-3);cursor:pointer;padding:4px;display:inline-flex';
+      const canPing = ip.status === 'Utilisé' && !!(ip.hostname && ip.hostname.trim()) && vlanTag !== 'ADMIN';
+      const canEditType = !isViewer && !!(ip.hostname && ip.hostname.trim()) &&
+        (ip.status === 'Utilisé' || ip.status === 'Réservée') &&
+        !/^(Gateway|Broadcast|Réservée)$/i.test(ip.hostname.trim());
+
+      return `
+        <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
+            onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+          <td style="padding:10px 14px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13px;">${ip.ip_address}</td>
+          <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 12px;color:var(--tx-3);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
+          <td style="padding:6px 6px;text-align:center;width:40px;">${osLogo(ip.os, ip.hostname)}</td>
+          <td ${canEditType ? `class="btn-action" data-id="${ip.id}" data-action="toggle-type" title="Cliquer pour changer le type"` : ''} style="padding:6px 4px;text-align:center;width:58px;${canEditType ? 'cursor:pointer;' : ''}">${typeIcon(ip.server_type)}</td>
+          <td style="padding:6px 6px;text-align:center;width:40px;">
+            ${showInfo ? `<button class="btn-action" data-id="${ip.id}" data-action="info" title="Fiche serveur"
+              style="${infoIconStyle}">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </button>` : ''}
+          </td>
+          <td style="padding:10px 10px;">${statusBadge(ip.status)}</td>
+          <td style="padding:10px 10px;color:var(--tx-3);font-size:13px;">${vlanLabel}</td>
+          <td style="padding:10px 8px;color:var(--tx-4);font-size:11px;width:92px;">${fmtDate(ip.updated_at)}</td>
+          <td style="padding:10px 12px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:4px;-ms-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
+            ${canReserve ? `<button class="btn btn-sm btn-ok btn-action" data-id="${ip.id}" data-action="reserve">Réserver</button>` : ''}
+            ${canRelease ? `<button class="btn btn-sm btn-d btn-action" data-id="${ip.id}" data-action="release">Libérer</button>` : ''}
+            ${canToggle ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="toggle-status" data-target="${toggleTarget}" title="${toggleTitle}"
+              style="background:var(--bg-3);color:#e3b341;border:1px solid #3d3012;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>` : ''}
+            ${!isViewer ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="rename"
+              style="background:var(--bg-3);color:var(--tx-3);border:1px solid var(--brd);">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>` : ''}
+            ${!isViewer && isBroadcast255 ? `<button class="btn btn-sm btn-action" data-id="${ip.id}" data-action="delete-ip"
+              style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;" title="Supprimer cette adresse broadcast">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Count + Pagination
+  const countEl = document.getElementById('table-count');
+  if (countEl) countEl.textContent = total ? `${total.toLocaleString('fr')} adresse${total !== 1 ? 's' : ''}` : '';
+  document.getElementById('page-info').textContent = `Page ${page} / ${pages} — ${total.toLocaleString('fr')} IP${total !== 1 ? 's' : ''}`;
+  document.getElementById('btn-prev').disabled = page <= 1;
+  document.getElementById('btn-next').disabled = page >= pages;
+  updateSortHeaderUI();
+
+  // Action buttons
+  tbody.querySelectorAll('.btn-action').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ipObj = (siteData.ips || []).find(i => String(i.id) === btn.dataset.id);
+      if (!ipObj) return;
+      if (btn.dataset.action === 'reserve') openReserveModal(ipObj);
+      else if (btn.dataset.action === 'release') openReleaseModal(ipObj);
+      else if (btn.dataset.action === 'rename') openRenameModal(ipObj);
+      else if (btn.dataset.action === 'info') openInfoModal(ipObj);
+      else if (btn.dataset.action === 'toggle-status') toggleStatus(ipObj, btn.dataset.target);
+      else if (btn.dataset.action === 'toggle-type') toggleServerType(ipObj);
+      else if (btn.dataset.action === 'delete-ip') deleteIpRow(ipObj);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Toggle type VM ↔ Physique
+// ---------------------------------------------------------------------------
+async function toggleServerType(ipObj) {
+  const current = ipObj.server_type === 'Physique' ? 'Physique' : 'VM';
+  const target  = current === 'VM' ? 'Physique' : 'VM';
+  if (!await showConfirm({ title: 'Changer le type', message: `Changer le type de ${ipObj.hostname} en « ${target} » ?`, confirmText: 'Confirmer' })) return;
+  try {
+    await put(`/api/ips/${encodeURIComponent(ipObj.id)}`, { server_type: target });
+    showToast(`${ipObj.hostname} → ${target}`, 'success');
+    await loadSite();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Menu contextuel — ping sur hostname (statut Utilisé, hors VLAN ADMIN)
+// ---------------------------------------------------------------------------
+let _pingCtxIpId = null;
+
+function setupHostnamePingMenu() {
+  const menu = document.getElementById('hostname-ctx-menu');
+  if (!menu) return;
+
+  function hideMenu() { menu.classList.add('hidden'); _pingCtxIpId = null; }
+
+  document.addEventListener('contextmenu', e => {
+    const cell = e.target.closest('.hostname-ping-target');
+    if (!cell) { hideMenu(); return; }
+    e.preventDefault();
+    _pingCtxIpId = cell.dataset.id;
+    const x = Math.min(e.clientX, window.innerWidth  - 220);
+    const y = Math.min(e.clientY, window.innerHeight - 60);
+    menu.style.left = `${Math.max(4, x)}px`;
+    menu.style.top  = `${Math.max(4, y)}px`;
+    menu.classList.remove('hidden');
+  });
+
+  document.addEventListener('click', e => {
+    if (!menu.contains(e.target)) hideMenu();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideMenu(); });
+  document.addEventListener('scroll', hideMenu, true);
+
+  document.getElementById('ctx-ping').addEventListener('click', () => {
+    const ipObj = (siteData.ips || []).find(i => String(i.id) === String(_pingCtxIpId));
+    hideMenu();
+    if (ipObj) openPingModal(ipObj);
+  });
+}
+
+async function openPingModal(ipObj) {
+  document.getElementById('ping-modal-subtitle').textContent = `${ipObj.hostname} (${ipObj.ip_address}) — 6 paquets`;
+  const out = document.getElementById('ping-modal-output');
+  out.textContent = 'Ping en cours…';
+  openModal('modal-ping');
+  try {
+    const data = await post('/api/nettools/ping', { target: ipObj.ip_address, count: 6 });
+    out.textContent = data.output || (data.success ? 'Hôte joignable.' : 'Hôte injoignable.');
+  } catch (err) {
+    out.textContent = `Erreur : ${err.message}`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Recherche globale IP — masquée par défaut, révélée par l'icône
+// ---------------------------------------------------------------------------
+function setupGlobalSearchToggle() {
+  const btn   = document.getElementById('btn-toggle-global-search');
+  const wrap  = document.getElementById('global-search-wrap');
+  const input = document.getElementById('search-ip-global');
+  if (!btn || !wrap) return;
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isHidden = wrap.classList.contains('hidden');
+    wrap.classList.toggle('hidden', !isHidden);
+    if (isHidden) input?.focus();
+  });
+  document.addEventListener('click', e => {
+    if (!wrap.contains(e.target) && e.target !== btn) wrap.classList.add('hidden');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') wrap.classList.add('hidden');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tri des colonnes — actif sur tous les onglets VLAN (y compris "Tous")
+// ---------------------------------------------------------------------------
+function setupColumnSort() {
+  document.querySelectorAll('.ip-th-sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      if (sortColumn === col) sortDir *= -1;
+      else { sortColumn = col; sortDir = 1; }
+      page = 1;
+      renderTable();
+    });
+  });
+}
+
+function updateSortHeaderUI() {
+  document.querySelectorAll('.ip-th-sortable').forEach(th => {
+    const arrow = th.querySelector('.sort-arrow');
+    const isActive = sortColumn === th.dataset.sort;
+    th.classList.toggle('sort-active', isActive);
+    if (arrow) arrow.textContent = isActive ? (sortDir === 1 ? '▲' : '▼') : '';
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Reserve modal
+// ---------------------------------------------------------------------------
+// Affiche le message de réservation configuré pour le tag de VLAN (si présent).
+// Résout true si l'utilisateur clique « Continuer », false s'il annule.
+function showVlanNotice(tag) {
+  return new Promise(resolve => {
+    const msg = _vlanPopups?.[String(tag || '').trim().toUpperCase()];
+    if (!msg) { resolve(true); return; }
+    const modal = document.getElementById('modal-vlan-notice');
+    document.getElementById('vln-title').textContent = `VLAN ${tag}`;
+    document.getElementById('vln-message').textContent = msg;
+    modal.classList.remove('hidden');
+    const done = (ok) => {
+      modal.classList.add('hidden');
+      document.getElementById('btn-ok-vlan-notice').removeEventListener('click', onOk);
+      document.getElementById('btn-cancel-vlan-notice').removeEventListener('click', onCancel);
+      document.getElementById('btn-x-vlan-notice').removeEventListener('click', onCancel);
+      resolve(ok);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    document.getElementById('btn-ok-vlan-notice').addEventListener('click', onOk);
+    document.getElementById('btn-cancel-vlan-notice').addEventListener('click', onCancel);
+    document.getElementById('btn-x-vlan-notice').addEventListener('click', onCancel);
+  });
+}
+
+// Après un Réserver/Utiliser réussi dans un VLAN dont le tag figure dans la
+// configuration admin, demande si l'IP concerne la migration Windows Serveur
+// 2022 en cours et, si oui, renvoie vers Migration Serveurs pour ce site.
+async function maybeShowMigrationPrompt(status, hostname) {
+  if (!_migPrompt.enabled) return;
+  if (!(_migPrompt.vlan_tags || []).includes(_reserveVlanTag)) return;
+  const msg = status === 'Réservée' ? _migPrompt.message_reserve : _migPrompt.message_use;
+  if (!msg || !msg.trim()) return;
+  const goToMigration = await showConfirm({
+    title: 'Migration Windows Serveur 2022',
+    message: msg,
+    confirmText: 'Oui',
+    cancelText: 'Non',
+  });
+  if (goToMigration) {
+    const params = new URLSearchParams({ id: siteId, new_hostname: hostname || '', add: '1' });
+    window.location.href = `/migration.html?${params.toString()}`;
+  }
+}
+
+async function openReserveModal(ipObj) {
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
+  if (!(await showVlanNotice(vlan?.description))) return;
+  _reserveSuffix = getVlanSuffix(vlan?.description);
+  _reserveVlanTag = (vlan?.description || '').trim().toUpperCase();
+  _reserveHostnameMandatory = isHostnameMandatoryFor(ipObj, _reserveVlanTag);
+  const requiredMark = document.getElementById('reserve-hostname-required-mark');
+  requiredMark.textContent = _reserveHostnameMandatory ? '*' : '(optionnel)';
+  requiredMark.style.color = _reserveHostnameMandatory ? '#f85149' : 'var(--tx-3)';
+  document.getElementById('reserve-ip-display').textContent = ipObj.ip_address;
+  document.getElementById('reserve-ip-id').value = ipObj.id;
+  const hostnameInput = document.getElementById('reserve-hostname');
+  hostnameInput.value = ipObj.hostname || (_reserveHostnameMandatory ? regateHostnamePrefix() : '');
+  updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
+  setOsPicker('reserve-os-picker', 'reserve-os', ipObj.os || '');
+  const pr = document.getElementById('ping-result');
+  pr.textContent = ''; pr.style.color = '';
+  openModal('modal-reserve');
+}
+
+// ---------------------------------------------------------------------------
+// Release modal
+// ---------------------------------------------------------------------------
+function openReleaseModal(ipObj) {
+  document.getElementById('release-ip-display').textContent = ipObj.ip_address;
+  document.getElementById('release-ip-id').value = ipObj.id;
+  const c = document.getElementById('release-comment');
+  if (c) c.value = '';
+  openModal('modal-release');
+}
+
+// ---------------------------------------------------------------------------
+// Rename modal
+// ---------------------------------------------------------------------------
+function openRenameModal(ipObj) {
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
+  _renameSuffix = getVlanSuffix(vlan?.description);
+  document.getElementById('rename-ip-display').textContent = ipObj.ip_address;
+  document.getElementById('rename-ip-id').value = ipObj.id;
+  document.getElementById('rename-hostname').value = ipObj.hostname || '';
+  updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
+  document.querySelectorAll('#rename-os-picker .admin-os-btn').forEach(btn => btn.classList.toggle('hidden', user?.role !== 'admin'));
+  setOsPicker('rename-os-picker', 'rename-os', ipObj.os || '');
+  openModal('modal-rename');
+}
+
+// ---------------------------------------------------------------------------
+// Info modal (fiche serveur)
+// ---------------------------------------------------------------------------
+const INFO_TABS = ['contact', 'technique', 'commentaire', 'historique'];
+let _infoHistoryLoadedForId = null;
+
+function switchInfoTab(tabName) {
+  document.querySelectorAll('#modal-info [data-info-tab]').forEach(btn => btn.classList.toggle('on', btn.dataset.infoTab === tabName));
+  INFO_TABS.forEach(t => document.getElementById(`info-pane-${t}`).classList.toggle('hidden', t !== tabName));
+  if (tabName === 'historique') loadInfoHistory();
+}
+
+const HISTORY_ACTION_LABELS = { UPDATE_IP: 'Modification', RELEASE_IP: 'Libération', DEL_IP: 'Suppression' };
+
+async function loadInfoHistory() {
+  const id = document.getElementById('info-ip-id').value;
+  if (_infoHistoryLoadedForId === id) return;
+  const loadingEl = document.getElementById('info-history-loading');
+  const emptyEl   = document.getElementById('info-history-empty');
+  const listEl    = document.getElementById('info-history-list');
+  loadingEl.classList.remove('hidden');
+  emptyEl.classList.add('hidden');
+  listEl.innerHTML = '';
+  try {
+    const { history } = await get(`/api/ips/${encodeURIComponent(id)}/history`);
+    _infoHistoryLoadedForId = id;
+    if (!history.length) {
+      emptyEl.classList.remove('hidden');
+    } else {
+      listEl.innerHTML = history.map(entry => {
+        let desc = entry.details || '';
+        if (entry.action === 'RELEASE_IP') {
+          try {
+            const d = JSON.parse(entry.details);
+            desc = `Libérée${d.comment ? ` — commentaire : "${esc(d.comment)}"` : ''}`;
+          } catch { /* garde le texte brut */ }
+        }
+        return `
+          <div style="border:1px solid var(--brd);border-radius:8px;padding:10px 12px;font-size:13px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-weight:600;color:var(--tx-1)">${esc(HISTORY_ACTION_LABELS[entry.action] || entry.action)}</span>
+              <span style="color:var(--tx-4);font-size:12px">${fmtDate(entry.created_at)}</span>
+            </div>
+            <div style="color:var(--tx-3)">${esc(entry.username)} — ${entry.action === 'RELEASE_IP' ? desc : esc(desc)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+  } catch (err) {
+    listEl.innerHTML = `<div style="color:#f85149;font-size:13px">${esc(err.message)}</div>`;
+  } finally {
+    loadingEl.classList.add('hidden');
+  }
+}
+
+// Liste déroulante avec option "Autre (saisie manuelle)" — CPU / RAM
+function setSelectOrCustom(selectId, customId, options, value) {
+  const select = document.getElementById(selectId);
+  const custom = document.getElementById(customId);
+  if (!value) {
+    select.value = '';
+    custom.classList.add('hidden');
+    custom.value = '';
+  } else if (options.includes(value)) {
+    select.value = value;
+    custom.classList.add('hidden');
+    custom.value = '';
+  } else {
+    select.value = '__custom__';
+    custom.classList.remove('hidden');
+    custom.value = value;
+  }
+}
+
+function getSelectOrCustomValue(selectId, customId) {
+  const select = document.getElementById(selectId);
+  return select.value === '__custom__' ? document.getElementById(customId).value.trim() : select.value;
+}
+
+function wireSelectOrCustom(selectId, customId) {
+  document.getElementById(selectId).addEventListener('change', e => {
+    const custom = document.getElementById(customId);
+    custom.classList.toggle('hidden', e.target.value !== '__custom__');
+    if (e.target.value === '__custom__') custom.focus();
+  });
+}
+
+function setServerTypePicker(value) {
+  document.getElementById('info-server-type').value = value || '';
+  document.querySelectorAll('#info-server-type-picker .server-type-btn').forEach(btn => {
+    const isSel = btn.dataset.type === value;
+    btn.classList.toggle('btn-p', isSel);
+    btn.classList.toggle('btn-g', !isSel);
+    // Une fois un type choisi, l'autre bouton se masque — cliquer sur le bouton visible permet de revenir en arrière
+    btn.style.display = (!value || isSel) ? '' : 'none';
+  });
+}
+
+// Rendu unique des options de rôle (contenu statique, appelé une fois au chargement)
+function renderRoleOptions() {
+  const select = document.getElementById('info-role-select');
+  const customOpt = select.querySelector('option[value="__custom__"]');
+  const options = ROLE_OPTIONS.map(label => `<option value="${esc(label)}">${esc(label)}</option>`).join('');
+  customOpt.insertAdjacentHTML('beforebegin', options);
+}
+
+// Rendu unique des 9 cases fixes (contenu statique, appelé une fois au chargement)
+function renderFixedPrograms() {
+  const el = document.getElementById('info-programs-fixed');
+  el.innerHTML = FIXED_PROGRAMS.map(name => `
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+      <input type="checkbox" class="info-program-fixed" value="${esc(name)}"> ${esc(name)}
+    </label>
+  `).join('');
+}
+
+function addCustomProgramRow(value = '', checked = true) {
+  const container = document.getElementById('info-programs-custom');
+  if (container.children.length >= MAX_CUSTOM_PROGRAMS) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:4px;min-width:0';
+  row.innerHTML = `
+    <input type="checkbox" class="info-program-custom-check" style="-ms-flex-negative:0;flex-shrink:0">
+    <input type="text" class="inp info-program-custom" placeholder="Nom du programme…" autocomplete="off" style="min-width:0;padding:6px 8px;font-size:12.5px">
+    <button type="button" class="btn btn-g btn-sm btn-remove-program" style="padding:5px 8px;-ms-flex-negative:0;flex-shrink:0">✕</button>
+  `;
+  row.querySelector('.info-program-custom-check').checked = checked;
+  row.querySelector('.info-program-custom').value = value;
+  row.querySelector('.btn-remove-program').addEventListener('click', () => {
+    row.remove();
+    updateAddProgramBtnState();
+  });
+  container.appendChild(row);
+  updateAddProgramBtnState();
+}
+
+function updateAddProgramBtnState() {
+  const container = document.getElementById('info-programs-custom');
+  const btn = document.getElementById('btn-add-program');
+  const isViewer = user?.role === 'viewer';
+  btn.style.display = (isViewer || container.children.length >= MAX_CUSTOM_PROGRAMS) ? 'none' : '';
+  container.querySelectorAll('.btn-remove-program').forEach(b => b.style.display = isViewer ? 'none' : '');
+  container.querySelectorAll('.info-program-custom, .info-program-custom-check').forEach(el => el.disabled = isViewer);
+}
+
+function openInfoModal(ipObj) {
+  _infoHistoryLoadedForId = null;
+  document.getElementById('info-ip-id').value = ipObj.id;
+  document.getElementById('info-hostname-display').textContent = ipObj.hostname || '—';
+  document.getElementById('info-site-display').textContent = siteData.site?.name || '—';
+  document.getElementById('info-created-by-display').textContent = ipObj.created_by || '—';
+  document.getElementById('info-created-at-display').textContent = ipObj.created_at ? fmtDate(ipObj.created_at) : '—';
+  setSelectOrCustom('info-role-select', 'info-role-custom', ROLE_OPTIONS, ipObj.role || '');
+  document.getElementById('info-demandeur').value   = ipObj.demandeur || '';
+  document.getElementById('info-chef-projet').value = ipObj.chef_projet || '';
+  document.getElementById('info-direction').value   = ipObj.direction || '';
+  document.getElementById('info-product-owner').value = ipObj.product_owner || '';
+  document.getElementById('info-architecte').value  = ipObj.architecte || '';
+  document.getElementById('info-contact').value     = ipObj.contact || '';
+  document.getElementById('info-notes').value       = ipObj.notes || '';
+
+  // Fiche technique
+  setServerTypePicker(ipObj.server_type || '');
+  setSelectOrCustom('info-cpu-select', 'info-cpu-custom', CPU_OPTIONS, ipObj.cpu || '');
+  setSelectOrCustom('info-ram-select', 'info-ram-custom', RAM_OPTIONS, ipObj.ram || '');
+  document.getElementById('info-disk-size').value = ipObj.disk_size || '';
+  let programs = [];
+  try { programs = JSON.parse(ipObj.programs || '[]'); } catch { programs = []; }
+  document.querySelectorAll('.info-program-fixed').forEach(cb => cb.checked = programs.includes(cb.value));
+  document.getElementById('info-programs-custom').innerHTML = '';
+  programs.filter(p => !FIXED_PROGRAMS.includes(p)).slice(0, MAX_CUSTOM_PROGRAMS).forEach(p => addCustomProgramRow(p));
+  updateAddProgramBtnState();
+
+  // Pré-remplissage (modifiable) pour les serveurs PROCEF AF21/AF22 dont la fiche est encore vide
+  const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ipObj.vlan_id));
+  const isProcefAF = (vlan?.description || '').trim().toUpperCase() === 'PROCEF' && /AF21|AF22/i.test(ipObj.hostname || '');
+  if (isProcefAF && !hasInfoData(ipObj)) {
+    setSelectOrCustom('info-role-select', 'info-role-custom', ROLE_OPTIONS, PROCEF_DEFAULTS.role);
+    document.getElementById('info-demandeur').value      = PROCEF_DEFAULTS.demandeur;
+    document.getElementById('info-chef-projet').value    = PROCEF_DEFAULTS.chef_projet;
+    document.getElementById('info-direction').value      = PROCEF_DEFAULTS.direction;
+    document.getElementById('info-product-owner').value  = PROCEF_DEFAULTS.product_owner;
+    document.getElementById('info-architecte').value     = PROCEF_DEFAULTS.architecte;
+    document.getElementById('info-contact').value        = PROCEF_DEFAULTS.contact;
+    setServerTypePicker(PROCEF_DEFAULTS.server_type);
+    setSelectOrCustom('info-cpu-select', 'info-cpu-custom', CPU_OPTIONS, PROCEF_DEFAULTS.cpu);
+    setSelectOrCustom('info-ram-select', 'info-ram-custom', RAM_OPTIONS, PROCEF_DEFAULTS.ram);
+    document.getElementById('info-disk-size').value = PROCEF_DEFAULTS.disk_size;
+    document.querySelectorAll('.info-program-fixed').forEach(cb => cb.checked = PROCEF_DEFAULTS.programs.includes(cb.value));
+  }
+
+  switchInfoTab('contact');
+
+  const isViewer = user?.role === 'viewer';
+  ['info-role-select', 'info-role-custom', 'info-demandeur', 'info-chef-projet', 'info-direction', 'info-product-owner', 'info-architecte', 'info-contact', 'info-notes',
+   'info-cpu-select', 'info-cpu-custom', 'info-ram-select', 'info-ram-custom', 'info-disk-size']
+    .forEach(id => document.getElementById(id).disabled = isViewer);
+  document.querySelectorAll('#info-server-type-picker .server-type-btn').forEach(btn => btn.disabled = isViewer);
+  document.querySelectorAll('.info-program-fixed').forEach(cb => cb.disabled = isViewer);
+  document.getElementById('btn-save-info').style.display = isViewer ? 'none' : '';
+
+  openModal('modal-info');
+}
+
+// ---------------------------------------------------------------------------
+// Toggle status Utilisé ↔ Réservée
+// ---------------------------------------------------------------------------
+async function toggleStatus(ipObj, targetStatus) {
+  if (!await showConfirm({ title: 'Changer le statut', message: `Changer le statut de ${ipObj.ip_address} en « ${targetStatus} » ?`, confirmText: 'Confirmer' })) return;
+  try {
+    await put(`/api/ips/${encodeURIComponent(ipObj.id)}`, { status: targetStatus });
+    showToast(`${ipObj.ip_address} → ${targetStatus}`, 'success');
+    localStorage.setItem('ipam-ip-change', Date.now());
+    await loadSite();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delete broadcast IP (.255)
+// ---------------------------------------------------------------------------
+async function deleteIpRow(ipObj) {
+  if (!await showConfirm({
+    title: 'Supprimer l\'adresse broadcast',
+    message: `Supprimer définitivement ${ipObj.ip_address} ?`,
+    confirmText: 'Supprimer',
+    danger: true,
+  })) return;
+  try {
+    await del(`/api/ips/${encodeURIComponent(ipObj.id)}`);
+    siteData.ips = (siteData.ips || []).filter(i => i.id !== ipObj.id);
+    showToast(`${ipObj.ip_address} supprimée`, 'success');
+    renderTable();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Setup all modals
+// ---------------------------------------------------------------------------
+function setupModals(user) {
+
+  // --- Reserve / Use ---
+  wireOsPicker('reserve-os-picker', 'reserve-os');
+  document.getElementById('reserve-hostname').addEventListener('input', () => {
+    updateHostnameHint('reserve-hostname', 'reserve-hostname-hint', _reserveSuffix);
+  });
+
+  async function _assignIp(status, triggerBtn, loadingText) {
+    const id  = document.getElementById('reserve-ip-id').value;
+    let   raw = document.getElementById('reserve-hostname').value.trim();
+    if (_reserveHostnameMandatory && !raw) {
+      const prefix = regateHostnamePrefix();
+      if (!prefix) {
+        showToast('Renseignez le Code Regate du site avant de réserver (bouton « Modifier le code site »)', 'warn');
+        return;
+      }
+      raw = prefix;
+      document.getElementById('reserve-hostname').value = raw;
+    }
+    const hostname = buildFqdn(raw, _reserveSuffix);
+    const os       = document.getElementById('reserve-os').value;
+    if (!os) { showToast('Sélectionnez un OS', 'warn'); return; }
+    triggerBtn.disabled = true; triggerBtn.textContent = loadingText;
+    try {
+      await put(`/api/ips/${encodeURIComponent(id)}`, { status, hostname, os });
+      showToast(status === 'Réservée' ? 'IP réservée avec succès' : 'IP marquée comme utilisée', 'success');
+      localStorage.setItem('ipam-ip-change', Date.now());
+      closeModal('modal-reserve');
+      document.getElementById('form-reserve').reset();
+      await loadSite();
+      await maybeShowMigrationPrompt(status, hostname);
+    } catch (err) {
+      await showAlert({ title: 'Conflit détecté', message: err.message });
+    } finally {
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = status === 'Réservée' ? 'Réserver' : 'Utiliser';
+    }
+  }
+  document.getElementById('btn-do-reserve').addEventListener('click', function() { _assignIp('Réservée', this, 'Réservation…'); });
+  document.getElementById('btn-do-use').addEventListener('click', function() { _assignIp('Utilisé', this, 'En cours…'); });
+  document.getElementById('btn-cancel-reserve').addEventListener('click', () => closeModal('modal-reserve'));
+
+  document.getElementById('btn-ping').addEventListener('click', async () => {
+    const ip  = document.getElementById('reserve-ip-display').textContent.trim();
+    const res = document.getElementById('ping-result');
+    if (!ip) return;
+    res.textContent = 'Ping en cours…';
+    res.style.color = 'var(--tx-3)';
+    const btn = document.getElementById('btn-ping');
+    btn.disabled = true;
+    try {
+      const data = await post('/api/nettools/ping', { target: ip });
+      if (data.success) {
+        res.textContent = '⚠ Répond au ping — peut-être déjà utilisée';
+        res.style.color = '#d29922';
+      } else {
+        res.textContent = '✓ Ne répond pas — probablement libre';
+        res.style.color = '#3fb950';
+      }
+    } catch { res.textContent = 'Erreur ping'; res.style.color = '#f85149'; }
+    finally { btn.disabled = false; }
+  });
+
+  // --- Rename hostname ---
+  wireOsPicker('rename-os-picker', 'rename-os');
+  document.getElementById('rename-hostname').addEventListener('input', () => {
+    updateHostnameHint('rename-hostname', 'rename-hostname-hint', _renameSuffix);
+  });
+
+  document.getElementById('form-rename').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id       = document.getElementById('rename-ip-id').value;
+    const raw      = document.getElementById('rename-hostname').value.trim();
+    const hostname = buildFqdn(raw, _renameSuffix);
+    const os       = document.getElementById('rename-os').value;
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put(`/api/ips/${encodeURIComponent(id)}`, { hostname, os });
+      showToast('Hostname mis à jour', 'success');
+      localStorage.setItem('ipam-ip-change', Date.now());
+      closeModal('modal-rename');
+      e.target.reset();
+      await loadSite();
+    } catch (err) {
+      await showAlert({ title: 'Conflit détecté', message: err.message });
+    } finally {
+      btn.disabled = false; btn.textContent = 'Enregistrer';
+    }
+  });
+  document.getElementById('btn-cancel-rename').addEventListener('click', () => closeModal('modal-rename'));
+
+  // --- Release ---
+  document.getElementById('form-release').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id      = document.getElementById('release-ip-id').value;
+    const comment = (document.getElementById('release-comment')?.value || '').trim();
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Libération…';
+    try {
+      await put(`/api/ips/${encodeURIComponent(id)}`, { status: 'Libre', comment });
+      showToast('IP libérée', 'success');
+      localStorage.setItem('ipam-ip-change', Date.now());
+      if (document.getElementById('release-comment')) document.getElementById('release-comment').value = '';
+      closeModal('modal-release');
+      await loadSite();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Confirmer la libération';
+    }
+  });
+  document.getElementById('btn-cancel-release').addEventListener('click', () => {
+    if (document.getElementById('release-comment')) document.getElementById('release-comment').value = '';
+    closeModal('modal-release');
+  });
+
+  // --- Info (fiche serveur) ---
+  renderRoleOptions();
+  renderFixedPrograms();
+  wireSelectOrCustom('info-role-select', 'info-role-custom');
+  wireSelectOrCustom('info-cpu-select', 'info-cpu-custom');
+  wireSelectOrCustom('info-ram-select', 'info-ram-custom');
+  document.querySelectorAll('#modal-info [data-info-tab]').forEach(btn => {
+    btn.addEventListener('click', () => switchInfoTab(btn.dataset.infoTab));
+  });
+  document.querySelectorAll('#info-server-type-picker .server-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = document.getElementById('info-server-type').value;
+      setServerTypePicker(btn.dataset.type === current ? '' : btn.dataset.type);
+    });
+  });
+  document.getElementById('btn-add-program').addEventListener('click', () => addCustomProgramRow());
+
+  document.getElementById('form-info').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id          = document.getElementById('info-ip-id').value;
+    const role        = getSelectOrCustomValue('info-role-select', 'info-role-custom');
+    const demandeur   = document.getElementById('info-demandeur').value.trim();
+    const chef_projet = document.getElementById('info-chef-projet').value.trim();
+    const direction   = document.getElementById('info-direction').value.trim();
+    const product_owner = document.getElementById('info-product-owner').value.trim();
+    const architecte  = document.getElementById('info-architecte').value.trim();
+    const contact     = document.getElementById('info-contact').value.trim();
+    const notes       = document.getElementById('info-notes').value.trim();
+    const server_type = document.getElementById('info-server-type').value;
+    const cpu         = getSelectOrCustomValue('info-cpu-select', 'info-cpu-custom');
+    const ram         = getSelectOrCustomValue('info-ram-select', 'info-ram-custom');
+    const disk_size   = document.getElementById('info-disk-size').value.trim();
+    const fixedChecked = [...document.querySelectorAll('.info-program-fixed')].filter(cb => cb.checked).map(cb => cb.value);
+    const customValues = [...document.querySelectorAll('#info-programs-custom > div')]
+      .filter(row => row.querySelector('.info-program-custom-check').checked && row.querySelector('.info-program-custom').value.trim())
+      .map(row => row.querySelector('.info-program-custom').value.trim());
+    const fixedNorm = FIXED_PROGRAMS.map(p => p.toLowerCase());
+    const seenCustom = new Set();
+    for (const v of customValues) {
+      const n = v.toLowerCase();
+      if (fixedNorm.includes(n)) {
+        showToast(`« ${v} » est déjà dans la liste des programmes fixes`, 'error');
+        return;
+      }
+      if (seenCustom.has(n)) {
+        showToast(`« ${v} » est en double dans les programmes personnalisés`, 'error');
+        return;
+      }
+      seenCustom.add(n);
+    }
+    const programs = [...fixedChecked, ...customValues];
+    if (!await showConfirm({ title: 'Confirmer les modifications', message: 'Enregistrer les modifications apportées à la fiche serveur ?', confirmText: 'Enregistrer' })) return;
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put(`/api/ips/${encodeURIComponent(id)}`, {
+        role, demandeur, chef_projet, direction, product_owner, architecte, contact, notes,
+        server_type, cpu, ram, disk_size, programs,
+      });
+      showToast('Fiche serveur mise à jour', 'success');
+      await loadSite();
+      const updated = (siteData.ips || []).find(i => String(i.id) === String(id));
+      if (updated) {
+        document.getElementById('info-created-by-display').textContent = updated.created_by || '—';
+        document.getElementById('info-created-at-display').textContent = updated.created_at ? fmtDate(updated.created_at) : '—';
+      }
+      _infoHistoryLoadedForId = null; // force le rechargement de l'historique au prochain clic sur l'onglet
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Enregistrer';
+    }
+  });
+  document.getElementById('btn-cancel-info').addEventListener('click', () => closeModal('modal-info'));
+
+  // --- Request VLAN (utilisateur uniquement, pas viewer) ---
+  if (user?.role === 'user') {
+    document.getElementById('btn-request-vlan').addEventListener('click', () => openModal('modal-request-vlan'));
+    document.getElementById('btn-cancel-request-vlan').addEventListener('click', () => closeModal('modal-request-vlan'));
+
+    document.getElementById('form-request-vlan').addEventListener('submit', async e => {
+      e.preventDefault();
+      const vlanId  = document.getElementById('req-vlan-id').value.trim();
+      const network = document.getElementById('req-vlan-network').value.trim();
+      const gateway = document.getElementById('req-vlan-gateway').value.trim();
+      const mask    = document.getElementById('req-vlan-mask').value.trim();
+      if (!vlanId || !network) { showToast('VLAN ID et réseau CIDR requis', 'warn'); return; }
+      if (!/^\d+$/.test(vlanId)) { await showAlert({ title: 'VLAN ID invalide', message: 'VLAN ID doit être un nombre entier (chiffres uniquement).' }); return; }
+
+      // Vérification doublon VLAN ID côté client
+      const dupVlan = (siteData?.vlans || []).find(v => String(v.vlan_id) === String(vlanId));
+      if (dupVlan) {
+        await showAlert({ title: 'VLAN déjà existant', message: `Le VLAN ID ${vlanId} existe déjà dans ce site${dupVlan.network ? ` (réseau : ${dupVlan.network})` : ''}. Votre demande ne peut pas être soumise.` });
+        return;
+      }
+
+      // Vérification doublon réseau côté client
+      if (network) {
+        const normNew = _normalizeNetwork(network);
+        const dupNet = normNew && (siteData?.vlans || []).find(v => v.network && _normalizeNetwork(v.network) === normNew);
+        if (dupNet) {
+          await showAlert({ title: 'Réseau déjà existant', message: `Le réseau ${normNew} est déjà utilisé par le VLAN ${dupNet.vlan_id} dans ce site. Votre demande ne peut pas être soumise.` });
+          return;
+        }
+      }
+
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Envoi…';
+      try {
+        await post('/api/vlan_requests', { site_id: siteId, vlan_id: vlanId, network, gateway, mask });
+        showToast('Demande envoyée — en attente de validation administrateur', 'success');
+        closeModal('modal-request-vlan');
+        e.target.reset();
+      } catch (err) {
+        await showAlert({ title: 'Erreur', message: err.message });
+      } finally {
+        btn.disabled = false; btn.textContent = 'Envoyer la demande';
+      }
+    });
+  }
+
+  // --- Add VLAN + Import (admin only) ---
+  if (user?.role === 'admin') {
+    document.getElementById('btn-import')?.addEventListener('click', () => openModal('modal-import'));
+    document.getElementById('btn-cancel-import').addEventListener('click', () => closeModal('modal-import'));
+
+    document.getElementById('form-import').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fileEl = document.getElementById('import-file');
+      const btn = e.target.querySelector('button[type=submit]');
+
+      if (!fileEl.files[0]) { showToast('Sélectionnez un fichier Excel', 'warn'); return; }
+
+      btn.disabled = true; btn.textContent = 'Import…';
+      try {
+        const wb = XLSX.read(await fileEl.files[0].arrayBuffer(), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const broadcasts = getBroadcastSet();
+        const importRows = rawRows
+          .slice(1)
+          .map(r => ({
+            ip:       String(r[0] ?? '').trim(),
+            hostname: String(r[1] ?? '').trim(),
+            vlan:     String(r[2] ?? '').trim(),
+          }))
+          .filter(r =>
+            /^\d{1,3}(\.\d{1,3}){3}$/.test(r.ip) &&
+            !broadcasts.has(r.ip) &&
+            r.hostname !== '' &&
+            r.vlan !== ''
+          );
+
+        if (!importRows.length) {
+          showToast('Aucune ligne valide — colonnes requises : A = IP, B = Hostname, C = VLAN', 'warn');
+          btn.disabled = false; btn.textContent = 'Importer'; return;
+        }
+
+        const res = await post(`/api/sites/${encodeURIComponent(siteId)}/ips/import`, {
+          rows: importRows.map(r => ({ ip: r.ip, hostname: r.hostname, vlan: r.vlan, status: 'Utilisé' })),
+        });
+        showToast(`${res.updated} IP(s) importée(s) — statut Utilisé`, 'success');
+        closeModal('modal-import');
+        e.target.reset();
+        await loadSite();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Importer';
+      }
+    });
+  }
+
+  if (user?.role === 'admin') {
+    document.getElementById('btn-add-vlan').addEventListener('click', () => openModal('modal-add-vlan'));
+    document.getElementById('btn-cancel-add-vlan').addEventListener('click', () => closeModal('modal-add-vlan'));
+
+    document.getElementById('form-add-vlan').addEventListener('submit', async e => {
+      e.preventDefault();
+      const vlanId  = document.getElementById('new-vlan-id').value.trim();
+      const network = document.getElementById('new-vlan-network').value.trim();
+      const gateway = document.getElementById('new-vlan-gateway').value.trim();
+      const mask    = document.getElementById('new-vlan-mask').value.trim();
+      const btn = e.target.querySelector('button[type=submit]');
+
+      if (!vlanId || !network) { showToast('VLAN ID et réseau CIDR requis', 'warn'); return; }
+      if (!/^\d+$/.test(vlanId)) { await showAlert({ title: 'VLAN ID invalide', message: 'VLAN ID doit être un nombre entier (chiffres uniquement).' }); return; }
+
+      // Vérification doublon VLAN ID côté client
+      const dupVlan = (siteData?.vlans || []).find(v => String(v.vlan_id) === String(vlanId));
+      if (dupVlan) {
+        await showAlert({ title: 'VLAN déjà existant', message: `Le VLAN ID ${vlanId} existe déjà dans ce site${dupVlan.network ? ` (réseau : ${dupVlan.network})` : ''}.` });
+        return;
+      }
+
+      // Vérification doublon réseau côté client
+      if (network) {
+        const normNew = _normalizeNetwork(network);
+        const dupNet = normNew && (siteData?.vlans || []).find(v => v.network && _normalizeNetwork(v.network) === normNew);
+        if (dupNet) {
+          await showAlert({ title: 'Réseau déjà existant', message: `Le réseau ${normNew} est déjà utilisé par le VLAN ${dupNet.vlan_id} dans ce site.` });
+          return;
+        }
+      }
+
+      let ipList = [];
+      if (network.includes('/')) {
+        try { ipList = cidrToIPs(network); }
+        catch (cidrErr) { showToast(cidrErr.message, 'warn'); return; }
+      }
+
+      btn.disabled = true; btn.textContent = ipList.length ? `Création… (${ipList.length} IPs)` : 'Création…';
+      try {
+        await post(`/api/sites/${encodeURIComponent(siteId)}/vlans`, {
+          vlan_id: vlanId, network, gateway, mask, ips: ipList,
+        });
+        showToast(`VLAN ${vlanId} créé${ipList.length ? ` — ${ipList.length} IPs générées` : ''}`, 'success');
+        closeModal('modal-add-vlan');
+        e.target.reset();
+        await loadSite();
+      } catch (err) {
+        await showAlert({ title: 'Conflit détecté', message: err.message });
+      } finally {
+        btn.disabled = false; btn.textContent = 'Créer le VLAN';
+      }
+    });
+
+  }
+
+
+  // Pagination
+  document.getElementById('btn-prev').addEventListener('click', () => { page--; renderTable(); });
+  document.getElementById('btn-next').addEventListener('click', () => { page++; renderTable(); });
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar population
+// ---------------------------------------------------------------------------
+async function loadSidebar() {
+  try {
+    const data = await get('/api/sites');
+    const sites = data.sites || [];
+    const searchEl = document.getElementById('sidebar-search');
+    const listEl   = document.getElementById('site-list');
+
+    function renderList(q = '') {
+      const sorted = sortSites(sites);
+      const filtered = q ? sorted.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sorted;
+      listEl.innerHTML = filtered.map(s => {
+        const active = s.id === siteId;
+        return `<a href="/site.html?id=${encodeURIComponent(s.id)}"
+          class="site-item${active ? ' on' : ''}">
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px">${esc(s.name)}</span>
+          <span style="font-size:11px;color:${active ? '#58a6ff' : 'var(--tx-5)'};-ms-flex-negative:0;flex-shrink:0">${s.total || 0}</span>
+        </a>`;
+      }).join('');
+    }
+
+    searchEl?.addEventListener('input', e => {
+      renderList(e.target.value.trim());
+      renderWelcomeSitesGrid(e.target.value);
+    });
+    renderList();
+  } catch (_) { /* sidebar is non-critical */ }
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+

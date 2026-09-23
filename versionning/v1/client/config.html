@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>IPAM SIW — Configuration système</title>
+<link rel="stylesheet" href="/vendor/fonts.css">
+<link rel="stylesheet" href="/css/theme.css">
+<script src="/js/protect.js?v=3fbfc2f"></script>
+<script src="/vendor/tailwind.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg-1)}
+::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
+*{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
+.hidden{display:none!important}
+input,select,textarea,button{-webkit-appearance:none;appearance:none}
+input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.inp{width:100%;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;color:var(--tx-1);font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+.inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+.inp::placeholder{color:var(--tx-3)}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;border:none;padding:8px 16px;outline:none}
+.btn:active{-webkit-transform:scale(.97);transform:scale(.97)}
+.btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.btn-p{background:#58a6ff;color:var(--bg-1)}.btn-p:hover{background:#79b8ff}
+.btn-d{background:#f8514918;color:#f85149;border:1px solid #f8514940}.btn-d:hover{background:#f8514930}
+.btn-g{background:var(--bg-4);color:var(--tx-1);border:1px solid var(--brd)}.btn-g:hover{background:var(--bg-hover)}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+.btn-warn{background:#d2992218;color:#d29922;border:1px solid #d2992240}.btn-warn:hover{background:#d2992230}
+.btn-ok{background:#3fb95018;color:#3fb950;border:1px solid #3fb95040}.btn-ok:hover{background:#3fb95030}
+.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.65);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:200;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px}
+.modal-box{background:var(--bg-4);border:1px solid var(--brd);border-radius:12px;padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
+@-webkit-keyframes mfade{from{opacity:0;-webkit-transform:scale(.92) translateY(12px);transform:scale(.92) translateY(12px)}to{opacity:1;-webkit-transform:none;transform:none}}
+@keyframes mfade{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
+.admin-tab{padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;border:none;border-top:none;border-left:none;border-right:none;background:transparent;border-bottom:2px solid transparent;color:var(--tx-3);-webkit-transition:all .15s;transition:all .15s}
+.admin-tab:hover{color:var(--tx-1)}
+.admin-pane{-webkit-box-flex:1;-ms-flex:1;flex:1}
+.site-item{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;padding:9px 16px;border-left:2px solid transparent;-webkit-transition:all .1s;transition:all .1s;font-size:13px;color:var(--tx-2);text-decoration:none}
+.site-item:hover{background:var(--bg-3);color:var(--tx-1)}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:var(--bg-2);border-right:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;z-index:10}
+#app-main{margin-left:260px;height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;overflow:hidden}
+#sidebar{transition:width .15s}
+#sidebar.collapsed{width:64px}
+#sidebar.collapsed~#app-main{margin-left:64px}
+#app-main{transition:margin-left .15s}
+#sidebar.collapsed .sb-text,#sidebar.collapsed #sidebar-search-wrap,#sidebar.collapsed #site-list,#sidebar.collapsed #btn-nav-admin-toggle{display:none!important}
+#sidebar.collapsed #sidebar-nav a{font-size:0!important;justify-content:center!important;padding-left:8px!important;padding-right:8px!important;gap:0!important}
+#sidebar.collapsed #sidebar-header-row{flex-direction:column!important;gap:6px!important}
+#sidebar.collapsed #btn-sidebar-collapse{margin-left:0}
+#sidebar.collapsed #sidebar-user-row{flex-wrap:wrap!important;justify-content:center!important;gap:4px!important;padding:6px!important}
+
+table{border-collapse:collapse;width:100%}
+th{text-align:left}
+/* ── Config-specific ──────────────────────────────── */
+.svc-card{background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;-ms-flex-negative:0;flex-shrink:0}
+.dot-active{background:#3fb950;box-shadow:0 0 6px #3fb95066}
+.dot-inactive{background:#8b949e}
+.dot-failed{background:#f85149;box-shadow:0 0 6px #f8514966}
+.dot-unknown{background:#d29922}
+.log-panel{background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;font-family:'JetBrains Mono','Courier New',monospace;font-size:11px;padding:12px;max-height:260px;overflow-y:auto;white-space:pre-wrap;color:var(--tx-2);margin-top:12px;word-break:break-all}
+.cfg-row{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;margin-bottom:12px}
+.cfg-label{width:190px;-ms-flex-negative:0;flex-shrink:0;font-size:13px;color:var(--tx-2);font-family:'JetBrains Mono','Courier New',monospace}
+.db-row{background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;margin-bottom:10px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;gap:12px}
+/* Maintenance */
+.btn-maint-on{background:#f8514918;color:#f85149;border:1px solid #f8514940}.btn-maint-on:hover{background:#f8514930}
+.btn-maint-off{background:#3fb95018;color:#3fb950;border:1px solid #3fb95040}.btn-maint-off:hover{background:#3fb95030}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<div id="sidebar">
+
+  <div style="padding:18px 16px 12px;border-bottom:1px solid var(--brd)">
+    <div id="sidebar-header-row" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px">
+      <div style="width:30px;height:30px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 14px rgba(88,166,255,.35);-ms-flex-negative:0;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2"/>
+          <rect x="2" y="14" width="20" height="8" rx="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/>
+          <line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+      </div>
+      <div class="sb-text">
+        <div style="font-size:14px;font-weight:700;letter-spacing:-0.02em">IPAM SIW</div>
+        <div id="app-subtitle" style="font-size:11px;color:var(--tx-3)">Gestion des adresses IP</div>
+      </div>
+    <button id="btn-sidebar-collapse" title="Réduire le menu" style="flex-shrink:0;margin-left:auto;width:22px;height:22px;padding:0;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'">
+          <svg id="btn-sidebar-collapse-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .15s"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+    </div>
+  </div>
+
+  <div id="sidebar-nav" style="padding:10px 10px 6px;border-bottom:1px solid var(--brd)">
+    <a href="/dashboard.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Tableau de bord
+    </a>
+    <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Sites IPAM <span id="nav-site-win-badge" class="hidden" style="display:inline-block;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:auto;line-height:18px;vertical-align:middle;"></span><span id="nav-site-lin-badge" class="hidden" style="display:inline-block;background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:4px;line-height:18px;vertical-align:middle;"></span>
+    </a>
+    <a href="/migration.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Migration Serveurs <span id="nav-migration-badge" class="hidden" style="display:inline-block;background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:auto;line-height:18px;vertical-align:middle;"></span>
+    </a>
+    <a href="/stats.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Statistiques
+    </a>
+    <a href="/switch.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="18" y1="6" x2="18.01" y2="6"/><line x1="18" y1="18" x2="18.01" y2="18"/></svg>
+      Switch Config Ports
+    </a>
+    <a id="nav-ipcalc-link" href="/ipcalc.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Calculateur IP
+    </a>
+    <a href="/export.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Excel
+    </a>
+    <a href="/archive.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
+      Archive
+    </a>
+    <a href="/info.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+      Infos
+    </a>
+    <a id="nav-admin-link" href="/admin.html" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Administration
+    </a>
+    <a id="nav-config-link" href="/config.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;-webkit-box-sizing:border-box;box-sizing:border-box">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      Configuration système
+    </a>
+  </div>
+
+  <div id="sidebar-search-wrap" style="padding:10px 10px 6px">
+    <div style="position:relative">
+      <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="sidebar-search" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher un site…">
+    </div>
+  </div>
+
+  <div id="site-list" style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto"></div>
+
+  <div style="padding:12px 14px;border-top:1px solid var(--brd)">
+    <div id="sidebar-user-row" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:9px 11px">
+      <div class="sb-text" style="min-width:0">
+        <div id="nav-username" style="font-size:13px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="nav-role" style="font-size:11px;color:var(--tx-3);margin-top:1px">Super Administrateur</div>
+      </div>
+      <button id="btn-change-pw" title="Changer mon mot de passe" style="-ms-flex-negative:0;flex-shrink:0;margin-left:8px;padding:6px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </button>
+      <button id="btn-theme" title="Passer en mode clair" style="-ms-flex-negative:0;flex-shrink:0;margin-left:8px;padding:6px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'"></button>
+      <button id="btn-logout" title="Déconnexion" style="-ms-flex-negative:0;flex-shrink:0;margin-left:4px;padding:6px 10px;border-radius:6px;border:1px solid #f8514940;background:#f8514918;color:#f85149;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<div id="app-main">
+
+  <div style="padding:20px 28px 0;border-bottom:1px solid var(--brd);-ms-flex-negative:0;flex-shrink:0">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="width:36px;height:36px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:9px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 16px rgba(88,166,255,.3)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      </div>
+      <div>
+        <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0">Configuration système</h1>
+        <div style="font-size:12px;color:var(--tx-3)">Gestion des services, Redis et bases de données</div>
+      </div>
+    </div>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:0;border-bottom:1px solid var(--brd);margin-bottom:-1px">
+      <button class="admin-tab" data-tab="sysinfo">Informations</button>
+      <button class="admin-tab" data-tab="services">Services</button>
+      <button class="admin-tab" data-tab="redis-config">Configuration Redis</button>
+      <button class="admin-tab" data-tab="backup">Sauvegarde / Restauration</button>
+      <button class="admin-tab" data-tab="cert">Certificat SSL</button>
+      <button class="admin-tab" data-tab="databases">Bases de données</button>
+      <button class="admin-tab" data-tab="apis">APIs</button>
+      <button class="admin-tab" data-tab="sharepoint">SharePoint</button>
+      <button class="admin-tab" data-tab="maintenance">Maintenance</button>
+      <button class="admin-tab" data-tab="terminal">Terminal</button>
+      <button class="admin-tab" data-tab="apache">Config Apache</button>
+      <button class="admin-tab" data-tab="changelog">📋 Mises à jour</button>
+    </div>
+  </div>
+
+  <div style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto;padding:24px 28px">
+
+    <!-- ══ ONGLET : Informations système ══ -->
+    <div id="pane-sysinfo" class="admin-pane hidden">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Informations système</h3>
+          <p style="font-size:13px;color:var(--tx-3);margin:0">État et versions des composants du serveur.</p>
+        </div>
+        <button id="btn-refresh-sysinfo" class="btn btn-g btn-sm">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+          Rafraîchir
+        </button>
+      </div>
+      <div id="sysinfo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+        <div style="color:var(--tx-3);font-size:13px;padding:32px">Chargement…</div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Services ══ -->
+    <div id="pane-services" class="admin-pane">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">État des services</h3>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:12px">
+          <span id="svc-last-refresh" style="font-size:12px;color:var(--tx-3)"></span>
+          <button id="btn-refresh-services" class="btn btn-g btn-sm">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+            Rafraîchir
+          </button>
+        </div>
+      </div>
+      <div id="services-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px">
+        <div style="color:var(--tx-3);font-size:13px;padding:20px">Chargement…</div>
+      </div>
+
+      <!-- Zone danger : actions serveur -->
+      <div style="margin-top:32px;border:1px solid #f8514940;border-radius:12px;padding:20px;background:#f8514908">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;margin-bottom:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f85149" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span style="font-size:13px;font-weight:700;color:#f85149">Actions serveur</span>
+        </div>
+        <p style="font-size:12px;color:var(--tx-3);margin:0 0 16px">Ces actions affectent l'ensemble du serveur. Tous les utilisateurs connectés seront déconnectés.</p>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-ms-flex-wrap:wrap;flex-wrap:wrap">
+          <button id="btn-server-reboot" class="btn btn-warn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+            Redémarrer le serveur
+          </button>
+          <button id="btn-server-halt" class="btn btn-d">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Arrêter le serveur
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Configuration Redis ══ -->
+    <div id="pane-redis-config" class="admin-pane hidden">
+      <div style="max-width:700px">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:start;-ms-flex-align:start;align-items:flex-start;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px;gap:16px">
+          <div>
+            <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 6px">Configuration Redis</h3>
+            <p style="font-size:13px;color:var(--tx-3);margin:0">Paramètres appliqués en mémoire via <code style="background:var(--bg-4);padding:1px 5px;border-radius:4px;font-size:12px">CONFIG_IPAM_ADMIN SET</code>. Pour les rendre permanents, éditez aussi <code style="background:var(--bg-4);padding:1px 5px;border-radius:4px;font-size:12px">/etc/redis/redis.conf</code>.</p>
+          </div>
+          <button id="btn-save-redis-cfg" class="btn btn-p" style="-ms-flex-negative:0;flex-shrink:0">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Sauvegarder
+          </button>
+        </div>
+        <div id="redis-cfg-form" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:20px">
+          <div style="color:var(--tx-3);font-size:13px">Chargement…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Sauvegarde / Restauration ══ -->
+    <div id="pane-backup" class="admin-pane hidden">
+      <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 20px">Sauvegarde Redis</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px">
+
+        <!-- Carte infos -->
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:14px">Informations</div>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;color:var(--tx-3)">Dernière sauvegarde</span>
+            <span id="backup-last-save" style="font-size:12px;color:var(--tx-1);font-weight:500">—</span>
+          </div>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;color:var(--tx-3)">Taille du fichier RDB</span>
+            <span id="backup-size" style="font-size:12px;color:var(--tx-1);font-weight:500">—</span>
+          </div>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between">
+            <span style="font-size:12px;color:var(--tx-3)">Fichier disponible</span>
+            <span id="backup-exists" style="font-size:12px;font-weight:500">—</span>
+          </div>
+        </div>
+
+        <!-- Carte actions -->
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:14px">Actions</div>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:10px">
+            <button id="btn-bgsave" class="btn btn-ok" style="width:100%;-webkit-box-pack:start;-ms-flex-pack:start;justify-content:flex-start">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+              Lancer une sauvegarde (BGSAVE)
+            </button>
+            <button id="btn-download-rdb" class="btn btn-g" style="width:100%;-webkit-box-pack:start;-ms-flex-pack:start;justify-content:flex-start">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Télécharger dump.rdb
+            </button>
+            <button id="btn-restore-rdb" class="btn btn-warn" style="width:100%;-webkit-box-pack:start;-ms-flex-pack:start;justify-content:flex-start">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Restaurer depuis un fichier…
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="background:#d2992210;border:1px solid #d2992240;border-radius:8px;padding:12px 16px;font-size:12px;color:#d29922;max-width:560px">
+        <strong>Attention :</strong> La restauration remplace toutes les données Redis et redémarre le service. Cette action est irréversible.
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Certificat SSL ══ -->
+    <div id="pane-cert" class="admin-pane hidden">
+
+      <!-- Info certificat actuel -->
+      <div style="margin-bottom:24px">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:14px">
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Certificat actuel</h3>
+          <button id="btn-refresh-cert" class="btn btn-g btn-sm">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+            Rafraîchir
+          </button>
+        </div>
+        <div id="cert-info-block" style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="color:var(--tx-3);font-size:13px">Chargement…</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+
+        <!-- Générer clé + CSR -->
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:4px">Générer clé privée + CSR</div>
+          <div style="font-size:12px;color:var(--tx-3);margin-bottom:16px">À envoyer à votre autorité de certification.</div>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:8px">
+            <div style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px">
+              <div>
+                <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">CN — Common Name *</div>
+                <input id="csr-cn" class="inp" placeholder="192.168.1.120 ou mon.domaine.fr" style="font-size:12px;padding:7px 10px">
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Pays</div>
+                <input id="csr-c" class="inp" placeholder="FR" maxlength="2" style="font-size:12px;padding:7px 10px">
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Clé</div>
+                <select id="csr-keysize" class="inp" style="font-size:12px;padding:7px 10px">
+                  <option value="2048">2048</option>
+                  <option value="4096">4096</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div>
+                <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Organisation</div>
+                <input id="csr-o" class="inp" placeholder="Mon entreprise" style="font-size:12px;padding:7px 10px">
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Unité</div>
+                <input id="csr-ou" class="inp" placeholder="IT" style="font-size:12px;padding:7px 10px">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div>
+                <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Région / État</div>
+                <input id="csr-st" class="inp" placeholder="Île-de-France" style="font-size:12px;padding:7px 10px">
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Ville</div>
+                <input id="csr-l" class="inp" placeholder="Paris" style="font-size:12px;padding:7px 10px">
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">SAN — un par ligne (IP ou domaine)</div>
+              <textarea id="csr-san" class="inp" rows="2" placeholder="192.168.1.120&#10;mon.domaine.fr" style="font-size:12px;padding:7px 10px;resize:vertical"></textarea>
+            </div>
+            <button id="btn-gen-csr" class="btn btn-p" style="-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;margin-top:4px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Générer la clé et le CSR
+            </button>
+          </div>
+          <!-- Résultat CSR -->
+          <div id="csr-result" class="hidden" style="margin-top:16px">
+            <div style="font-size:11px;color:var(--tx-3);margin-bottom:6px">CSR généré — à envoyer à la CA :</div>
+            <textarea id="csr-output" class="log-panel" rows="6" readonly style="width:100%;font-size:10px;resize:none"></textarea>
+            <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;margin-top:8px">
+              <button id="btn-copy-csr" class="btn btn-g btn-sm">Copier</button>
+              <button id="btn-download-csr" class="btn btn-g btn-sm">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger .csr
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Installer certificat signé -->
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:4px">Installer un certificat signé</div>
+          <div style="font-size:12px;color:var(--tx-3);margin-bottom:16px">Collez le certificat PEM retourné par votre CA. La clé privée générée ci-contre sera installée automatiquement.</div>
+          <textarea id="cert-install-pem" class="inp" rows="10" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----" style="font-size:11px;font-family:'JetBrains Mono','Courier New',monospace;padding:10px;resize:none;-webkit-box-flex:1;-ms-flex:1;flex:1"></textarea>
+          <button id="btn-install-cert" class="btn btn-ok" style="-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;margin-top:12px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Installer et recharger Apache
+          </button>
+        </div>
+      </div>
+
+      <!-- Certificat auto-signé -->
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px;max-width:700px">
+        <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:4px">Générer un certificat auto-signé</div>
+        <div style="font-size:12px;color:var(--tx-3);margin-bottom:16px">Remplace immédiatement le certificat et la clé privée. Réservé aux environnements sans CA.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;margin-bottom:10px">
+          <div>
+            <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">CN *</div>
+            <input id="ss-cn" class="inp" placeholder="192.168.1.120" style="font-size:12px;padding:7px 10px">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Organisation</div>
+            <input id="ss-o" class="inp" placeholder="Mon entreprise" style="font-size:12px;padding:7px 10px">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">Durée (jours)</div>
+            <input id="ss-days" class="inp" type="number" value="365" min="1" max="3650" style="font-size:12px;padding:7px 10px">
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--tx-3);margin-bottom:4px">SAN — un par ligne</div>
+          <textarea id="ss-san" class="inp" rows="2" placeholder="192.168.1.120" style="font-size:12px;padding:7px 10px;resize:vertical"></textarea>
+        </div>
+        <button id="btn-self-signed" class="btn btn-warn" style="-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;width:100%">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Générer et installer le certificat auto-signé
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ══ ONGLET : Bases de données ══ -->
+    <div id="pane-databases" class="admin-pane hidden">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Bases de données externes</h3>
+          <p style="font-size:13px;color:var(--tx-3);margin:0">Ajoutez des connexions Redis, PostgreSQL ou MariaDB pour tester la connectivité ou synchroniser les données.</p>
+        </div>
+        <button id="btn-add-db" class="btn btn-p btn-sm">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+      <div id="db-list"></div>
+    </div>
+
+    <!-- ══ ONGLET : APIs ══ -->
+    <div id="pane-apis" class="admin-pane hidden">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">APIs externes</h3>
+          <p style="font-size:13px;color:var(--tx-3);margin:0">Référencez vos APIs (URL, clé d'accès) et testez leur disponibilité.</p>
+        </div>
+        <button id="btn-add-api" class="btn btn-p btn-sm">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+      <div id="api-list"></div>
+    </div>
+
+    <!-- ══ ONGLET : SharePoint ══ -->
+    <div id="pane-sharepoint" class="admin-pane hidden">
+      <div style="margin-bottom:20px">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Connexion SharePoint</h3>
+        <p style="font-size:13px;color:var(--tx-3);margin:0">Configurez une connexion SharePoint pour exporter automatiquement les fichiers Excel.</p>
+      </div>
+      <div style="max-width:600px">
+        <div class="svc-card" style="margin-bottom:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:14px">Configuration</div>
+          <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:12px">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">URL du site SharePoint</label>
+              <input id="sp-url" class="inp" placeholder="https://contoso.sharepoint.com/sites/ipam">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Client ID</label>
+                <input id="sp-client-id" class="inp" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Tenant ID</label>
+                <input id="sp-tenant-id" class="inp" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Client Secret <span style="color:var(--tx-3)">(laissez vide pour conserver l'existant)</span></label>
+              <input id="sp-client-secret" class="inp" type="password" placeholder="••••••••••••••••">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Dossier cible (chemin relatif)</label>
+              <input id="sp-folder" class="inp" placeholder="Documents partagés/IPAM">
+            </div>
+          </div>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+          <button id="btn-test-sp" class="btn btn-g">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Tester la connexion
+          </button>
+          <button id="btn-save-sp" class="btn btn-p">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Enregistrer
+          </button>
+        </div>
+        <div id="sp-status" style="margin-top:12px;font-size:13px;color:var(--tx-3)"></div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Maintenance ══ -->
+    <div id="pane-maintenance" class="admin-pane hidden">
+      <div style="margin-bottom:20px">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Mode maintenance</h3>
+        <p style="font-size:13px;color:var(--tx-3);margin:0">Lorsqu'il est activé, les utilisateurs sont redirigés vers la page de maintenance.</p>
+      </div>
+      <div style="max-width:600px;display:flex;flex-direction:column;gap:16px">
+
+        <!-- Carte toggle -->
+        <div class="svc-card" style="display:flex;align-items:center;justify-content:space-between;gap:20px">
+          <div>
+            <div style="font-weight:600;font-size:14px;color:var(--tx-1);margin-bottom:4px">Activer la maintenance</div>
+            <div style="font-size:12px;color:var(--tx-3)">Le site devient inaccessible pour les utilisateurs non bypassés.</div>
+          </div>
+          <button id="btn-toggle-maint" class="btn btn-g" style="min-width:140px;justify-content:center">
+            Chargement…
+          </button>
+        </div>
+
+        <!-- Message -->
+        <div class="svc-card">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:10px">Message affiché</label>
+          <textarea id="maint-message" class="inp" rows="3" placeholder="Le site est actuellement en cours de maintenance. Merci de réessayer dans quelques minutes." style="resize:vertical;line-height:1.5"></textarea>
+        </div>
+
+        <!-- Fin prévue -->
+        <div class="svc-card">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:4px">Fin prévue <span style="font-weight:400;color:var(--tx-3)">(optionnel)</span></label>
+          <p style="font-size:12px;color:var(--tx-3);margin:0 0 10px">Un compte à rebours s'affichera sur la page de maintenance.</p>
+          <input id="maint-planned-end" class="inp" type="datetime-local" style="max-width:260px">
+          <button id="btn-clear-end" class="btn btn-g btn-sm" style="margin-top:8px">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Effacer la date
+          </button>
+        </div>
+
+        <!-- Clé de bypass -->
+        <div class="svc-card">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:4px">Clé de bypass</label>
+          <p style="font-size:12px;color:var(--tx-3);margin:0 0 10px">Les admins peuvent accéder au site via <code style="background:var(--bg-1);padding:1px 6px;border-radius:4px;font-size:11px">?bypass=VOTRE_CLE</code></p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="maint-bypass-key" class="inp" style="flex:1;font-family:monospace;font-size:13px" placeholder="Aucune clé définie" readonly>
+            <button id="btn-copy-bypass" class="btn btn-g btn-sm" title="Copier">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copier
+            </button>
+            <button id="btn-regen-bypass" class="btn btn-g btn-sm" title="Générer une nouvelle clé">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+              Régénérer
+            </button>
+          </div>
+          <div id="bypass-url-preview" style="margin-top:8px;font-size:11px;color:var(--tx-3);font-family:monospace;word-break:break-all"></div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="btn-save-maint" class="btn btn-p">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Enregistrer
+          </button>
+          <a href="/maintenance.html" target="_blank" class="btn btn-g">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Prévisualiser
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Terminal ══ -->
+    <div id="pane-terminal" class="admin-pane hidden">
+      <div style="max-width:860px">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 16px">Terminal serveur</h3>
+
+        <!-- Saisie commande -->
+        <div class="svc-card" style="margin-bottom:16px">
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <div style="flex:1">
+              <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Commande</label>
+              <input id="term-cmd" class="inp" type="text" placeholder="ls -la /var/www/ipam" autocomplete="off" spellcheck="false"
+                style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px;width:100%">
+            </div>
+            <button id="btn-term-exec" class="btn btn-p">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Exécuter
+            </button>
+            <button id="btn-term-clear" class="btn btn-g">Effacer</button>
+          </div>
+        </div>
+
+        <!-- Sortie -->
+        <div class="svc-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;color:var(--tx-3)">Sortie</span>
+          </div>
+          <pre id="term-output" style="background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;padding:14px;min-height:300px;max-height:500px;overflow-y:auto;white-space:pre-wrap;color:var(--tx-2);margin:0;word-break:break-all"></pre>
+        </div>
+
+        <!-- Upload fichier -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Uploader un fichier</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <input id="term-upload-file" type="file" style="display:none">
+            <button id="btn-term-pick" class="btn btn-g btn-sm">Choisir un fichier</button>
+            <button id="btn-term-upload-browse" class="btn btn-g btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Dossier destination
+            </button>
+            <span id="term-pick-name" style="font-size:12px;color:var(--tx-3);font-style:italic">Aucun fichier sélectionné</span>
+          </div>
+          <div id="term-upload-bar" style="display:none;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input id="term-upload-path" class="inp" type="text" placeholder="/chemin/destination/fichier.txt"
+                style="flex:1;min-width:200px;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;padding:5px 10px">
+              <button id="btn-term-upload" class="btn btn-p btn-sm">Envoyer</button>
+              <button id="btn-term-upload-cancel" class="btn btn-g btn-sm">✕</button>
+              <span id="term-upload-status" style="font-size:12px"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Télécharger fichier -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Télécharger un fichier</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="btn-term-browse" class="btn btn-g btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Parcourir le serveur
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Config Apache ══ -->
+    <div id="pane-apache" class="admin-pane hidden">
+      <div style="max-width:700px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0">Configuration Apache</h3>
+          <div style="display:flex;gap:8px">
+            <button id="btn-apache-test" class="btn btn-g btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Tester la config
+            </button>
+            <button id="btn-apache-reload" class="btn btn-warn btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+              Recharger Apache
+            </button>
+          </div>
+        </div>
+        <p id="apache-conf-path" style="font-size:11px;color:var(--tx-3);margin:0 0 20px;font-family:'JetBrains Mono','Courier New',monospace">Chargement…</p>
+
+        <div id="apache-form" style="display:flex;flex-direction:column;gap:12px">
+          <!-- Serveur -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Identité du serveur</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">ServerName</label>
+                <input id="ap-server-name" class="inp" type="text" placeholder="ipam.mondomaine.local">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">ServerAdmin</label>
+                <input id="ap-server-admin" class="inp" type="text" placeholder="admin@example.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- Réseau -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Réseau &amp; Accès</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Listen (port)</label>
+                <input id="ap-listen" class="inp" type="text" placeholder="80">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">DocumentRoot</label>
+                <input id="ap-document-root" class="inp" type="text" placeholder="/var/www/html">
+              </div>
+            </div>
+          </div>
+
+          <!-- Logs -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Journaux</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">ErrorLog</label>
+                <input id="ap-error-log" class="inp" type="text" placeholder="logs/error_log">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">CustomLog</label>
+                <input id="ap-custom-log" class="inp" type="text" placeholder="logs/access_log combined">
+              </div>
+            </div>
+          </div>
+
+          <!-- Performances -->
+          <div class="svc-card">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1);margin-bottom:12px">Performances &amp; Keep-Alive</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Timeout (s)</label>
+                <input id="ap-timeout" class="inp" type="text" placeholder="60">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">KeepAlive</label>
+                <select id="ap-keep-alive" class="inp">
+                  <option value="">—</option>
+                  <option value="On">On</option>
+                  <option value="Off">Off</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">KeepAliveTimeout (s)</label>
+                <input id="ap-keep-alive-timeout" class="inp" type="text" placeholder="5">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">MaxRequestWorkers</label>
+                <input id="ap-max-req-workers" class="inp" type="text" placeholder="256">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">DirectoryIndex</label>
+                <input id="ap-directory-index" class="inp" type="text" placeholder="index.html index.php">
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="btn-apache-save" class="btn btn-p">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Enregistrer
+            </button>
+            <button id="btn-apache-refresh" class="btn btn-g">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-6.5"/></svg>
+              Rafraîchir
+            </button>
+            <span id="apache-save-status" style="font-size:12px;color:var(--tx-3)"></span>
+          </div>
+          <div id="apache-test-output" class="log-panel hidden" style="max-height:160px;font-size:11px"></div>
+        </div>
+
+        <!-- IPs du serveur -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1)">IPs du serveur</div>
+            <button id="btn-apache-ips-refresh" class="btn btn-g btn-sm" style="font-size:11px">Rafraîchir</button>
+          </div>
+          <div id="apache-ips-list" style="font-size:12px;color:var(--tx-3);font-style:italic">Chargement…</div>
+        </div>
+
+        <!-- VirtualHost IPAM — IP des VirtualHosts -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--tx-1)">VirtualHost IPAM — IP des VirtualHosts</div>
+              <div style="font-size:11px;color:var(--tx-3);margin-top:2px">Modifie ServerName dans /etc/httpd/conf.d/ipam.conf (ports 80 &amp; 443)</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:12px;color:var(--tx-3);white-space:nowrap">IP / domaine actuel :</span>
+            <code id="vhost-ip-current" style="font-family:'JetBrains Mono','Courier New',monospace;font-size:13px;color:var(--tx-1)">—</code>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input id="vhost-ip-input" type="text" class="inp" placeholder="ex : 192.168.1.50 ou mondomaine.local" style="flex:1">
+            <button id="btn-vhost-ip-save" class="btn btn-p btn-sm">Appliquer</button>
+          </div>
+          <div id="vhost-ip-status" style="font-size:12px;margin-top:8px;min-height:18px"></div>
+        </div>
+
+        <!-- Fichiers de configuration conf.d -->
+        <div class="svc-card" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600;color:var(--tx-1)">Fichiers conf.d</div>
+            <button id="btn-apache-confs-refresh" class="btn btn-g btn-sm" style="font-size:11px">Rafraîchir</button>
+          </div>
+          <div id="apache-confs-list" style="font-size:12px;color:var(--tx-3);font-style:italic">Chargement…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ONGLET : Mises à jour ══ -->
+    <div id="pane-changelog" class="admin-pane hidden">
+      <div style="max-width:780px;width:100%;margin:0 auto">
+        <h3 style="color:var(--tx-1);font-size:16px;font-weight:700;margin:0 0 4px">Mises à jour</h3>
+        <p style="color:var(--tx-3);font-size:13px;margin:0 0 24px">Historique des versions et fonctionnalités à venir.</p>
+
+        <!-- ── Versions publiées ── -->
+        <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:32px">
+
+          <!-- v3.0 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#238636;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v3.0</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Statistiques avancées, validations &amp; intégrité des données</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <!-- CHANGELOG_INSERT -->
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">3fbfc2f</code> feat: la recherche de la barre latérale filtre aussi la grille de l'accueil Migration Serveurs <span style="color:var(--tx-3);font-size:11px">(2026-09-23)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8a3d4a6</code> feat: export CSV de la vue d'ensemble Migration Serveurs (Site / Migrations enregistrées / Serveurs restants) <span style="color:var(--tx-3);font-size:11px">(2026-09-23)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">46cd70e</code> feat: la vue d'ensemble Migration Serveurs affiche les sites en grille 6 colonnes (comme Site IPAM) <span style="color:var(--tx-3);font-size:11px">(2026-09-23)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">0f26638</code> feat: la recherche de la barre latérale filtre aussi la grille de sites de l'accueil Site IPAM <span style="color:var(--tx-3);font-size:11px">(2026-09-23)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8bf308c</code> feat: saisie manuelle de l'IP pour un OLD Hostname absent de Site IPAM et de l'Archive (admin) <span style="color:var(--tx-3);font-size:11px">(2026-09-23)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">bf4db3e</code> feat: commentaire par défaut différencié — &quot;Changement Serveurs&quot; pour PROCEF, &quot;Migration Windows 2022&quot; sinon <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">2665328</code> feat: backfill auto des paires AP (AP99/AP89, AP98/AP88, AP97/AP87) <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">396ae95</code> fix: préférer explicitement le VLAN METIER quand plusieurs IP éligibles partagent un hostname <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9e91c09</code> fix: le backfill PROCEF/FICHIERS ignorait parfois la bonne IP en cas de hostname dupliqué entre VLAN <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8eeae9f</code> feat: commentaire par défaut &quot;Migration Windows 2022&quot; à la création d'une migration <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">a8f09ff</code> fix: les clusters Nutanix sont détectés dans le VLAN ADMIN, pas METIER <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">35a98c6</code> fix: les totaux Windows/Linux du récap Site IPAM reprennent les chiffres de Statistiques <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5cb221b</code> feat: récap Windows/Linux/Cluster Nutanix + grille des sites sur l'accueil Site IPAM <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">b56705d</code> feat: exclusion IDRAC/iLO des stats Windows, pastilles OS Sites IPAM, saisie manuelle New Hostname, backfill auto PROCEF/FICHIERS <span style="color:var(--tx-3);font-size:11px">(2026-09-22)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">e5f2078</code> fix: &quot;OS invalide&quot; lors de l'enregistrement de Windows 2016/2019 dans Modifier le hostname <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">39eb3db</code> feat: Windows 2016 et 2019 réservés aux administrateurs dans &quot;Modifier le hostname&quot; <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">3d53f28</code> fix: les deux cartes totaux (vue d'ensemble Migration Serveurs) restaient empilées <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">b3e09d7</code> style: aligner label/valeur sur une même ligne dans les cartes totaux (vue d'ensemble Migration Serveurs) <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">52747ce</code> feat: saisie manuelle de l'Old Hostname en Migration Serveurs + totaux vue d'ensemble <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">18593fd</code> feat: le badge sidebar Migration Serveurs affiche les serveurs migrés <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">185a9ae</code> fix: exclure aussi les hostnames NEW du compteur &quot;serveurs restants&quot; (badge/vue d'ensemble) <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5e18762</code> fix: New Hostname exclu d'Old Hostname + Old Hostname archivé accepté à la création <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5022624</code> fix: le no-cache API n'était jamais appliqué (regex Apache cassée) <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">a72e12f</code> feat: badge sidebar sur Migration Serveurs (serveurs restants tous sites) <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">b86a8d8</code> feat: vue d'ensemble multi-sites sur Migration Serveurs <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">57bc539</code> feat: export CSV pour Migration Serveurs <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">ac85cf7</code> feat: verrouiller Ajouter une migration depuis le popup, garder Old Hostname après libération, verrouiller l'Archive <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">22e64c0</code> feat: Hostname obligatoire à la réservation, pré-rempli avec le Code Regate <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">01416a6</code> feat: rendre l'OS obligatoire lors d'un Réserver/Utiliser <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5dfdcff</code> fix: exposer openModal/closeModal sur window (boutons Fermer/X inline cassés) <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">4beb2c3</code> fix: injecter le New Hostname pré-rempli même hors classification 2022 <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">f52d327</code> feat: popup Migration — ouverture directe du formulaire avec New Hostname pré-rempli <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">57e155a</code> feat: VLAN configurables pour le popup Migration <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">32eaa06</code> feat: popup Migration Windows Serveur 2022 après Réserver/Utiliser <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">b541e79</code> feat: compléter la barre latérale de Migration Serveurs <span style="color:var(--tx-3);font-size:11px">(2026-09-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">3a0421a</code> fix: versionner aussi les imports ES module internes (client/js/*.js) <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">132648d</code> fix: repli ADMIN par défaut ignoré à cause d'une ancienne préférence localStorage <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">e073058</code> feat: replier par défaut la section ADMIN sur Site IPAM et Migration Serveurs <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">69cbab0</code> style: centrer les blocs de formulaires dans Administration <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5fca13b</code> feat: barre latérale réductible (icônes seules) <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">04706ad</code> fix: verrouiller OLD OS 2022 par défaut dans Migration Serveurs <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">ed67966</code> feat: nouveau menu Migration Serveurs (old host/OS -&gt; new host/OS) <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">c689422</code> feat: archive des liberations classee par site <span style="color:var(--tx-3);font-size:11px">(2026-09-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">c6e00d8</code> feat: popup de reservation configurable par tag de VLAN <span style="color:var(--tx-3);font-size:11px">(2026-09-10)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">28910fa</code> fix: popup de connexion sur site.html (page d'atterrissage), exclut le viewer <span style="color:var(--tx-3);font-size:11px">(2026-09-10)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">44e8f78</code> feat: popup de connexion configurable depuis l'administration <span style="color:var(--tx-3);font-size:11px">(2026-09-10)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">a4adda1</code> fix: replie la liste brute de commits sur l'onglet Mises a jour <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">68a59e5</code> feat: generalise le tri des colonnes a tous les onglets VLAN <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">6839798</code> fix: le blocage global du clic droit empechait le menu ping <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">57a02b3</code> feat: recherche globale masquee par defaut + tri des colonnes (onglet Tous) <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">6a65fc9</code> chore: ajoute les SVG sources des logos OS (Linux, Windows, Nutanix, Red Hat) <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">a333d4d</code> fix: onglet Mises a jour accessible et cible par hash pour role user <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">b0a539d</code> fix: renomme le libelle du menu contextuel ping <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">0e5d3a9</code> feat: lien Voir l'historique complet ouvre directement l'onglet Mises a jour <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">ac379b8</code> fix: table-layout fixed sur le tableau IP pour eliminer le scrollbar horizontal <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5f56d21</code> fix: reduction generale du padding des colonnes du tableau IP <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">92f35ce</code> fix: colonne Mis a jour retrecie (padding/police) pour eviter le scrollbar <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9e411a5</code> fix: colonne Type retrecie pour eviter le scrollbar horizontal <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">0b505b2</code> fix: colonne Type affichee en texte explicite VM/PHYSIQUE <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">fca2da0</code> feat: colonne Type (VM/Physique) dans le tableau IP <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">af82c48</code> feat: badge version dans la sidebar + modale Nouveautes <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">94481ff</code> feat: ping via clic droit sur un hostname (statut Utilise) <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">43e9ae2</code> feat: archivage de site avec propagation aux VLANs/IPs <span style="color:var(--tx-3);font-size:11px">(2026-09-01)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">fde6c43</code> feat: icone Info visible pour statut Reservee si hostname classifie Windows/Linux + exception ADMIN CREC ORLEANS BUFFON <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">7f27002</code> fix: icone Info masquee pour statut Reservee (METIER/PROCEF/CACI), Direction et Type serveur PROCEF <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">17f0e6b</code> feat: fiche PROCEF AF21/AF22 enregistree automatiquement (pas seulement pre-remplie) <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">cffcc18</code> fix: CPU/RAM PROCEF en options propres, Direction ajoutee, icone masquee VLAN Metier/Reservee <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">6a63b72</code> feat: nombre de connexions par utilisateur dans Stat du site <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">dc3e5d3</code> feat: icone Info etendue aux VLAN PROCEF/CACI + pre-remplissage AF21/AF22 <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">a832ffb</code> feat: icone Info verte si fiche renseignee, grise sinon <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">520cbac</code> feat: role en liste deroulante (reprend Statistiques serveurs) + icone Info en vert <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">a5e52bd</code> fix: icone Info visible uniquement pour serveurs VLAN METIER <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">ee69da8</code> feat: historique diff-only, popup Info reste ouvert apres enregistrement <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">50e9fdf</code> feat: historique par serveur, cache-busting des assets, garde-fou programmes <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">d615bad</code> docs: détaille les sous-fonctionnalités de la fiche serveur dans le changelog <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> feat: fiche serveur (popup Info) avec onglets contact/technique/commentaire <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> feat: colonne Info dans le tableau IP — masquée pour IP libres et Gateway/iLO/iDRAC/Nutanix <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> feat: onglet Info contact — rôle, demandeur, chef de projet, direction, product owner, architecte, contact <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> feat: créé par / date de création auto-remplis (capture rétroactive si manquants) <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> feat: onglet Fiche technique — type de serveur (VM/Physique), CPU et RAM en liste + saisie manuelle, taille disque <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> feat: programmes installés — 9 cases à cocher fixes + jusqu'à 6 programmes personnalisés <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> feat: onglet Commentaire dédié + confirmation obligatoire avant tout enregistrement <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">9eade6c</code> fix: cache Apache JS/CSS réduit de 24h à 60s (évite de servir une version obsolète après déploiement) <span style="color:var(--tx-3);font-size:11px">(2026-07-24)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">b17ced0</code> style: afficher 'Ping en cours…' pendant le test de connectivité <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">69a3c6c</code> fix: bouton ping utilise /api/nettools/ping existant au lieu de la route custom <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">ed6f0cd</code> fix: déplacer import requireAuth en top-level pour route /api/ping <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">fa03e3d</code> feat: bouton ping dans la modale Assigner une IP <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5ad1a63</code> feat: renommage Switch Config → Switch Config Ports + auto-détection OS XG/SPH/SPY/SQH/FS/AP/AF <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">ed3a9be</code> fix: AllowEncodedSlashes NoDecode dans VirtualHost Apache pour les ports slash <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">bd0bbee</code> fix: null check sur port-server pour éviter crash module si ancien switch.html <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">6497a59</code> fix: affichage d'erreur visible dans Switch Config Ports si chargement échoue <span style="color:var(--tx-3);font-size:11px">(2026-06-19)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">995470e</code> docs: guide de protection serveur anti-scan de ports <span style="color:var(--tx-3);font-size:11px">(2026-06-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">b92355b</code> fix: détection Gateway sur préfixe 'Gateway' et non 'GW' <span style="color:var(--tx-3);font-size:11px">(2026-06-18)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">255b9d9</code> feat: logo Gateway auto-détecté si hostname commence par GW <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">d40426b</code> fix: os manuel (win2022) prend le dessus sur l'auto-détection SN-/QN- <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">7c7e940</code> feat: auto-détection WS2016 depuis pattern SN-XX/QN-XX, retrait du picker <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">61d7693</code> feat: logos HP iLO et Dell iDRAC auto-détectés depuis le hostname <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8b1acdc</code> fix: vrai logo Windows pour win2022, masquage win2025 dans les pickers <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">58399b9</code> feat: colonne OS dans le tableau IP + sélecteur logos dans les modales <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">1d67000</code> feat: combobox serveurs dans la config de port switch <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">4d3d410</code> feat: ajout de la page Switch Config Ports (sites → switchs → ports/serveurs) <span style="color:var(--tx-3);font-size:11px">(2026-06-17)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">4609245</code> feat: maintenance auto-désactivation + isolation serveur slave <span style="color:var(--tx-3);font-size:11px">(2026-04-10)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">c2d40b4</code> docs: ajout Bascule.md — procédure failover semi-automatique <span style="color:var(--tx-3);font-size:11px">(2026-04-10)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">e2e81e7</code> docs: mise à jour config Keepalived (unicast, ens3, VIP réelle) <span style="color:var(--tx-3);font-size:11px">(2026-04-10)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">5961f27</code> docs: ajout section dépannage HA (Redis link down + Keepalived split-brain) <span style="color:var(--tx-3);font-size:11px">(2026-04-10)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8fc2479</code> docs: suppression mot de passe Redis dans la procédure HA <span style="color:var(--tx-3);font-size:11px">(2026-04-09)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">19d219e</code> docs: étapes détaillées configuration Redis replica sur Serveur 2 <span style="color:var(--tx-3);font-size:11px">(2026-04-07)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">f78f9a3</code> docs: ajout correctif ACL Redis (user default nopass écrase requirepass) <span style="color:var(--tx-3);font-size:11px">(2026-04-07)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8245e72</code> docs(HA): étape 10 — commandes de test et diagnostic Commvault <span style="color:var(--tx-3);font-size:11px">(2026-04-03)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">0b7eb49</code> feat: agent Commvault RHEL 9 — script installation offline + étape 9 dans HA.md <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">4b7c121</code> feat: v3.0 — stats connexions, validations intégrité, recherche unifiée, mises à jour config <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">cea52a0</code> docs(HA): ajout étape 1.5 — synchronisation certificat SSL ipam-siw.intra.laposte.fr <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">e739d0a</code> docs(HA): ajout étape installation RPMs offline keepalived + redis hors ligne <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">1a30ac7</code> feat: script téléchargement Redis 7.2 offline pour RHEL 9 x86_64 (Sentinel inclus) <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">8b04d22</code> feat: script téléchargement keepalived offline pour RHEL 9 x86_64 <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">0c5c0d4</code> docs: guide haute disponibilité (HA.md) — Keepalived VRRP + Redis Master/Replica <span style="color:var(--tx-3);font-size:11px">(2026-04-02)</span></li>
+              <li>Stats super-admin : connexions semaine / mois / année avec durée moyenne de session</li>
+              <li>Camemberts SVG dynamiques — répartition des connexions et durées par rôle (admin / user / viewer)</li>
+              <li>Recherche unifiée dans le tableau de bord : site, IP et hostname dans un seul champ</li>
+              <li>Unicité du VLAN ID par site — doublon bloqué côté client et serveur avec popup d'alerte</li>
+              <li>Unicité du réseau CIDR par site — normalisation bitmask, protège même avec VLAN différent</li>
+              <li>Unicité du hostname par VLAN — impossible d'attribuer le même hostname à deux IPs</li>
+              <li>VLAN ID limité aux chiffres uniquement — validation client et serveur</li>
+              <li>Colonnes « connexions » et « dernière connexion » réservées au super-admin</li>
+              <li>Suivi de durée de session (stockage JWT + envoi keepalive au logout)</li>
+              <li>Statistiques serveurs : répartition Windows / Linux / Nutanix / IDRAC / XMB / FLR</li>
+              <li>Section XMB &amp; FLR fusionnée côte à côte dans les statistiques</li>
+              <li>Recherche hostname dans les statistiques sur le nom complet (pas uniquement le premier label DNS)</li>
+            </ul>
+          </div>
+
+          <!-- v2.5 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#1f6feb;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.5</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Outils réseau, maintenance &amp; élévation de privilèges</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Outils réseau : ping, traceroute, nslookup, nmap, netcat — avec clé bypass pour nmap / tcpdump</li>
+              <li>Terminal commandes dans Configuration système</li>
+              <li>Explorateur de fichiers serveur intégré</li>
+              <li>Gestion des fichiers conf.d Apache depuis l'interface</li>
+              <li>VirtualHost IP / FQDN modifiable depuis Configuration système</li>
+              <li>Page de maintenance indépendante avec accès bypass par clé</li>
+              <li>Services visibles pour tous les utilisateurs, actions réservées avec clé bypass</li>
+              <li>Mode SA (Super Admin temporaire) via mot de passe admin — élévation 1 h</li>
+              <li>Clé bypass single-use 24 h — gestion dans Administration</li>
+              <li>Désactivation / activation de comptes utilisateurs</li>
+              <li>Toggle sidebar admin avec bouton dédié</li>
+              <li>Onglets APIs et SharePoint dans Configuration système</li>
+              <li>Arrêt et redémarrage serveur avec confirmation et log</li>
+            </ul>
+          </div>
+
+          <!-- v2.4 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#1f6feb;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.4</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Codes site, page Infos réseau &amp; exports</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Code Régate / PST par site — affichage sur les cartes du tableau de bord</li>
+              <li>Champ Notes / infos libres par site</li>
+              <li>Recherche par code site dans le tableau de bord</li>
+              <li>Page Infos réseau (certificats, DNS, services)</li>
+              <li>Sidebar unifiée sur toutes les pages (dashboard, stats, archive, export, config)</li>
+              <li>Export CSV / impression des IPs par site</li>
+              <li>Libération d'IP avec commentaire obligatoire</li>
+              <li>Archive des libérations exportable et effaçable (super-admin)</li>
+            </ul>
+          </div>
+
+          <!-- v2.3 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#1f6feb;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.3</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Thème clair, statistiques &amp; auto-tag VLANs</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Basculement thème sombre / clair avec icône soleil/lune dans la sidebar</li>
+              <li>Auto-tag des VLANs par ID (METIER / ADMIN / IPMI / PROCEF / AUTRES)</li>
+              <li>Description de VLAN — éditable par les admins</li>
+              <li>Masquage automatique des adresses de broadcast (.255)</li>
+              <li>Statistiques IP par site et par VLAN</li>
+              <li>Recherche par rôle (Windows / Linux) et par site dans les statistiques</li>
+              <li>Filtrage des statistiques — catégories IDRAC/iLO, ZN, QN</li>
+              <li>Recherche par site dans l'onglet Administration → Sites</li>
+              <li>Suppression des IPs broadcast depuis l'interface admin</li>
+              <li>Compteur de connexions par utilisateur</li>
+              <li>Filtrage et tri des journaux par date, utilisateur et action</li>
+              <li>Suppression individuelle de logs (super-admin)</li>
+            </ul>
+          </div>
+
+          <!-- v2.2 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#6e40c9;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.2</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Configuration système &amp; calculateur IP</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Page Configuration système (super-admin puis tous les admins)</li>
+              <li>Onglet Informations système : hostname, CPU, RAM, disque, réseau, versions</li>
+              <li>Onglet Services : démarrer / arrêter / redémarrer httpd, redis, ipam</li>
+              <li>Onglet Certificat SSL : génération CSR, installation, auto-signé</li>
+              <li>Calculateur IP / sous-réseau intégré</li>
+              <li>Suffixes FQDN configurables par VLAN</li>
+              <li>Branding SIW Pôle Serveurs — thème clair platine</li>
+            </ul>
+          </div>
+
+          <!-- v2.1 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#6e40c9;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.1</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Rôles, demandes de VLAN &amp; multi-sites</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Rôles utilisateurs : admin / user / viewer (accès lecture seule)</li>
+              <li>Demandes de compte et demandes de VLAN par les utilisateurs</li>
+              <li>Popups de confirmation pour les actions critiques</li>
+              <li>Gestion des utilisateurs : création, suppression, changement de rôle</li>
+              <li>Promotion admin réservée au super-admin (compte ADMIN)</li>
+              <li>Journal d'actions complet avec niveaux info / ok / warn / danger</li>
+              <li>Rate limiting sur la route /login (protection brute-force)</li>
+            </ul>
+          </div>
+
+          <!-- v2.0 -->
+          <div class="svc-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span style="background:#6e40c9;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px">v2.0</span>
+              <span style="font-size:13px;font-weight:600;color:var(--tx-1)">Version initiale — IPAM SIW multi-sites</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
+              <li>Gestion multi-sites avec VLANs numérotés ou plages CIDR</li>
+              <li>Génération automatique des IPs depuis un CIDR</li>
+              <li>Statuts IP : Libre / Réservée / Utilisé — réservation avec hostname</li>
+              <li>Libération d'IP avec archivage dans le journal</li>
+              <li>Authentification JWT 24 h</li>
+              <li>Back-end Node.js / Express avec stockage Redis</li>
+              <li>Interface thème sombre natif, responsive</li>
+            </ul>
+          </div>
+
+        </div>
+
+        <!-- ── Fonctionnalités à venir ── -->
+        <h4 style="color:var(--tx-1);font-size:14px;font-weight:700;margin:0 0 12px;display:flex;align-items:center;gap:8px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Fonctionnalités prévues
+        </h4>
+        <div class="svc-card" style="border-color:#e3b34140">
+          <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.9">
+            <li>Scan réseau automatique (ping sweep) pour détecter les IPs actives</li>
+            <li>Notifications par e-mail lors d'une réservation ou libération</li>
+            <li>Support LDAP / Active Directory pour l'authentification</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════ MODAL : Explorateur de fichiers serveur ══════════════════ -->
+<div id="modal-filebrowser" class="modal-overlay hidden">
+  <div class="modal-box" style="width:600px;max-width:96vw">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700">Explorateur serveur</div>
+      <button onclick="document.getElementById('modal-filebrowser').classList.add('hidden')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Breadcrumb / chemin courant -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:var(--bg-1);border:1px solid var(--brd);border-radius:7px;padding:6px 10px">
+      <button id="fb-btn-up" title="Répertoire parent" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:2px 4px;border-radius:4px;flex-shrink:0" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <input id="fb-path-input" type="text" value="/" spellcheck="false"
+        style="flex:1;background:none;border:none;outline:none;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;color:var(--tx-2);padding:0;min-width:0">
+      <button id="fb-btn-go" title="Aller" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:2px 4px;flex-shrink:0" onmouseenter="this.style.color='var(--tx-1)'" onmouseleave="this.style.color='var(--tx-3)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <!-- Liste des entrées -->
+    <div id="fb-list" style="max-height:340px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;background:var(--bg-1)">
+      <div style="padding:24px;text-align:center;color:var(--tx-3);font-size:13px">Chargement…</div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+      <input id="fb-selected-path" class="inp" type="text" style="flex:1;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px" placeholder="Sélectionnez un fichier ci-dessus" readonly>
+      <button id="fb-btn-download" class="btn btn-p" disabled>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Télécharger
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ MODAL : Ajouter une base de données ══════════════════ -->
+<div id="modal-add-db" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:700">Nouvelle connexion</h3>
+    <p style="margin:0 0 18px;font-size:13px;color:var(--tx-3)">Redis, PostgreSQL ou MariaDB.</p>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:10px;margin-bottom:20px">
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Type</label>
+        <select id="db-type" class="inp" style="cursor:pointer">
+          <option value="redis">Redis</option>
+          <option value="postgres">PostgreSQL</option>
+          <option value="mariadb">MariaDB</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Nom</label>
+        <input id="db-name" class="inp" placeholder="Ex : Redis secondaire">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px">
+        <div>
+          <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Hôte</label>
+          <input id="db-host" class="inp" placeholder="Ex : 192.168.1.10">
+        </div>
+        <div style="width:90px">
+          <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Port</label>
+          <input id="db-port" class="inp" type="number" value="6379" min="1" max="65535">
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Utilisateur <span id="db-user-label" style="color:var(--tx-3)">(PostgreSQL / MariaDB)</span></label>
+        <input id="db-user" class="inp" placeholder="postgres / root">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Mot de passe <span style="color:var(--tx-3)">(optionnel)</span></label>
+        <input id="db-password" class="inp" type="password" placeholder="Laisser vide si aucun">
+      </div>
+      <div id="db-field-dbname">
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Nom de la base</label>
+        <input id="db-dbname" class="inp" placeholder="Ex : ipam_db">
+      </div>
+      <div id="db-field-index">
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Index DB <span style="color:var(--tx-3)">(0–15)</span></label>
+        <input id="db-index" class="inp" type="number" value="0" min="0" max="15">
+      </div>
+    </div>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+      <button class="btn btn-g" onclick="document.getElementById('modal-add-db').classList.add('hidden')">Annuler</button>
+      <button id="btn-confirm-add-db" class="btn btn-p">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ MODAL : Ajouter une API ══════════════════ -->
+<div id="modal-add-api" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:700">Nouvelle API</h3>
+    <p style="margin:0 0 18px;font-size:13px;color:var(--tx-3)">Référencer une API externe.</p>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:10px;margin-bottom:20px">
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Nom</label>
+        <input id="api-name" class="inp" placeholder="Ex : API Monitoring">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">URL</label>
+        <input id="api-url" class="inp" placeholder="https://api.exemple.com/v1">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Clé API <span style="color:var(--tx-3)">(optionnel)</span></label>
+        <input id="api-key" class="inp" type="password" placeholder="Bearer token ou clé d'accès">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--tx-3);margin-bottom:5px">Description <span style="color:var(--tx-3)">(optionnel)</span></label>
+        <input id="api-description" class="inp" placeholder="Ex : Supervision réseau">
+      </div>
+    </div>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+      <button class="btn btn-g" onclick="document.getElementById('modal-add-api').classList.add('hidden')">Annuler</button>
+      <button id="btn-confirm-add-api" class="btn btn-p">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+  <div id="modal-change-pw" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:20px">
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Changer mon mot de passe</div>
+        <button id="btn-cancel-change-pw" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form id="form-change-pw">
+        <div style="margin-bottom:14px">
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:var(--tx-1)">Mot de passe actuel</label>
+          <input id="cpw-current" class="inp" type="password" required>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:var(--tx-1)">Nouveau mot de passe <span style="color:#f85149">*</span></label>
+          <input id="cpw-new" class="inp" type="password" minlength="8" required>
+        </div>
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px;color:var(--tx-1)">Confirmer le nouveau mot de passe <span style="color:#f85149">*</span></label>
+          <input id="cpw-confirm" class="inp" type="password" minlength="8" required>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+          <button type="button" id="btn-cancel-change-pw2" class="btn-g" onclick="document.getElementById('modal-change-pw').classList.add('hidden')">Annuler</button>
+          <button type="submit" class="btn-p">Modifier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script type="module" src="/js/config.js?v=3fbfc2f"></script>
+</body>
+</html>
