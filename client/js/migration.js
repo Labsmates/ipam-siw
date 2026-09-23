@@ -108,7 +108,10 @@ async function loadSidebar() {
         </a>`;
       }).join('');
     }
-    searchEl?.addEventListener('input', e => renderList(e.target.value.trim()));
+    searchEl?.addEventListener('input', e => {
+      renderList(e.target.value.trim());
+      renderOverviewGrid(e.target.value);
+    });
     renderList();
   } catch { /* sidebar non critique */ }
 }
@@ -131,6 +134,21 @@ function countEligibleOldRemaining(ips, vlans, siteMigrations) {
     if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') return false;
     return !used.has(ip.hostname);
   }).length;
+}
+
+function renderOverviewGrid(q = '') {
+  const gridEl = document.getElementById('overview-sites-grid');
+  if (!gridEl) return;
+  const query = q.trim().toLowerCase();
+  const filtered = query ? _overviewRows.filter(r => r.name.toLowerCase().includes(query)) : _overviewRows;
+  gridEl.innerHTML = filtered.map(r => `
+    <a href="/migration.html?id=${encodeURIComponent(r.id)}" style="display:flex;flex-direction:column;gap:6px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+      <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
+      <span style="display:flex;gap:6px">
+        <span style="flex-shrink:0;background:#3fb950;color:#0d1117;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.done}</span>
+        <span style="flex-shrink:0;background:${r.remaining > 0 ? '#d29922' : 'var(--bg-4)'};color:${r.remaining > 0 ? '#0d1117' : 'var(--tx-4)'};border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.remaining}</span>
+      </span>
+    </a>`).join('');
 }
 
 async function loadOverview() {
@@ -171,16 +189,8 @@ async function loadOverview() {
       document.getElementById('overview-total-migrated').textContent = totalDone;
 
       const sorted = [...rows].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
-      gridEl.innerHTML = sorted.map(r => `
-        <a href="/migration.html?id=${encodeURIComponent(r.id)}" style="display:flex;flex-direction:column;gap:6px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
-          <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
-          <span style="display:flex;gap:6px">
-            <span style="flex-shrink:0;background:#3fb950;color:#0d1117;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.done}</span>
-            <span style="flex-shrink:0;background:${r.remaining > 0 ? '#d29922' : 'var(--bg-4)'};color:${r.remaining > 0 ? '#0d1117' : 'var(--tx-4)'};border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.remaining}</span>
-          </span>
-        </a>`).join('');
-
       _overviewRows = sorted;
+      renderOverviewGrid(document.getElementById('sidebar-search')?.value || '');
       const exportSelect = document.getElementById('overview-export-site');
       exportSelect.innerHTML = '<option value="">Tous les sites</option>' + sorted.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
     }
