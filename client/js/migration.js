@@ -135,7 +135,7 @@ async function loadOverview() {
   const loadEl    = document.getElementById('overview-loading');
   const contentEl = document.getElementById('overview-content');
   const emptyEl   = document.getElementById('overview-empty');
-  const tableEl   = document.getElementById('overview-table');
+  const gridEl    = document.getElementById('overview-sites-grid');
   const totalsEl  = document.getElementById('overview-totals');
   loadEl.style.display = 'flex';
   contentEl.classList.add('hidden');
@@ -143,13 +143,13 @@ async function loadOverview() {
     const { sites } = await get('/api/sites');
     if (!sites.length) {
       emptyEl.classList.remove('hidden');
-      tableEl.style.display = 'none';
+      gridEl.style.display = 'none';
       totalsEl.style.display = 'none';
     } else {
       emptyEl.classList.add('hidden');
-      tableEl.style.display = '';
+      gridEl.style.display = 'grid';
       totalsEl.style.display = 'flex';
-      const rows = await Promise.all(sortSites(sites).map(async s => {
+      const rows = await Promise.all(sites.map(async s => {
         try {
           const [data, migRes] = await Promise.all([
             get(`/api/sites/${encodeURIComponent(s.id)}/data`),
@@ -167,13 +167,16 @@ async function loadOverview() {
       const totalServers = rows.reduce((sum, r) => sum + r.done + r.remaining, 0);
       document.getElementById('overview-total-servers').textContent = totalServers;
       document.getElementById('overview-total-migrated').textContent = totalDone;
-      document.getElementById('overview-tbody').innerHTML = rows.map(r => `
-        <tr style="border-bottom:1px solid var(--bg-4);cursor:pointer" onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background=''" onclick="location.href='/migration.html?id=${encodeURIComponent(r.id)}'">
-          <td style="padding:10px 12px;font-size:13px">${esc(r.name)}</td>
-          <td style="padding:10px 12px;text-align:center;font-size:13px;color:#3fb950;font-weight:600">${r.done}</td>
-          <td style="padding:10px 12px;text-align:center;font-size:13px;color:${r.remaining > 0 ? '#d29922' : 'var(--tx-4)'};font-weight:600">${r.remaining}</td>
-        </tr>
-      `).join('');
+
+      const sorted = [...rows].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
+      gridEl.innerHTML = sorted.map(r => `
+        <a href="/migration.html?id=${encodeURIComponent(r.id)}" style="display:flex;flex-direction:column;gap:6px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+          <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
+          <span style="display:flex;gap:6px">
+            <span style="flex-shrink:0;background:#3fb950;color:#0d1117;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.done}</span>
+            <span style="flex-shrink:0;background:${r.remaining > 0 ? '#d29922' : 'var(--bg-4)'};color:${r.remaining > 0 ? '#0d1117' : 'var(--tx-4)'};border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.remaining}</span>
+          </span>
+        </a>`).join('');
     }
   } catch (err) {
     showToast(err.message, 'error');
