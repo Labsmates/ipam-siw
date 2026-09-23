@@ -526,7 +526,7 @@ document.addEventListener('click', e => {
 // Rappel : APP_VERSION est réécrite automatiquement par scripts/bump-version.mjs
 // à chaque commit (hook post-commit). Ne pas éditer ce numéro à la main.
 // =============================================================================
-export const APP_VERSION = '2.2.59';
+export const APP_VERSION = '2.2.60';
 
 // Résumé curaté du dernier palier fonctionnel — à mettre à jour manuellement
 // lors d'une nouvelle version majeure/mineure (indépendant du patch auto-incrémenté).
