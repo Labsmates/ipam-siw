@@ -170,6 +170,62 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/sites/hostname-conflicts — détecte les serveurs Windows dont le
+// hostname ne correspond pas au Code Regate du site où ils sont rangés
+// (Code Regate = 6 premiers caractères du hostname, ex. "138100SN-AF12" →
+// "138100"). Ne vérifie que les sites dont le Code Regate est renseigné
+// dans Configuration → Codes Site, Regate (admin/config.html) — impossible
+// de détecter une anomalie sans référence. Si le code détecté correspond
+// au Code Regate d'un AUTRE site, on le propose comme site probable.
+router.get('/hostname-conflicts', requireAuth, async (req, res) => {
+  try {
+    const sites = (await listSitesWithStats()).filter(s => !s.archived);
+    let siteCodes = [];
+    try {
+      const raw = await redis.get('config:infos');
+      siteCodes = raw ? (JSON.parse(raw).site_codes || []) : [];
+    } catch (_) {}
+
+    const codeToSite = new Map(); // code_regate → {id, name}
+    siteCodes.forEach(sc => {
+      if (sc.code_regate) codeToSite.set(sc.code_regate.toUpperCase(), { id: sc.site_id, name: sc.site_name });
+    });
+    const configuredSites = siteCodes.filter(sc => sc.code_regate);
+
+    const conflicts = [];
+    for (const sc of configuredSites) {
+      const site = sites.find(s => String(s.id) === String(sc.site_id));
+      if (!site) continue;
+      const codeRegate = sc.code_regate.toUpperCase();
+      const data = await getSiteData(site.id);
+      const seen = new Set();
+      for (const ip of (data?.ips || [])) {
+        if (!ip.hostname || ip.status === 'Libre') continue;
+        const key = ip.hostname.split('.')[0].toUpperCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const result = classifyHostname(ip.hostname);
+        if (!result || result.type !== 'windows' || result.role === 'IDRAC') continue;
+
+        const detected = key.slice(0, codeRegate.length);
+        if (detected === codeRegate) continue;
+
+        const expected = codeToSite.get(detected);
+        conflicts.push({
+          hostname: ip.hostname,
+          ip_address: ip.ip_address,
+          current_site_id: site.id,
+          current_site_name: site.name,
+          detected_code: detected,
+          expected_site_id: expected && String(expected.id) !== String(site.id) ? expected.id : null,
+          expected_site_name: expected && String(expected.id) !== String(site.id) ? expected.name : null,
+        });
+      }
+    }
+    res.json({ conflicts });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/sites/:id  — detail plat pour le frontend site.js
 router.get('/:id([0-9]+)', requireAuth, async (req, res) => {
   try {

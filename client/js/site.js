@@ -381,19 +381,42 @@ function renderWelcomeSitesGrid(q = '') {
     </a>`).join('');
 }
 
+// Conflit Site Hostname — n'apparaît que si des serveurs Windows sont
+// détectés hors du Code Regate configuré pour leur site (voir
+// GET /api/sites/hostname-conflicts). Bloc entièrement masqué sinon.
+function renderWelcomeConflicts(conflicts) {
+  const blockEl = document.getElementById('welcome-conflicts');
+  if (!blockEl) return;
+  if (!conflicts || !conflicts.length) { blockEl.classList.add('hidden'); return; }
+
+  document.getElementById('welcome-conflicts-count').textContent = conflicts.length;
+  document.getElementById('welcome-conflicts-tbody').innerHTML = conflicts.map(c => `
+    <tr style="border-bottom:1px solid var(--bg-4)">
+      <td style="padding:6px 8px;font-size:12.5px;font-family:monospace">${esc(c.hostname)}</td>
+      <td style="padding:6px 8px;font-size:12.5px"><a href="/site.html?id=${encodeURIComponent(c.current_site_id)}" style="color:var(--tx-1);text-decoration:underline">${esc(c.current_site_name)}</a></td>
+      <td style="padding:6px 8px;font-size:12.5px;font-family:monospace;color:var(--tx-3)">${esc(c.detected_code)}</td>
+      <td style="padding:6px 8px;font-size:12.5px">${c.expected_site_id ? `<a href="/site.html?id=${encodeURIComponent(c.expected_site_id)}" style="color:#3fb950;text-decoration:underline">${esc(c.expected_site_name)}</a>` : '<span style="color:var(--tx-4)">inconnu</span>'}</td>
+    </tr>`).join('');
+  blockEl.classList.remove('hidden');
+}
+
 async function loadSiteRecap() {
   const loadEl    = document.getElementById('welcome-loading');
   const contentEl = document.getElementById('welcome-content');
   loadEl.style.display = 'flex';
   contentEl.classList.add('hidden');
   try {
-    const { totals, sites: siteCounts } = await get('/api/sites/metier-recap');
+    const [{ totals, sites: siteCounts }, conflictsRes] = await Promise.all([
+      get('/api/sites/metier-recap'),
+      get('/api/sites/hostname-conflicts').catch(() => ({ conflicts: [] })),
+    ]);
     document.getElementById('welcome-total-windows').textContent = totals.windows;
     document.getElementById('welcome-total-linux').textContent = totals.linux;
     document.getElementById('welcome-total-nutanix').textContent = totals.nutanix_clusters;
 
     _recapSiteCounts = siteCounts;
     renderWelcomeSitesGrid(document.getElementById('sidebar-search')?.value || '');
+    renderWelcomeConflicts(conflictsRes.conflicts);
 
     contentEl.classList.remove('hidden');
   } catch (err) {
