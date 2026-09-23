@@ -418,7 +418,7 @@ router.get('/', async (req, res) => {
 // POST /api/migrations — crée une ligne (tous sauf viewer)
 router.post('/', requireNonViewer, async (req, res) => {
   try {
-    const { site_id, old_hostname, old_os, new_hostname, new_os, comment, resp_metier, old_manual, new_manual } = req.body || {};
+    const { site_id, old_hostname, old_os, new_hostname, new_os, comment, resp_metier, old_manual, new_manual, old_ip_manual } = req.body || {};
     if (!site_id) return res.status(400).json({ error: 'site_id requis' });
     if (!old_hostname || !new_hostname) return res.status(400).json({ error: "L'ancien et le nouveau hostname sont requis" });
     if (!comment?.trim()) return res.status(400).json({ error: 'Le commentaire est obligatoire' });
@@ -431,8 +431,17 @@ router.post('/', requireNonViewer, async (req, res) => {
     const siteData = await getSiteData(site_id);
     if (!siteData) return res.status(404).json({ error: 'Site introuvable' });
 
-    const oldHost = await resolveOldHost(siteData, site_id, old_hostname);
+    let oldHost = await resolveOldHost(siteData, site_id, old_hostname);
     const newHost = resolveHost(siteData, new_hostname);
+    // OLD introuvable en live ni en Archive : un admin peut saisir l'IP à la
+    // main (saisie manuelle uniquement) — le serveur est alors enregistré
+    // dans l'Archive après coup pour que la correspondance persiste.
+    let registerInArchive = false;
+    if (!oldHost && old_manual && isAdmin && old_ip_manual) {
+      if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(old_ip_manual)) return res.status(400).json({ error: 'IP manuelle invalide' });
+      oldHost = { ip_address: old_ip_manual, vlan_tag: null };
+      registerInArchive = true;
+    }
     if (!oldHost) return res.status(400).json({ error: `Hostname "${old_hostname}" introuvable ou non éligible (VLAN ADMIN, iLO/iDRAC/Nutanix exclus)` });
     if (!newHost) return res.status(400).json({ error: `Hostname "${new_hostname}" introuvable ou non éligible (VLAN ADMIN, iLO/iDRAC/Nutanix exclus)` });
 
@@ -464,6 +473,12 @@ router.post('/', requireNonViewer, async (req, res) => {
     pipe.sadd(`site:${site_id}:migrations`, id);
     await pipe.exec();
     await addLog(req.user.username, 'MIGRATION_CREATE', `${old_hostname} → ${new_hostname}`, 'ok', { site_id: String(site_id) });
+    if (registerInArchive) {
+      await addLog(req.user.username, 'RELEASE_IP', JSON.stringify({
+        ip: oldHost.ip_address, hostname: old_hostname, comment: 'Migration 2022',
+        site_id: String(site_id), site_name: siteData.site?.name || '',
+      }), 'info', { ip_address: oldHost.ip_address, site_id: String(site_id) });
+    }
     res.json({ ok: true, id: parseInt(id) });
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
@@ -482,14 +497,20 @@ router.put('/:id', requireNonViewer, async (req, res) => {
     }
     if (req.body?.resp_metier !== undefined) patch.resp_metier = String(req.body.resp_metier).trim();
 
+    let archiveRegistration = null;
     if (isAdmin) {
-      const { old_hostname, new_hostname, old_os, new_os, old_manual, new_manual } = req.body || {};
+      const { old_hostname, new_hostname, old_os, new_os, old_manual, new_manual, old_ip_manual } = req.body || {};
       if (old_os !== undefined) { await validateOs('old', old_os, true); patch.old_os = old_os; }
       if (new_os !== undefined) { await validateOs('new', new_os, true); patch.new_os = new_os; }
       if (old_hostname !== undefined || new_hostname !== undefined) {
         const siteData = await getSiteData(row.site_id);
         if (old_hostname !== undefined) {
-          const h = await resolveOldHost(siteData, row.site_id, old_hostname);
+          let h = await resolveOldHost(siteData, row.site_id, old_hostname);
+          if (!h && old_manual && old_ip_manual) {
+            if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(old_ip_manual)) return res.status(400).json({ error: 'IP manuelle invalide' });
+            h = { ip_address: old_ip_manual };
+            archiveRegistration = { ip: old_ip_manual, hostname: old_hostname, site_id: row.site_id, site_name: siteData.site?.name || '' };
+          }
           if (!h) return res.status(400).json({ error: `Hostname "${old_hostname}" invalide` });
           patch.old_hostname = old_hostname; patch.old_ip = h.ip_address;
           patch.old_manual = old_manual ? '1' : '0';
@@ -511,6 +532,10 @@ router.put('/:id', requireNonViewer, async (req, res) => {
 
     await redis.hset(`migration:${req.params.id}`, patch);
     await addLog(req.user.username, 'MIGRATION_UPDATE', `#${req.params.id}`, 'ok', { site_id: row.site_id });
+    if (archiveRegistration) {
+      await addLog(req.user.username, 'RELEASE_IP', JSON.stringify({ ...archiveRegistration, comment: 'Migration 2022' }),
+        'info', { ip_address: archiveRegistration.ip, site_id: archiveRegistration.site_id });
+    }
     res.json({ ok: true });
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });

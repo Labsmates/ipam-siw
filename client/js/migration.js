@@ -499,13 +499,26 @@ function openMigrationModal(row) {
 
   document.getElementById('mig-old-ip-display').textContent = row?.old_ip || (oldIsKnown ? '—' : lookupHostnameIp(row.old_hostname) || 'introuvable');
   document.getElementById('mig-new-ip-display').textContent = row?.new_ip || (newIsKnown ? '—' : lookupHostnameIp(row.new_hostname, false) || 'introuvable');
+  const oldIpManualWrap = document.getElementById('mig-old-ip-manual-wrap');
+  const oldIpManual = document.getElementById('mig-old-ip-manual');
+  // Serveur OLD absent de Site IPAM et de l'Archive : un admin peut saisir
+  // l'IP à la main — le serveur est alors enregistré dans l'Archive
+  // (commentaire "Migration 2022") pour que la correspondance persiste,
+  // comme pour un hostname normalement résolu depuis l'Archive.
   const updateOldIpDisplay = () => {
     const hostname = oldSelect.value === '__custom__' ? oldCustom.value.trim() : oldSelect.value;
     const display = document.getElementById('mig-old-ip-display');
-    if (!hostname) { display.textContent = '—'; display.style.color = ''; return; }
+    if (!hostname) {
+      display.textContent = '—'; display.style.color = '';
+      oldIpManualWrap.classList.add('hidden'); oldIpManual.value = '';
+      return;
+    }
     const found = lookupHostnameIp(hostname);
     display.textContent = found || 'introuvable';
     display.style.color = found ? '' : 'var(--danger, #f85149)';
+    const showManual = !found && user?.role === 'admin' && oldSelect.value === '__custom__';
+    oldIpManualWrap.classList.toggle('hidden', !showManual);
+    if (!showManual) oldIpManual.value = '';
   };
   const updateNewIpDisplay = () => {
     const hostname = newSelect.value === '__custom__' ? newCustom.value.trim() : newSelect.value;
@@ -577,6 +590,14 @@ function setupMigrationForm() {
       if (!old_os || !new_os) { showToast('Sélectionnez l\'ancien et le nouvel OS', 'warn'); return; }
       Object.assign(payload, { old_hostname, new_hostname, old_os, new_os, old_manual, new_manual });
       if (!isEdit) payload.site_id = siteId;
+
+      // OLD absent de Site IPAM et de l'Archive : IP saisie à la main (admin
+      // uniquement) — enregistrée ensuite côté serveur dans l'Archive.
+      if (old_manual && !lookupHostnameIp(old_hostname) && isAdmin) {
+        const old_ip_manual = document.getElementById('mig-old-ip-manual').value.trim();
+        if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(old_ip_manual)) { showToast('IP manuelle invalide pour le serveur OLD introuvable', 'warn'); return; }
+        payload.old_ip_manual = old_ip_manual;
+      }
     }
 
     if (!await showConfirm({
