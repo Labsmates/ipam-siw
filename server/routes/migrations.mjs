@@ -218,11 +218,11 @@ async function resolveOldHost(siteData, siteId, hostname) {
   return null;
 }
 
-// Motifs de classification OLD (Windows 2016 / Linux CFT) — mêmes que
-// isWin2016()/isLinuxCft() côté client (migration.js), utilisés uniquement
-// ici pour compter les serveurs encore éligibles à migrer (badge sidebar).
+// Motif de classification OLD (Windows 2016) — même que isWin2016() côté
+// client (migration.js), utilisé uniquement ici pour compter les serveurs
+// encore éligibles à migrer (badge sidebar). La migration ne concerne que
+// les serveurs Windows — les serveurs Linux (XG) en sont exclus.
 const WIN2016_RE = /(?:SN|QN)-[A-Z0-9]{2}/i;
-const LINUX_RE   = /XG/i;
 // Un hostname matchant aussi le motif NEW (win2022) n'est jamais compté côté
 // OLD — mêmes règles que oldCandidates()/isWin2022() côté client.
 const WIN2022_RE = /FS22|FS24|FS26|AP89|AP88|AP87|AP75|AP76|AF21|AF22/;
@@ -256,7 +256,7 @@ router.get('/remaining-count', async (req, res) => {
       for (const ip of siteData.ips || []) {
         if (!ip.hostname || (ip.status !== 'Utilisé' && ip.status !== 'Réservée')) continue;
         if (isDeviceExcluded(ip.hostname)) continue;
-        if (!(WIN2016_RE.test(ip.hostname) || LINUX_RE.test(ip.hostname))) continue;
+        if (!WIN2016_RE.test(ip.hostname)) continue;
         if (ip.os === 'win2022' || WIN2022_RE.test(ip.hostname)) continue;
         const vlan = (siteData.vlans || []).find(v => String(v.id) === String(ip.vlan_id));
         if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') continue;
