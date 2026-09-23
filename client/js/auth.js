@@ -2,7 +2,7 @@
 // IPAM SIW — auth.js  (login page)
 // =============================================================================
 
-import { post, setSession, getToken, checkHttps, showToast, initTheme } from './api.js?v=8bf308c';
+import { post, setSession, getToken, checkHttps, showToast, initTheme } from './api.js?v=0f26638';
 
 const DASH = '/site.html';
 
