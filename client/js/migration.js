@@ -26,6 +26,7 @@ let siteData = null;      // { site, vlans, ips }
 let migrations = [];
 let osConfig = { old: [], new: [] };
 let archivedReleases = []; // [{hostname, ip}] — libérations du site (Archive), pour garder Old Hostname disponible après une libération dans Site IPAM
+let _overviewRows = []; // [{id, name, done, remaining}] — vue d'ensemble, pour l'export CSV
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!siteId) {
     document.getElementById('view-welcome').style.display = 'flex';
     document.getElementById('view-site').style.display = 'none';
+    document.getElementById('btn-export-overview')?.addEventListener('click', exportOverviewCsv);
     await loadOverview();
     return;
   }
@@ -177,6 +179,10 @@ async function loadOverview() {
             <span style="flex-shrink:0;background:${r.remaining > 0 ? '#d29922' : 'var(--bg-4)'};color:${r.remaining > 0 ? '#0d1117' : 'var(--tx-4)'};border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.remaining}</span>
           </span>
         </a>`).join('');
+
+      _overviewRows = sorted;
+      const exportSelect = document.getElementById('overview-export-site');
+      exportSelect.innerHTML = '<option value="">Tous les sites</option>' + sorted.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
     }
   } catch (err) {
     showToast(err.message, 'error');
@@ -349,6 +355,27 @@ function exportCsv() {
   const a    = document.createElement('a');
   a.href     = url;
   a.download = `migrations-${(siteData.site?.name || siteId).replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Export CSV de la vue d'ensemble (Site / Migrations enregistrées / Serveurs
+// restants à migrer) — tous les sites, ou un seul via le sélecteur.
+function exportOverviewCsv() {
+  if (!_overviewRows.length) { showToast('Aucune donnée à exporter', 'warn'); return; }
+  const selectedId = document.getElementById('overview-export-site').value;
+  const rows = selectedId ? _overviewRows.filter(r => String(r.id) === selectedId) : _overviewRows;
+  if (!rows.length) { showToast('Aucune donnée à exporter', 'warn'); return; }
+  const csvEsc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [
+    ['Site', 'Migrations enregistrées', 'Serveurs restants à migrer'].map(csvEsc).join(','),
+    ...rows.map(r => [r.name, r.done, r.remaining].map(csvEsc).join(',')),
+  ];
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `migration-overview-${selectedId ? rows[0].name.replace(/[^a-z0-9]+/gi, '-') : 'tous-sites'}-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
