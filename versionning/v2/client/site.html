@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>IPAM SIW</title>
+<link rel="stylesheet" href="/vendor/fonts.css">
+<link rel="stylesheet" href="/css/theme.css">
+<script src="/js/protect.js?v=0d5657d"></script>
+<script src="/vendor/tailwind.min.js"></script>
+<script src="/vendor/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg-1)}
+::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#58a6ff55}
+*{scrollbar-width:thin;scrollbar-color:var(--brd) var(--bg-1)}
+.hidden{display:none!important}
+.no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}
+.no-scrollbar::-webkit-scrollbar{display:none;width:0;height:0}
+input,select,textarea,button{-webkit-appearance:none;appearance:none}
+input[type=checkbox],input[type=radio]{-webkit-appearance:auto;appearance:auto}
+input:focus,select:focus{outline:none;border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.ip-th-sortable{cursor:pointer;-webkit-user-select:none;user-select:none}
+.ip-th-sortable:hover{color:var(--tx-1)!important}
+.ip-th-sortable .sort-arrow{margin-left:4px;display:inline-block;width:8px}
+.ip-th-sortable.sort-active{color:#58a6ff!important}
+.inp{width:100%;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;color:var(--tx-1);font-size:14px;outline:none;-webkit-transition:border-color .15s;transition:border-color .15s}
+.inp:focus{border-color:#58a6ff!important;-webkit-box-shadow:0 0 0 3px rgba(88,166,255,.15);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+.inp::placeholder{color:var(--tx-3)}
+.inp.err{border-color:#f85149}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;-webkit-transition:all .15s;transition:all .15s;border:none;padding:8px 16px;outline:none}
+.btn:active{-webkit-transform:scale(.97);transform:scale(.97)}
+.btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.btn-p{background:#58a6ff;color:var(--bg-1)}.btn-p:hover{background:#79b8ff}
+.btn-d{background:#f8514918;color:#f85149;border:1px solid #f8514940}.btn-d:hover{background:#f8514930}
+.btn-g{background:var(--bg-4);color:var(--tx-1);border:1px solid var(--brd)}.btn-g:hover{background:var(--bg-hover)}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+.btn-ok{background:#3fb95018;color:#3fb950;border:1px solid #3fb95040}.btn-ok:hover{background:#3fb95030}
+.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.65);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:200;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;padding:24px}
+.modal-box{background:var(--bg-4);border:1px solid var(--brd);border-radius:12px;padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);-webkit-animation:mfade .18s cubic-bezier(.34,1.56,.64,1);animation:mfade .18s cubic-bezier(.34,1.56,.64,1)}
+@-webkit-keyframes mfade{from{opacity:0;-webkit-transform:scale(.92) translateY(12px);transform:scale(.92) translateY(12px)}to{opacity:1;-webkit-transform:none;transform:none}}
+@keyframes mfade{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
+.vlan-tab{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;color:var(--tx-3);-webkit-transition:all .15s;transition:all .15s;white-space:nowrap;border-radius:0}
+.vlan-tab:hover{color:var(--tx-1);background:var(--bg-3)}
+.vlan-tab.on{color:#58a6ff;border-bottom-color:#58a6ff;background:#0d2240;font-weight:600}
+.site-item{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;padding:9px 16px;border-left:2px solid transparent;-webkit-transition:all .1s;transition:all .1s;font-size:13px;color:var(--tx-2);text-decoration:none}
+.site-item:hover{background:var(--bg-3);color:var(--tx-1)}
+.site-item.on{background:var(--bg-3);border-left-color:#58a6ff;color:var(--tx-1)}
+.spinner{width:30px;height:30px;border:3px solid var(--brd);border-top-color:#58a6ff;border-radius:50%;-webkit-animation:sp .7s linear infinite;animation:sp .7s linear infinite}
+@-webkit-keyframes sp{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
+@keyframes sp{to{transform:rotate(360deg)}}
+.pg-btn{padding:5px 11px;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);font-size:13px;cursor:pointer;-webkit-transition:all .15s;transition:all .15s}
+.pg-btn:hover:not(:disabled){background:var(--bg-hover);color:var(--tx-1)}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:var(--bg-2);border-right:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;z-index:10}
+#app-main{margin-left:260px;height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;overflow:hidden}
+#sidebar{transition:width .15s}
+#sidebar.collapsed{width:64px}
+#sidebar.collapsed~#app-main{margin-left:64px}
+#app-main{transition:margin-left .15s}
+#sidebar.collapsed .sb-text,#sidebar.collapsed #sidebar-search-wrap,#sidebar.collapsed #site-list,#sidebar.collapsed #btn-nav-admin-toggle{display:none!important}
+#sidebar.collapsed #sidebar-nav a{font-size:0!important;justify-content:center!important;padding-left:8px!important;padding-right:8px!important;gap:0!important}
+#sidebar.collapsed #sidebar-header-row{flex-direction:column!important;gap:6px!important}
+#sidebar.collapsed #btn-sidebar-collapse{margin-left:0}
+#sidebar.collapsed #sidebar-user-row{flex-wrap:wrap!important;justify-content:center!important;gap:4px!important;padding:6px!important}
+
+#ip-tbody tr:hover td{background:var(--bg-3)}
+.ip-search-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--bg-4);text-decoration:none;transition:background .1s}
+.ip-search-row:last-child{border-bottom:none}
+.ip-search-row:hover{background:var(--bg-3)}
+.os-btn{background:var(--bg-2);border:1.5px solid var(--brd);border-radius:8px;padding:5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s;outline:none}
+.os-btn:hover{border-color:#58a6ff88;background:var(--bg-3)}
+.os-btn.sel{border-color:#58a6ff;background:#0d224080;box-shadow:0 0 0 3px rgba(88,166,255,.18)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<div id="sidebar">
+
+  <!-- Header -->
+  <div style="padding:18px 16px 12px;border-bottom:1px solid var(--brd)">
+    <div id="sidebar-header-row" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px">
+      <div style="width:30px;height:30px;background:-webkit-linear-gradient(315deg,#58a6ff,#1f6feb);background:linear-gradient(135deg,#58a6ff,#1f6feb);border-radius:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;box-shadow:0 0 14px rgba(88,166,255,.35);-ms-flex-negative:0;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2"/>
+          <rect x="2" y="14" width="20" height="8" rx="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/>
+          <line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+      </div>
+      <div class="sb-text">
+        <div style="font-size:14px;font-weight:700;letter-spacing:-0.02em">IPAM SIW</div>
+        <div id="app-subtitle" style="font-size:11px;color:var(--tx-3)">Gestion des adresses IP</div>
+      </div>
+    <button id="btn-sidebar-collapse" title="Réduire le menu" style="flex-shrink:0;margin-left:auto;width:22px;height:22px;padding:0;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'">
+          <svg id="btn-sidebar-collapse-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .15s"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+    </div>
+  </div>
+
+  <!-- Nav buttons -->
+  <div id="sidebar-nav" style="padding:10px 10px 6px;border-bottom:1px solid var(--brd)">
+    <a href="/dashboard.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Tableau de bord
+    </a>
+    <a href="/site.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#58a6ff;background:#58a6ff18;border:1px solid #58a6ff40;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Sites IPAM <span id="nav-site-win-badge" class="hidden" style="display:inline-block;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:auto;line-height:18px;vertical-align:middle;"></span><span id="nav-site-lin-badge" class="hidden" style="display:inline-block;background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:4px;line-height:18px;vertical-align:middle;"></span>
+    </a>
+    <a href="/migration.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Migration Serveurs <span id="nav-migration-badge" class="hidden" style="display:inline-block;background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:auto;line-height:18px;vertical-align:middle;"></span>
+    </a>
+    <a href="/stats.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Statistiques
+    </a>
+    <a href="/switch.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="18" y1="6" x2="18.01" y2="6"/><line x1="18" y1="18" x2="18.01" y2="18"/></svg>
+      Switch Config Ports
+    </a>
+    <a id="nav-ipcalc-link" href="/ipcalc.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Calculateur IP
+    </a>
+    <a id="nav-export-link" href="/export.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Excel
+    </a>
+    <a id="nav-archive-link" href="/archive.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.87"/></svg>
+      Archive
+    </a>
+    <a href="/info.html" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+      Infos
+    </a>
+    <div id="nav-admin-section">
+      <button id="btn-nav-admin-toggle" class="hidden" title="Masquer / afficher" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;width:100%;background:none;border:none;border-top:1px solid var(--brd);padding:5px 12px 5px 14px;cursor:pointer;color:var(--tx-5);margin-top:4px;-webkit-box-sizing:border-box;box-sizing:border-box" onmouseenter="this.style.color='var(--tx-3)'" onmouseleave="this.style.color='var(--tx-5)'">
+        <span style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Admin</span>
+        <svg id="btn-nav-admin-toggle-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+      </button>
+      <div id="nav-admin-links">
+        <a href="/admin.html" id="nav-admin-link" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Administration
+        </a>
+        <a id="nav-config-link" href="/config.html" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px;width:100%;padding:8px 12px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);margin-top:4px;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:all .15s;transition:all .15s" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='var(--bg-4)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+          Configuration système
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div id="sidebar-search-wrap" style="padding:10px 10px 6px">
+    <div style="position:relative">
+      <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="sidebar-search" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher un site…">
+    </div>
+  </div>
+
+  <!-- Site list -->
+  <div id="site-list" style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto"></div>
+
+  <!-- User info + logout -->
+  <div style="padding:12px 14px;border-top:1px solid var(--brd)">
+    <div id="sidebar-user-row" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:9px 11px">
+      <div class="sb-text" style="min-width:0">
+        <div id="nav-username" style="font-size:13px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="nav-role" style="font-size:11px;color:var(--tx-3);margin-top:1px"></div>
+      </div>
+      <button id="btn-change-pw" title="Changer mon mot de passe" style="-ms-flex-negative:0;flex-shrink:0;margin-left:8px;padding:6px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </button>
+      <button id="btn-theme" title="Passer en mode clair" style="-ms-flex-negative:0;flex-shrink:0;margin-left:4px;padding:6px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg-4);color:var(--tx-3);cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='var(--bg-hover)';this.style.color='var(--tx-1)'" onmouseleave="this.style.background='var(--bg-4)';this.style.color='var(--tx-3)'"></button>
+      <button id="btn-logout" title="Déconnexion" style="-ms-flex-negative:0;flex-shrink:0;margin-left:4px;padding:6px 10px;border-radius:6px;border:1px solid #f8514940;background:#f8514918;color:#f85149;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-transition:all .15s;transition:all .15s;font-size:12px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center" onmouseenter="this.style.background='#f8514930'" onmouseleave="this.style.background='#f8514918'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<div id="app-main">
+
+  <!-- Welcome state (no site selected) -->
+  <div id="view-welcome" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <div style="padding:18px 24px 14px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0">Sites IPAM</h1>
+      <div style="font-size:12px;color:var(--tx-3);margin-top:2px">Récapitulatif — VLAN METIER uniquement, sans doublon — cliquez un site pour l'ouvrir</div>
+    </div>
+    <div id="welcome-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 24px">
+      <div class="spinner"></div>
+      <p style="color:var(--tx-3);font-size:13px;margin:0">Chargement…</p>
+    </div>
+    <div id="welcome-content" class="hidden" style="flex:1;overflow:auto;padding:18px 24px">
+      <div id="welcome-totals" style="display:flex;gap:16px;margin-bottom:22px">
+        <div style="flex:1;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;display:flex;align-items:baseline;gap:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Serveurs Windows</div>
+          <div id="welcome-total-windows" style="font-size:24px;font-weight:700;color:#58a6ff">—</div>
+        </div>
+        <div style="flex:1;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;display:flex;align-items:baseline;gap:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Serveurs Linux</div>
+          <div id="welcome-total-linux" style="font-size:24px;font-weight:700;color:#f85149">—</div>
+        </div>
+        <div style="flex:1;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;display:flex;align-items:baseline;gap:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-3)">Cluster Nutanix</div>
+          <div id="welcome-total-nutanix" style="font-size:24px;font-weight:700;color:#a371f7">—</div>
+        </div>
+      </div>
+      <div id="welcome-conflicts" class="hidden" style="margin-bottom:22px;background:rgba(248,81,73,.08);border:1px solid #f85149;border-radius:10px;padding:14px 18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:13px">⚠️</span>
+          <div style="font-size:13px;font-weight:700;color:#f85149">Conflit Site Hostname</div>
+          <span id="welcome-conflicts-count" style="background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px"></span>
+        </div>
+        <div style="font-size:11.5px;color:var(--tx-3);margin-bottom:10px">Serveurs dont le hostname ne correspond pas au Code Regate du site où ils sont rangés (Configuration → Codes Site, Regate).</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--brd)">
+              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Hostname</th>
+              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Site actuel</th>
+              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Code détecté</th>
+              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Site probable</th>
+            </tr>
+          </thead>
+          <tbody id="welcome-conflicts-tbody"></tbody>
+        </table>
+      </div>
+      <div id="welcome-sites-grid" style="display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px"></div>
+    </div>
+  </div>
+
+  <!-- Site detail view -->
+  <div id="view-site" style="display:none;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;height:100%;overflow:hidden">
+
+    <!-- Header -->
+    <div style="padding:14px 24px 0;border-bottom:1px solid var(--brd);-ms-flex-negative:0;flex-shrink:0">
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <h1 id="site-name" style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0"></h1>
+          <div id="site-subtitle" style="font-size:12px;color:var(--tx-3);margin-top:2px"></div>
+          <div id="site-codes" style="display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:10px;margin-top:7px;-webkit-box-align:center;-ms-flex-align:center;align-items:center"></div>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+          <div id="admin-actions" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+            <button id="btn-edit-site-codes" class="btn btn-g btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+              Modifier le code site
+            </button>
+            <button id="btn-add-vlan" class="btn btn-g btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Ajouter VLAN
+            </button>
+            <button id="btn-import" class="btn btn-g btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import Excel
+            </button>
+          </div>
+          <div id="user-actions" class="hidden" style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px">
+            <button id="btn-request-vlan" class="btn btn-g btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Demander un VLAN
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:20px;padding:8px 0;margin-bottom:-1px">
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="color:var(--tx-3)">Total</span>
+          <span id="stat-total" style="font-weight:700;color:var(--tx-1)">—</span>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#3fb950;display:inline-block"></span>
+          <span style="color:#3fb950;font-weight:600" id="stat-libre">—</span>
+          <span style="color:var(--tx-3)">libres</span>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#f85149;display:inline-block"></span>
+          <span style="color:#f85149;font-weight:600" id="stat-utilise">—</span>
+          <span style="color:var(--tx-3)">utilisées</span>
+        </div>
+        <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;font-size:13px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#d29922;display:inline-block"></span>
+          <span style="color:#d29922;font-weight:600" id="stat-reserve">—</span>
+          <span style="color:var(--tx-3)">réservées</span>
+        </div>
+        <div style="margin-left:auto;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:8px;min-width:160px">
+          <div style="height:4px;background:var(--brd);border-radius:2px;overflow:hidden;-webkit-box-flex:1;-ms-flex:1;flex:1">
+            <div id="progress-bar" style="height:100%;width:0%;background:-webkit-linear-gradient(left,#f85149,#d29922);background:linear-gradient(90deg,#f85149,#d29922);border-radius:2px;-webkit-transition:width .3s;transition:width .3s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VLAN tabs -->
+    <div id="vlan-tabs" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;border-bottom:1px solid var(--brd);overflow-x:auto;-ms-flex-negative:0;flex-shrink:0;padding:0 24px"></div>
+    <div id="vlan-info" class="hidden" style="margin:0 24px;padding:7px 14px;background:#0d2240;border:1px solid #1f4080;border-radius:6px;font-size:12px;color:#58a6ff;font-family:'JetBrains Mono',monospace"></div>
+
+    <!-- Controls -->
+    <div style="padding:10px 24px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;border-bottom:1px solid var(--brd);-ms-flex-negative:0;flex-shrink:0;-ms-flex-wrap:wrap;flex-wrap:wrap">
+      <div style="position:relative;-webkit-box-flex:1;-ms-flex:1;flex:1;max-width:320px">
+        <svg style="position:absolute;left:10px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="search-ip" class="inp" style="padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px" placeholder="Rechercher une IP ou un hostname…">
+      </div>
+      <select id="filter-status" class="inp" style="width:160px;cursor:pointer;padding-top:8px;padding-bottom:8px;font-size:13px">
+        <option value="all">Tous les statuts</option>
+        <option value="Libre">Libre</option>
+        <option value="Utilisé">Utilisé</option>
+        <option value="Réservée">Réservée</option>
+      </select>
+      <div id="table-count" style="font-size:13px;color:var(--tx-3);margin-left:auto;white-space:nowrap"></div>
+      <button id="btn-toggle-global-search" type="button" title="Recherche globale IP" style="background:var(--bg-3);border:1px solid var(--brd);border-radius:8px;width:32px;height:32px;color:var(--tx-3);cursor:pointer;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;-ms-flex-negative:0;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </button>
+      <div id="global-search-wrap" class="hidden" style="position:relative">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx-3);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="search-ip-global" class="inp" type="search" placeholder="Recherche globale IP…" style="width:200px;padding-left:30px;font-size:13px;padding-top:8px;padding-bottom:8px">
+        <div id="ip-global-dropdown" style="position:absolute;top:calc(100% + 4px);right:0;min-width:480px;background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.35);z-index:100;max-height:360px;overflow-y:auto;display:none"></div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow:auto" id="tbl-wrap">
+      <div id="tbl-loading" style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;height:300px;gap:14px">
+        <div class="spinner"></div>
+        <div style="font-size:14px;color:var(--tx-3)">Chargement…</div>
+      </div>
+      <table id="ip-table" style="width:100%;border-collapse:collapse;table-layout:fixed;display:none">
+        <thead>
+          <tr style="position:-webkit-sticky;position:sticky;top:0;background:var(--bg-2);z-index:5">
+            <th style="text-align:left;padding:9px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);white-space:nowrap;width:110px">Adresse IP</th>
+            <th data-sort="hostname" class="ip-th-sortable" style="text-align:left;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:200px">Hostname<span class="sort-arrow"></span></th>
+            <th data-sort="os" class="ip-th-sortable" style="text-align:center;padding:9px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:40px">OS<span class="sort-arrow"></span></th>
+            <th data-sort="type" class="ip-th-sortable" style="text-align:center;padding:9px 4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:58px">Type<span class="sort-arrow"></span></th>
+            <th style="text-align:center;padding:9px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:40px">Info</th>
+            <th data-sort="status" class="ip-th-sortable" style="text-align:left;padding:9px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:90px">Statut<span class="sort-arrow"></span></th>
+            <th data-sort="vlan" class="ip-th-sortable" style="text-align:left;padding:9px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:90px">VLAN<span class="sort-arrow"></span></th>
+            <th style="text-align:left;padding:9px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:92px;white-space:nowrap">Mis à jour</th>
+            <th style="text-align:right;padding:9px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-3);border-bottom:1px solid var(--brd);width:200px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ip-tbody"></tbody>
+      </table>
+      <div id="tbl-empty" style="display:none;-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;height:300px;gap:10px">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--brd)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <div style="font-size:15px;color:var(--tx-3);font-weight:500">Aucune IP trouvée</div>
+        <div style="font-size:13px;color:var(--brd)">Modifiez vos filtres ou ajoutez une plage VLAN</div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" style="padding:10px 24px;border-top:1px solid var(--brd);display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:7px;-ms-flex-negative:0;flex-shrink:0;background:var(--bg-2)">
+      <button id="btn-prev" class="pg-btn" disabled>← Précédent</button>
+      <span id="page-info" style="font-size:13px;color:var(--tx-3);margin:0 4px"></span>
+      <button id="btn-next" class="pg-btn">Suivant →</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+
+<!-- Reserve -->
+<div id="modal-reserve" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Assigner une IP</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Choisissez le statut à attribuer à cette adresse</div>
+      </div>
+      <button onclick="closeModal('modal-reserve')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:12px;margin-bottom:20px;font-size:13px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between">
+      <span style="color:var(--tx-3)">Adresse IP</span>
+      <code id="reserve-ip-display" style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px"></code>
+    </div>
+    <form id="form-reserve">
+      <input type="hidden" id="reserve-ip-id">
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Hostname <span id="reserve-hostname-required-mark" style="color:var(--tx-3);font-weight:400">(optionnel)</span></label>
+        <input type="text" id="reserve-hostname" class="inp" placeholder="ex: 942270SN-AP10" maxlength="253" autocomplete="off">
+        <div id="reserve-hostname-hint" style="display:none;margin-top:6px;padding:6px 10px;background:var(--bg-3);border:1px solid var(--brd);border-radius:6px;font-size:12px;color:var(--tx-3);font-family:'JetBrains Mono','Consolas',monospace;"></div>
+      </div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:8px">OS <span style="color:#f85149">*</span></label>
+        <div id="reserve-os-picker" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="os-btn" data-os="redhat" title="Red Hat Enterprise Linux"><img src="/img/os/redhat.svg" width="28" height="28" alt="Red Hat"></button>
+          <button type="button" class="os-btn" data-os="nutanix" title="Nutanix AOS"><img src="/img/os/nutanix.svg" width="28" height="28" alt="Nutanix"></button>
+<button type="button" class="os-btn" data-os="win2022" title="Windows Server 2022"><img src="/img/os/win2022.svg" width="28" height="28" alt="WS 2022"></button>
+        </div>
+        <input type="hidden" id="reserve-os">
+      </div>
+      <div style="margin-bottom:18px;display:flex;align-items:center;gap:10px">
+        <button type="button" id="btn-ping" class="btn btn-g btn-sm">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Tester la connectivité
+        </button>
+        <span id="ping-result" style="font-size:12px;font-weight:500"></span>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-reserve" class="btn btn-g">Annuler</button>
+        <button type="button" id="btn-do-reserve" class="btn" style="background:#2e2000;color:#d29922;border:1px solid #5c4200;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Réserver
+        </button>
+        <button type="button" id="btn-do-use" class="btn btn-ok">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Utiliser
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Menu contextuel — clic droit sur un hostname (statut Utilisé, hors VLAN ADMIN) -->
+<div id="hostname-ctx-menu" class="hidden" style="position:fixed;z-index:1000;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);padding:4px;min-width:200px">
+  <button id="ctx-ping" style="display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;color:var(--tx-1);font-size:13px;padding:8px 10px;border-radius:6px;cursor:pointer;text-align:left" onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background='none'">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    Lancer Ping sur ce serveur
+  </button>
+</div>
+
+<div id="modal-ping" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Ping</div>
+        <div id="ping-modal-subtitle" style="font-size:13px;color:var(--tx-3);margin-top:3px"></div>
+      </div>
+      <button onclick="closeModal('modal-ping')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <pre id="ping-modal-output" style="background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--tx-2);max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0"></pre>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;margin-top:18px">
+      <button type="button" class="btn btn-g" onclick="closeModal('modal-ping')">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Release -->
+<div id="modal-release" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Libérer une IP</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Cette adresse sera marquée Libre</div>
+      </div>
+      <button onclick="const c=document.getElementById('release-comment');if(c)c.value='';closeModal('modal-release')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:#f8514912;border:1px solid #f8514930;border-radius:8px;padding:12px;margin-bottom:20px;font-size:13px;color:#f85149;display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="-ms-flex-negative:0;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>L'IP <strong><code id="release-ip-display" style="font-family:'JetBrains Mono',monospace;font-size:13px"></code></strong> sera marquée <strong>Libre</strong>.</span>
+    </div>
+    <form id="form-release">
+      <input type="hidden" id="release-ip-id">
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:600;color:var(--tx-3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Commentaire <span style="font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></label>
+        <textarea id="release-comment" class="inp" rows="2" placeholder="Raison de la libération, ticket, contexte…" style="resize:none;font-size:13px;padding:9px 12px"></textarea>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-release" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-d">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          Libérer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Rename hostname -->
+<div id="modal-rename" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Modifier le hostname</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Renommer ou effacer le hostname de cette IP</div>
+      </div>
+      <button onclick="closeModal('modal-rename')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:12px;margin-bottom:18px;font-size:13px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between">
+      <span style="color:var(--tx-3)">Adresse IP</span>
+      <code id="rename-ip-display" style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px"></code>
+    </div>
+    <form id="form-rename">
+      <input type="hidden" id="rename-ip-id">
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Hostname</label>
+        <input type="text" id="rename-hostname" class="inp" placeholder="ex: 942270SN-AP10" maxlength="253" autocomplete="off">
+        <div id="rename-hostname-hint" style="display:none;margin-top:6px;padding:6px 10px;background:var(--bg-3);border:1px solid var(--brd);border-radius:6px;font-size:12px;color:var(--tx-3);font-family:'JetBrains Mono','Consolas',monospace;"></div>
+      </div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:8px">OS <span style="color:var(--tx-3);font-weight:400">(optionnel)</span></label>
+        <div id="rename-os-picker" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="os-btn" data-os="redhat" title="Red Hat Enterprise Linux"><img src="/img/os/redhat.svg" width="28" height="28" alt="Red Hat"></button>
+          <button type="button" class="os-btn" data-os="nutanix" title="Nutanix AOS"><img src="/img/os/nutanix.svg" width="28" height="28" alt="Nutanix"></button>
+<button type="button" class="os-btn" data-os="win2022" title="Windows Server 2022"><img src="/img/os/win2022.svg" width="28" height="28" alt="WS 2022"></button>
+          <button type="button" class="os-btn admin-os-btn hidden" data-os="win2016" title="Windows Server 2016"><img src="/img/os/win2016.svg" width="28" height="28" alt="WS 2016"></button>
+          <button type="button" class="os-btn admin-os-btn hidden" data-os="win2019" title="Windows Server 2019"><img src="/img/os/win2019.svg" width="28" height="28" alt="WS 2019"></button>
+        </div>
+        <input type="hidden" id="rename-os">
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-rename" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Info -->
+<div id="modal-info" class="modal-overlay hidden">
+  <div class="modal-box" style="width:760px;height:650px;display:flex;flex-direction:column">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Fiche serveur</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Informations et contacts liés à ce serveur</div>
+      </div>
+      <button onclick="closeModal('modal-info')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:12px;margin-bottom:18px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px">
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Hostname</span>
+        <code id="info-hostname-display" style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px"></code>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Site</span>
+        <span id="info-site-display" style="font-weight:500"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Créé par</span>
+        <span id="info-created-by-display" style="font-weight:500"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--tx-3)">Date de création</span>
+        <span id="info-created-at-display" style="font-weight:500"></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:4px;border-bottom:1px solid var(--brd);margin-bottom:16px;-ms-flex-negative:0;flex-shrink:0">
+      <button type="button" class="vlan-tab on" data-info-tab="contact">Info contact</button>
+      <button type="button" class="vlan-tab" data-info-tab="technique">Fiche technique</button>
+      <button type="button" class="vlan-tab" data-info-tab="commentaire">Commentaire</button>
+      <button type="button" class="vlan-tab" data-info-tab="historique">Historique</button>
+    </div>
+    <form id="form-info" style="-webkit-box-flex:1;-ms-flex:1;flex:1;display:flex;flex-direction:column;min-height:0">
+      <input type="hidden" id="info-ip-id">
+      <div class="no-scrollbar" style="-webkit-box-flex:1;-ms-flex:1;flex:1;overflow-y:auto;min-height:0">
+        <div id="info-pane-contact">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Rôle</label>
+              <select id="info-role-select" class="inp">
+                <option value="">—</option>
+                <option value="__custom__">Autre (saisie manuelle)</option>
+              </select>
+              <input type="text" id="info-role-custom" class="inp hidden" placeholder="Rôle personnalisé…" autocomplete="off" style="margin-top:6px">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Demandeur</label>
+              <input type="text" id="info-demandeur" class="inp" placeholder="ex : Jean Dupont" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Chef de projet</label>
+              <input type="text" id="info-chef-projet" class="inp" placeholder="ex : Marie Martin" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Direction</label>
+              <input type="text" id="info-direction" class="inp" placeholder="ex : Direction des Systèmes d'Information" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Product Owner</label>
+              <input type="text" id="info-product-owner" class="inp" placeholder="ex : Sophie Bernard" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Architecte</label>
+              <input type="text" id="info-architecte" class="inp" placeholder="ex : Paul Lambert" autocomplete="off">
+            </div>
+            <div style="grid-column:1/-1">
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Contact</label>
+              <input type="text" id="info-contact" class="inp" placeholder="ex : jean.dupont@exemple.fr" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div id="info-pane-technique" class="hidden">
+          <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px">
+            <label style="font-size:13px;font-weight:500;white-space:nowrap">Type de serveur</label>
+            <div id="info-server-type-picker" style="display:flex;gap:6px">
+              <button type="button" class="btn btn-g btn-sm server-type-btn" data-type="VM">VM</button>
+              <button type="button" class="btn btn-g btn-sm server-type-btn" data-type="Physique">Physique</button>
+            </div>
+            <input type="hidden" id="info-server-type">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">CPU</label>
+              <select id="info-cpu-select" class="inp">
+                <option value="">—</option>
+                <option value="1 vCPU">1 vCPU</option>
+                <option value="2 vCPU">2 vCPU</option>
+                <option value="4 vCPU">4 vCPU</option>
+                <option value="6 vCPU">6 vCPU</option>
+                <option value="8 vCPU">8 vCPU</option>
+                <option value="12 vCPU">12 vCPU</option>
+                <option value="16 vCPU">16 vCPU</option>
+                <option value="__custom__">Autre (saisie manuelle)</option>
+              </select>
+              <input type="text" id="info-cpu-custom" class="inp hidden" placeholder="ex : 10 vCPU" autocomplete="off" style="margin-top:6px">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">RAM</label>
+              <select id="info-ram-select" class="inp">
+                <option value="">—</option>
+                <option value="1 Go">1 Go</option>
+                <option value="2 Go">2 Go</option>
+                <option value="4 Go">4 Go</option>
+                <option value="6 Go">6 Go</option>
+                <option value="8 Go">8 Go</option>
+                <option value="16 Go">16 Go</option>
+                <option value="64 Go">64 Go</option>
+                <option value="__custom__">Autre (saisie manuelle)</option>
+              </select>
+              <input type="text" id="info-ram-custom" class="inp hidden" placeholder="ex : 32 Go" autocomplete="off" style="margin-top:6px">
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Taille Disque (D)</label>
+              <input type="text" id="info-disk-size" class="inp" placeholder="ex : 500 Go" autocomplete="off">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--tx-3);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Programmes installés</label>
+            <div id="info-programs-fixed" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;margin-bottom:10px;font-size:13px"></div>
+            <div id="info-programs-custom" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;margin-bottom:10px"></div>
+            <button type="button" id="btn-add-program" class="btn btn-g btn-sm">+ Ajouter un programme</button>
+          </div>
+        </div>
+        <div id="info-pane-commentaire" class="hidden">
+          <label style="font-size:12px;font-weight:600;color:var(--tx-3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Commentaire</label>
+          <textarea id="info-notes" class="inp" rows="10" placeholder="Notes, contexte, ticket associé…" style="resize:none;font-size:13px;padding:9px 12px"></textarea>
+        </div>
+        <div id="info-pane-historique" class="hidden">
+          <div id="info-history-loading" style="color:var(--tx-3);font-size:13px">Chargement…</div>
+          <div id="info-history-empty" class="hidden" style="color:var(--tx-3);font-size:13px">Aucun historique pour ce serveur.</div>
+          <div id="info-history-list" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;padding-top:16px;-ms-flex-negative:0;flex-shrink:0">
+        <button type="button" id="btn-cancel-info" class="btn btn-g">Fermer</button>
+        <button type="submit" id="btn-save-info" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-add-vlan" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Ajouter une plage IP</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Les IPs seront générées automatiquement</div>
+      </div>
+      <button onclick="closeModal('modal-add-vlan')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-add-vlan">
+      <div style="display:grid;gap:14px;margin-bottom:18px">
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">VLAN ID <span style="color:#f85149">*</span></label>
+          <input id="new-vlan-id" class="inp" placeholder="ex : 202">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Réseau CIDR <span style="color:#f85149">*</span></label>
+          <input id="new-vlan-network" class="inp" placeholder="ex : 10.0.0.0/24">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Gateway <span style="color:var(--tx-3)">(optionnel)</span></label>
+          <input id="new-vlan-gateway" class="inp" placeholder="ex : 10.0.0.1">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Masque <span style="color:var(--tx-3)">(optionnel)</span></label>
+          <input id="new-vlan-mask" class="inp" placeholder="ex : 255.255.255.0">
+        </div>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-add-vlan" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Créer le VLAN
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Import Excel -->
+<div id="modal-import" class="modal-overlay hidden">
+  <div class="modal-box" style="width:500px">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Import Excel multi-VLAN</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">Fichier .xlsx — col. A : IP · col. B : Hostname · col. C : VLAN</div>
+      </div>
+      <button onclick="closeModal('modal-import')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-import">
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Fichier Excel <span style="color:#f85149">*</span></label>
+        <input id="import-file" type="file" accept=".xlsx,.xls" class="inp" style="cursor:pointer">
+      </div>
+      <div style="background:#58a6ff0a;border:1px solid #58a6ff20;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:var(--tx-3);line-height:1.7">
+        <strong style="color:#58a6ff">Format attendu</strong> — ligne 1 = en-tête ignorée<br>
+        Col. A = Adresse IP <span style="color:#f85149">*</span> · Col. B = Hostname <span style="color:#f85149">*</span> · Col. C = Numéro VLAN <span style="color:#f85149">*</span><br>
+        <span style="color:var(--tx-4)">Les IPs sont placées dans le VLAN correspondant et marquées <strong style="color:#3fb950">Utilisé</strong>.</span>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-import" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Importer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Password change modal -->
+<div id="modal-change-pw" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin-bottom:20px">
+      <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Changer mon mot de passe</div>
+      <button id="btn-cancel-change-pw" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <form id="form-change-pw">
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Mot de passe actuel</label>
+        <input id="cpw-current" class="inp" type="password" required>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Nouveau mot de passe <span style="color:#f85149">*</span></label>
+        <input id="cpw-new" class="inp" type="password" minlength="8" required>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Confirmer le nouveau mot de passe <span style="color:#f85149">*</span></label>
+        <input id="cpw-confirm" class="inp" type="password" minlength="8" required>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:9px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" class="btn btn-g" onclick="closeModal('modal-change-pw')">Annuler</button>
+        <button type="submit" class="btn btn-p">Modifier</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function closeModal(id){document.getElementById(id)?.classList.add('hidden')}
+</script>
+<!-- Request VLAN (non-admin users) -->
+<div id="modal-request-vlan" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Demande de VLAN</div>
+        <div style="font-size:13px;color:var(--tx-3);margin-top:3px">La demande sera soumise à validation administrateur</div>
+      </div>
+      <button onclick="closeModal('modal-request-vlan')" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-request-vlan">
+      <div style="display:grid;gap:14px;margin-bottom:18px">
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">VLAN ID <span style="color:#f85149">*</span></label>
+          <input id="req-vlan-id" class="inp" type="text" placeholder="ex: 100">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Réseau CIDR <span style="color:#f85149">*</span></label>
+          <input id="req-vlan-network" class="inp" type="text" placeholder="ex: 192.168.1.0/24">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Gateway</label>
+          <input id="req-vlan-gateway" class="inp" type="text" placeholder="ex: 192.168.1.1">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:7px">Masque</label>
+          <input id="req-vlan-mask" class="inp" type="text" placeholder="ex: 255.255.255.0">
+        </div>
+      </div>
+      <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+        <button type="button" id="btn-cancel-request-vlan" class="btn btn-g">Annuler</button>
+        <button type="submit" class="btn btn-p">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Envoyer la demande
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════ MODAL : codes site (Code Regate / Code PST) ══════════════════ -->
+<div id="modal-site-codes" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 style="margin:0 0 20px;font-size:16px;font-weight:700">Modifier le code site</h3>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--tx-3);display:block;margin-bottom:6px">Code Regate <span style="color:var(--tx-4)">(optionnel, 10 car. max)</span></label>
+      <input id="modal-code-regate" class="inp" maxlength="10" placeholder="Ex: ABC123" style="font-family:monospace;text-transform:uppercase">
+    </div>
+    <div style="margin-bottom:24px">
+      <label style="font-size:12px;color:var(--tx-3);display:block;margin-bottom:6px">Code PST <span style="color:var(--tx-4)">(optionnel, 10 car. max)</span></label>
+      <input id="modal-code-pst" class="inp" maxlength="10" placeholder="Ex: XYZ456" style="font-family:monospace;text-transform:uppercase">
+    </div>
+    <div style="display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end">
+      <button id="btn-cancel-site-codes" class="btn btn-g">Annuler</button>
+      <button id="btn-save-site-codes" class="btn btn-p">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Popup de réservation (message configurable par tag de VLAN) -->
+<div id="modal-vlan-notice" class="modal-overlay hidden" style="z-index:210">
+  <div class="modal-box" style="width:620px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div id="vln-title" style="font-size:17px;font-weight:700;letter-spacing:-.02em">Information</div>
+      <button id="btn-x-vlan-notice" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <pre id="vln-message" style="white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.65;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:14px;max-height:52vh;overflow:auto;color:var(--tx-1);margin:0 0 18px"></pre>
+    <div style="display:flex;justify-content:flex-end;gap:9px">
+      <button type="button" id="btn-cancel-vlan-notice" class="btn btn-g">Annuler</button>
+      <button type="button" id="btn-ok-vlan-notice" class="btn btn-p">Continuer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Popup de connexion (message configurable dans Administration) -->
+<div id="modal-login-popup" class="modal-overlay hidden">
+  <div class="modal-box" style="width:660px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Information</div>
+      <button id="btn-x-login-popup" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <pre id="lp-modal-message" style="white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.65;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:14px;max-height:52vh;overflow:auto;color:var(--tx-1);margin:0 0 16px"></pre>
+    <label style="display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:18px;cursor:pointer">
+      <input type="checkbox" id="lp-dont-show" style="accent-color:#58a6ff;width:15px;height:15px">
+      Ne plus afficher ce message
+    </label>
+    <div style="display:flex;justify-content:flex-end">
+      <button type="button" id="btn-close-login-popup" class="btn btn-p">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/js/site.js?v=0d5657d"></script>
+</body>
+</html>

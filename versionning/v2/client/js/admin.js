@@ -1,0 +1,1520 @@
+// =============================================================================
+// IPAM SIW — admin.js  (users, sites, logs, stats)
+// =============================================================================
+
+import {
+  requireAuth, startInactivityTimer, checkHttps, getUser, logout,
+  get, post, put, del, delBody, patch, showToast, showAlert, fmtDate, openModal, closeModal, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
+  restoreElevationSession, setupElevationMode,
+} from './api.js?v=0d5657d';
+
+document.addEventListener('DOMContentLoaded', async () => {
+  restoreElevationSession();
+  checkHttps();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
+  if (!requireAuth()) return;
+  startInactivityTimer();
+
+  const user = getUser();
+  if (user?.role !== 'admin') { window.location.replace('/site.html'); return; }
+
+  document.getElementById('nav-username').textContent = user.username;
+  document.getElementById('nav-role').textContent = user?.username === 'ADMIN' ? 'Super Administrateur' : 'Administrateur';
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (await showConfirm({ title: 'Déconnexion', message: 'Voulez-vous vous déconnecter ?', confirmText: 'Se déconnecter', danger: true })) logout();
+  });
+  document.getElementById('btn-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.remove('hidden');
+  });
+  document.getElementById('btn-cancel-change-pw')?.addEventListener('click', () => {
+    document.getElementById('modal-change-pw').classList.add('hidden');
+  });
+  document.getElementById('form-change-pw')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const current = document.getElementById('cpw-current').value;
+    const newpw   = document.getElementById('cpw-new').value;
+    const confirm2 = document.getElementById('cpw-confirm').value;
+    if (newpw !== confirm2) { showToast('Les mots de passe ne correspondent pas', 'warn'); return; }
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Mise à jour…';
+    try {
+      await post('/api/me/password', { currentPassword: current, newPassword: newpw });
+      showToast('Mot de passe modifié avec succès', 'success');
+      document.getElementById('modal-change-pw').classList.add('hidden');
+      e.target.reset();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Modifier'; }
+  });
+
+  // Populate sidebar
+  setupElevationMode();
+  loadAdminSidebar();
+
+  // Tabs
+  const tabs = document.querySelectorAll('.admin-tab');
+  const panes = document.querySelectorAll('.admin-pane');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => setTabActive(t, false));
+      panes.forEach(p => p.classList.add('hidden'));
+      setTabActive(tab, true);
+      const pane = document.getElementById(`pane-${tab.dataset.tab}`);
+      if (pane) pane.classList.remove('hidden');
+    });
+  });
+  function setTabActive(tab, active) {
+    tab.style.color = active ? '#58a6ff' : 'var(--tx-3)';
+    tab.style.borderBottomColor = active ? '#58a6ff' : 'transparent';
+    tab.style.background = active ? '#0d2240' : 'transparent';
+  }
+
+  // Activate first tab
+  if (tabs.length) setTabActive(tabs[0], true);
+
+  // Load initial tab
+  await loadUsers();
+  setupUserModals();
+  setupSiteModals();
+  await loadSites();
+  await loadVlans();
+  setupVlanModals();
+  await loadLogs();
+  setupLogFilters();
+  await loadVlanRequests();
+  await loadAccountRequests();
+  setupPasswordChange();
+  setupBypassKey();
+  setupLoginPopup();
+  setupVlanPopups();
+  setupMigrationOs();
+  setupMigrationPrompt();
+  setupExport();
+
+  // Onglet "Stat du site" — super admin uniquement
+  const isSA = user?.username?.toLowerCase() === 'admin' || user?.elevated === 'sa';
+  if (isSA) {
+    document.getElementById('tab-site-stats')?.classList.remove('hidden');
+  }
+
+  // Refresh on tab click
+  document.querySelectorAll('.admin-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.tab === 'vlan-requests') loadVlanRequests();
+      if (tab.dataset.tab === 'vlans') loadVlans();
+      if (tab.dataset.tab === 'account-requests') loadAccountRequests();
+      if (tab.dataset.tab === 'bypass-key') loadBypassKey();
+      if (tab.dataset.tab === 'site-stats') loadSiteStats();
+      if (tab.dataset.tab === 'login-popup') loadLoginPopup();
+      if (tab.dataset.tab === 'vlan-popups') loadVlanPopups();
+      if (tab.dataset.tab === 'migration-os') loadMigrationOs();
+      if (tab.dataset.tab === 'migration-prompt') loadMigrationPrompt();
+    });
+  });
+  document.getElementById('btn-refresh-vlan-requests')?.addEventListener('click', loadVlanRequests);
+  document.getElementById('btn-refresh-account-requests')?.addEventListener('click', loadAccountRequests);
+});
+
+// =============================================================================
+// USERS
+// =============================================================================
+let allUsers = [];
+
+async function loadUsers() {
+  try {
+    const data = await get('/api/users');
+    allUsers = data.users || [];
+    renderUsers();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+const USERNAME_RE = /^[PX][A-Z]{3}\d{3}$/;
+
+function renderUsers() {
+  const currentUser = getUser();
+  const isSuperAdmin = currentUser?.username?.toLowerCase() === 'admin' || currentUser?.elevated === 'sa';
+  // Colonnes connexion : visibles super admin uniquement
+  document.getElementById('th-login-count')?.classList.toggle('hidden', !isSuperAdmin);
+  document.getElementById('th-last-login')?.classList.toggle('hidden', !isSuperAdmin);
+  const tbody = document.getElementById('users-tbody');
+  if (!allUsers.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--tx-3);padding:32px;">Aucun utilisateur</td></tr>';
+    return;
+  }
+  const roleStyle = {
+    admin:  'color:#58a6ff;background:#0d2240;border:1px solid #1f4080',
+    user:   'color:#3fb950;background:#0d2a1a;border:1px solid #1a5c30',
+    viewer: 'color:var(--tx-3);background:var(--bg-3);border:1px solid var(--brd)',
+  };
+  const roleLabel = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
+
+  tbody.innerHTML = allUsers.map(u => {
+    const isOwnAccount  = u.id === currentUser?.id;
+    const isSuperAcct   = u.username?.toLowerCase() === 'admin';
+    // Réinitialiser MDP : super admin → tous / admin normal → son compte uniquement
+    const showReset     = isSuperAdmin || isOwnAccount;
+    // Supprimer : super admin uniquement, pas sur soi-même, pas sur le compte admin
+    const showDelete    = isSuperAdmin && !isOwnAccount && !isSuperAcct;
+    // Changer le rôle : pas sur le compte super admin, pas sur son propre compte
+    const showRole      = !isSuperAcct && !isOwnAccount;
+    // Désactiver/Activer : admin ou super admin, pas sur ADMIN, pas sur soi-même
+    const showToggle    = !isSuperAcct && !isOwnAccount;
+
+    return `
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:12px 16px;font-weight:700;font-family:monospace;letter-spacing:.04em;">
+        <span style="color:${u.disabled ? 'var(--tx-4)' : 'var(--tx-1)'}">${esc(u.username)}</span>
+        ${u.disabled ? `<span style="font-family:sans-serif;font-size:10px;font-weight:600;color:#f85149;background:#f8514918;border:1px solid #f8514940;border-radius:4px;padding:1px 5px;margin-left:5px;letter-spacing:0">désactivé</span>` : ''}
+      </td>
+      <td style="padding:12px 16px;color:var(--tx-2);font-size:13px;">${esc(u.full_name || '—')}</td>
+      <td style="padding:12px 16px;">
+        <span style="${roleStyle[u.role] || roleStyle.user};display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;">
+          ${roleLabel[u.role] || 'Utilisateur'}
+        </span>
+      </td>
+      <td style="padding:12px 16px;color:var(--tx-4);font-size:12px;">${fmtDate(u.created_at)}</td>
+      ${isSuperAdmin ? `<td style="padding:12px 16px;text-align:center;">
+        <span style="display:inline-block;background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${u.login_count || 0}</span>
+      </td>
+      <td style="padding:12px 16px;color:var(--tx-4);font-size:12px;white-space:nowrap;">${u.last_login ? fmtDate(u.last_login) : '<span style="color:var(--tx-5)">—</span>'}</td>` : ''}
+      <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
+        ${showReset ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-reset-pw"
+          style="background:#2e2000;color:#d29922;border:1px solid #5c4200;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          Réinitialiser MDP
+        </button>` : ''}
+        ${showRole ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" data-urole="${u.role}" class="btn-change-role"
+          style="background:var(--bg-3);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          Changer le rôle
+        </button>` : ''}
+        ${showToggle ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" data-disabled="${u.disabled ? '1' : '0'}" class="btn-toggle-status"
+          style="background:${u.disabled ? '#0d2e1a' : '#2e2000'};color:${u.disabled ? '#3fb950' : '#d29922'};border:1px solid ${u.disabled ? '#1a5c30' : '#5c4200'};border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          ${u.disabled ? 'Activer' : 'Désactiver'}
+        </button>` : ''}
+        ${showDelete ? `<button data-uid="${u.id}" data-uname="${esc(u.username)}" class="btn-del-user"
+          style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          Supprimer
+        </button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.querySelectorAll('.btn-reset-pw').forEach(btn => {
+    btn.addEventListener('click', () => openResetPwModal(btn.dataset.uid, btn.dataset.uname));
+  });
+  document.querySelectorAll('.btn-change-role').forEach(btn => {
+    btn.addEventListener('click', () => openChangeRoleModal(btn.dataset.uid, btn.dataset.uname, btn.dataset.urole));
+  });
+  document.querySelectorAll('.btn-del-user').forEach(btn => {
+    btn.addEventListener('click', () => confirmDeleteUser(btn.dataset.uid, btn.dataset.uname));
+  });
+  document.querySelectorAll('.btn-toggle-status').forEach(btn => {
+    btn.addEventListener('click', () => toggleUserStatus(btn.dataset.uid, btn.dataset.uname, btn.dataset.disabled === '1'));
+  });
+}
+
+async function toggleUserStatus(uid, uname, isCurrentlyDisabled) {
+  const action = isCurrentlyDisabled ? 'activer' : 'désactiver';
+  if (!await showConfirm({
+    title: isCurrentlyDisabled ? `Activer ${uname}` : `Désactiver ${uname}`,
+    message: `Voulez-vous ${action} le compte de ${uname} ?`,
+    confirmText: isCurrentlyDisabled ? 'Activer' : 'Désactiver',
+    danger: !isCurrentlyDisabled,
+  })) return;
+  try {
+    await patch(`/api/users/${uid}/status`, { disabled: !isCurrentlyDisabled });
+    showToast(`Compte ${uname} ${isCurrentlyDisabled ? 'activé' : 'désactivé'}`, 'success');
+    await loadUsers();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupUserModals() {
+  // Create user
+  document.getElementById('btn-create-user').addEventListener('click', () => openModal('modal-create-user'));
+  document.getElementById('btn-cancel-create-user').addEventListener('click', () => closeModal('modal-create-user'));
+  document.getElementById('form-create-user').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fullName = document.getElementById('new-fullname').value.trim();
+    const username = document.getElementById('new-username').value.trim().toUpperCase();
+    const password = document.getElementById('new-password').value;
+    const role     = document.getElementById('new-role').value;
+
+    if (!fullName) { showToast('Nom et prénom obligatoires', 'warn'); return; }
+    if (username !== 'ADMIN' && !USERNAME_RE.test(username)) {
+      showToast("Format invalide — commence par P ou X, 3 lettres, 3 chiffres (ex: PJFY579)", 'warn'); return;
+    }
+
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Création…';
+    try {
+      await post('/api/users', { username, password, role, full_name: fullName });
+      showToast(`Utilisateur "${username}" créé`, 'success');
+      closeModal('modal-create-user');
+      e.target.reset();
+      await loadUsers();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Créer'; }
+  });
+
+  // Change role
+  document.getElementById('btn-cancel-change-role').addEventListener('click', () => closeModal('modal-change-role'));
+  document.getElementById('form-change-role').addEventListener('submit', async e => {
+    e.preventDefault();
+    const uid  = document.getElementById('change-role-uid').value;
+    const role = document.querySelector('input[name="new-role-radio"]:checked')?.value;
+    if (!role) { showToast('Sélectionnez un rôle', 'warn'); return; }
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put(`/api/users/${encodeURIComponent(uid)}/role`, { role });
+      showToast('Rôle mis à jour', 'success');
+      closeModal('modal-change-role');
+      await loadUsers();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Confirmer'; }
+  });
+
+  // Reset password
+  document.getElementById('btn-cancel-reset-pw').addEventListener('click', () => closeModal('modal-reset-pw'));
+  document.getElementById('form-reset-pw').addEventListener('submit', async e => {
+    e.preventDefault();
+    const uidEl      = document.getElementById('reset-pw-uid');
+    const uid        = uidEl.value;
+    const targetName = uidEl.dataset.uname || '';
+    const pass = document.getElementById('reset-pw-value').value;
+    if (targetName === 'admin') {
+      const code = document.getElementById('reset-pw-admin-code')?.value?.trim();
+      if (code !== '7780') { showToast('Code de sécurité incorrect', 'error'); return; }
+    }
+    const btn  = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Mise à jour…';
+    try {
+      await put(`/api/users/${encodeURIComponent(uid)}/password`, { newPassword: pass });
+      showToast('Mot de passe mis à jour', 'success');
+      closeModal('modal-reset-pw');
+      e.target.reset();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Mettre à jour'; }
+  });
+}
+
+function openChangeRoleModal(uid, uname, currentRole) {
+  const u = getUser();
+  const isSuperAdmin = u?.username?.toLowerCase() === 'admin' || u?.elevated === 'sa';
+  document.getElementById('change-role-uid').value = uid;
+  const roleLabels = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
+  document.getElementById('change-role-subtitle').textContent = `Utilisateur : ${uname} — rôle actuel : ${roleLabels[currentRole] || 'Utilisateur'}`;
+  const options = [];
+  if (currentRole !== 'user')   options.push({ value: 'user',   label: 'Utilisateur',     desc: 'Accès complet aux sites et IPs' });
+  if (currentRole !== 'viewer') options.push({ value: 'viewer', label: 'Lecteur',          desc: 'Lecture seule — Tableau de bord & Statistiques uniquement' });
+  if (currentRole !== 'admin' && isSuperAdmin) options.push({ value: 'admin', label: 'Administrateur', desc: 'Accès complet + panneau d\'administration' });
+  document.getElementById('change-role-options').innerHTML = options.map((o, i) => `
+    <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--brd);border-radius:8px;cursor:pointer;background:var(--bg-1)">
+      <input type="radio" name="new-role-radio" value="${o.value}" ${i === 0 ? 'checked' : ''} style="accent-color:#58a6ff">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--tx-1)">${o.label}</div>
+        <div style="font-size:12px;color:var(--tx-3);margin-top:2px">${o.desc}</div>
+      </div>
+    </label>
+  `).join('');
+  openModal('modal-change-role');
+}
+
+function openResetPwModal(uid, uname) {
+  const uidEl = document.getElementById('reset-pw-uid');
+  uidEl.value = uid;
+  uidEl.dataset.uname = uname.toLowerCase();
+  const sub = document.getElementById('reset-pw-subtitle');
+  if (sub) sub.textContent = `Réinitialisation du mot de passe de « ${uname} »`;
+  document.getElementById('reset-pw-value').value = '';
+  const codeSection = document.getElementById('reset-pw-admin-code-section');
+  const codeInput   = document.getElementById('reset-pw-admin-code');
+  if (uname.toLowerCase() === 'admin') {
+    codeSection?.classList.remove('hidden');
+    if (codeInput) codeInput.value = '';
+  } else {
+    codeSection?.classList.add('hidden');
+    if (codeInput) codeInput.value = '';
+  }
+  openModal('modal-reset-pw');
+}
+
+async function confirmDeleteUser(uid, uname) {
+  if (!await showConfirm({ title: 'Supprimer l\'utilisateur', message: `Supprimer l'utilisateur "${uname}" ?`, confirmText: 'Supprimer', danger: true })) return;
+  try {
+    await del(`/api/users/${encodeURIComponent(uid)}`);
+    showToast(`Utilisateur "${uname}" supprimé`, 'success');
+    await loadUsers();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// =============================================================================
+// SITES
+// =============================================================================
+let allSites = [];
+let searchSite = '';
+
+async function loadSites() {
+  try {
+    const data = await get('/api/sites?all=1');
+    allSites = data.sites || [];
+    renderSites();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function renderSites() {
+  const tbody = document.getElementById('sites-tbody');
+  const q = searchSite.toLowerCase();
+  const filtered = q ? allSites.filter(s => s.name.toLowerCase().includes(q)) : allSites;
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--tx-3);padding:32px;">${q ? 'Aucun site ne correspond à la recherche' : 'Aucun site'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(s => `
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:12px 16px;color:var(--tx-1);font-weight:600;">${esc(s.name)}</td>
+      <td style="padding:12px 16px;">
+        ${s.archived
+          ? `<span style="color:var(--tx-3);background:var(--bg-4);border:1px solid var(--brd);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;">Archivé</span>`
+          : `<span style="color:#3fb950;background:#0d2a1a;border:1px solid #1a5c30;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;">En ligne</span>`}
+      </td>
+      <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.site_code ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.site_code || '—'}</td>
+      <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.code_regate ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.code_regate || '—'}</td>
+      <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:${s.code_pst ? 'var(--tx-1)' : 'var(--tx-4)'};">${s.code_pst || '—'}</td>
+      <td style="padding:12px 16px;color:var(--tx-3);">${(s.vlan_count || 0)} VLAN(s)</td>
+      <td style="padding:12px 16px;color:var(--tx-3);">${(s.total || 0).toLocaleString('fr')} IPs</td>
+      <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
+        <a href="/site.html?id=${encodeURIComponent(s.id)}"
+          style="background:#0d2240;color:#58a6ff;border:1px solid #1f4080;border-radius:6px;padding:4px 10px;font-size:12px;text-decoration:none;">
+          Voir
+        </a>
+        <button data-sid="${s.id}" data-sname="${esc(s.name)}" class="btn-rename-site"
+          style="background:var(--bg-4);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          Renommer
+        </button>
+        <button data-sid="${s.id}" data-sname="${esc(s.name)}" data-archived="${s.archived ? '1' : '0'}" class="btn-archive-site"
+          style="background:${s.archived ? '#0d2a1a' : '#2e2000'};color:${s.archived ? '#3fb950' : '#d29922'};border:1px solid ${s.archived ? '#1a5c30' : '#5c4200'};border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          ${s.archived ? 'Désarchiver' : 'Archiver Site'}
+        </button>
+        <button data-sid="${s.id}" data-sname="${esc(s.name)}" class="btn-del-site"
+          style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          Supprimer
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('.btn-rename-site').forEach(btn => {
+    btn.addEventListener('click', () => openRenameSiteModal(btn.dataset.sid, btn.dataset.sname));
+  });
+  document.querySelectorAll('.btn-archive-site').forEach(btn => {
+    btn.addEventListener('click', () => toggleSiteArchived(btn.dataset.sid, btn.dataset.sname, btn.dataset.archived === '1'));
+  });
+  document.querySelectorAll('.btn-del-site').forEach(btn => {
+    btn.addEventListener('click', () => confirmDeleteSite(btn.dataset.sid, btn.dataset.sname));
+  });
+}
+
+async function toggleSiteArchived(sid, sname, isCurrentlyArchived) {
+  if (!await showConfirm({
+    title: isCurrentlyArchived ? `Désarchiver ${sname}` : `Archiver ${sname}`,
+    message: isCurrentlyArchived
+      ? `Réactiver le site "${sname}" ? Il redeviendra visible dans le Tableau de bord, Sites IPAM et les statistiques.`
+      : `Archiver le site "${sname}" ? Ses VLANs et IPs seront masqués du Tableau de bord, de Sites IPAM et des statistiques. Cette action est réversible.`,
+    confirmText: isCurrentlyArchived ? 'Désarchiver' : 'Archiver',
+    danger: !isCurrentlyArchived,
+  })) return;
+  try {
+    await patch(`/api/sites/${encodeURIComponent(sid)}/archive`, { archived: !isCurrentlyArchived });
+    showToast(`Site "${sname}" ${isCurrentlyArchived ? 'désarchivé' : 'archivé'}`, 'success');
+    await loadSites();
+    await loadVlans();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupSiteModals() {
+  // Search site
+  document.getElementById('search-site')?.addEventListener('input', e => {
+    searchSite = e.target.value.trim();
+    renderSites();
+  });
+
+  // Cleanup broadcast IPs
+  document.getElementById('btn-cleanup-broadcast').addEventListener('click', async () => {
+    const ok = await showConfirm({
+      title: 'Supprimer les IPs broadcast',
+      message: 'Cette action supprime définitivement toutes les adresses broadcast (par adresse calculée ou hostname "Broadcast") de tous les sites. Continuer ?',
+      confirmText: 'Supprimer',
+      danger: true,
+    });
+    if (!ok) return;
+    const btn = document.getElementById('btn-cleanup-broadcast');
+    btn.disabled = true; btn.textContent = 'Nettoyage…';
+    try {
+      const res = await post('/api/sites/cleanup-broadcast', {});
+      showToast(`${res.deleted} IP(s) broadcast supprimée(s)`, res.deleted > 0 ? 'success' : 'info');
+      await loadSites();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> Supprimer IPs broadcast';
+    }
+  });
+
+  // Create site
+  document.getElementById('btn-create-site').addEventListener('click', () => openModal('modal-create-site'));
+  document.getElementById('btn-cancel-create-site').addEventListener('click', () => closeModal('modal-create-site'));
+  document.getElementById('form-create-site').addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = document.getElementById('new-site-name').value.trim();
+    const btn  = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Création…';
+    try {
+      await post('/api/sites', { name });
+      showToast(`Site "${name}" créé`, 'success');
+      closeModal('modal-create-site');
+      e.target.reset();
+      await loadSites();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Créer'; }
+  });
+
+  // Rename site
+  document.getElementById('btn-cancel-rename-site').addEventListener('click', () => closeModal('modal-rename-site'));
+  document.getElementById('form-rename-site').addEventListener('submit', async e => {
+    e.preventDefault();
+    const sid  = document.getElementById('rename-site-id').value;
+    const name = document.getElementById('rename-site-name').value.trim();
+    const btn  = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Renommage…';
+    try {
+      await put(`/api/sites/${encodeURIComponent(sid)}`, { name });
+      showToast(`Site renommé en "${name}"`, 'success');
+      closeModal('modal-rename-site');
+      await loadSites();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Renommer'; }
+  });
+}
+
+function openRenameSiteModal(sid, sname) {
+  document.getElementById('rename-site-id').value = sid;
+  document.getElementById('rename-site-name').value = sname;
+  openModal('modal-rename-site');
+}
+
+async function confirmDeleteSite(sid, sname) {
+  if (!await showConfirm({ title: 'Supprimer le site', message: `Supprimer le site "${sname}" et toutes ses données (VLANs, IPs) ? Cette action est IRRÉVERSIBLE.`, confirmText: 'Supprimer', danger: true })) return;
+  try {
+    await del(`/api/sites/${encodeURIComponent(sid)}`);
+    showToast(`Site "${sname}" supprimé`, 'success');
+    await loadSites();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// =============================================================================
+// VLANS
+// =============================================================================
+let allVlans = [];
+let searchVlanId   = '';
+let searchVlanSite = '';
+
+async function loadVlans() {
+  try {
+    const activeSites = allSites.filter(s => !s.archived);
+    if (!activeSites.length) { allVlans = []; renderVlans(); return; }
+    const results = await Promise.all(
+      activeSites.map(s => get(`/api/sites/${encodeURIComponent(s.id)}`))
+    );
+    allVlans = [];
+    results.forEach((data, i) => {
+      (data.vlans || []).forEach(v => allVlans.push({ ...v, site_name: activeSites[i].name }));
+    });
+    allVlans.sort((a, b) =>
+      a.site_name.localeCompare(b.site_name) || Number(a.vlan_id) - Number(b.vlan_id)
+    );
+    renderVlans();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function renderVlans() {
+  const tbody = document.getElementById('vlans-tbody');
+  const qId   = searchVlanId.toLowerCase();
+  const qSite = searchVlanSite.toLowerCase();
+  const filtered = allVlans.filter(v =>
+    (!qId   || String(v.vlan_id).includes(qId)) &&
+    (!qSite || v.site_name.toLowerCase().includes(qSite))
+  );
+  if (!filtered.length) {
+    const msg = (qId || qSite) ? 'Aucun VLAN ne correspond à la recherche' : 'Aucun VLAN';
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--tx-3);padding:32px;">${msg}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(v => `
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:12px 16px;color:var(--tx-3);font-size:13px;">${esc(v.site_name)}</td>
+      <td style="padding:12px 16px;">
+        <span style="color:var(--tx-1);font-weight:600;font-family:'JetBrains Mono',monospace;">VLAN ${esc(String(v.vlan_id))}</span>
+        ${v.description ? `<br><span style="color:var(--tx-3);font-size:12px;">${esc(v.description)}</span>` : ''}
+      </td>
+      <td style="padding:12px 16px;color:var(--tx-3);font-size:13px;">${esc(v.network || '—')}</td>
+      <td style="padding:12px 16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
+        <button data-vid="${v.id}" data-vlan="${esc(String(v.vlan_id))}" data-site="${esc(v.site_name)}" data-net="${esc(v.network||'')}" data-desc="${esc(v.description||'')}" class="btn-rename-vlan"
+          style="background:var(--bg-4);color:var(--tx-3);border:1px solid var(--brd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          Renommer
+        </button>
+        <button data-vid="${v.id}" data-vlan="${esc(String(v.vlan_id))}" data-site="${esc(v.site_name)}" class="btn-del-vlan"
+          style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+          Supprimer
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('.btn-rename-vlan').forEach(btn => {
+    btn.addEventListener('click', () => openRenameVlanModal(btn.dataset.vid, btn.dataset.vlan, btn.dataset.site, btn.dataset.net, btn.dataset.desc));
+  });
+  document.querySelectorAll('.btn-del-vlan').forEach(btn => {
+    btn.addEventListener('click', () => confirmDeleteVlan(btn.dataset.vid, btn.dataset.vlan, btn.dataset.site));
+  });
+}
+
+function setupVlanModals() {
+  // Search
+  document.getElementById('search-vlan-id')?.addEventListener('input', e => {
+    searchVlanId = e.target.value.trim();
+    renderVlans();
+  });
+  document.getElementById('search-vlan-site')?.addEventListener('input', e => {
+    searchVlanSite = e.target.value.trim();
+    renderVlans();
+  });
+
+  document.getElementById('btn-cancel-rename-vlan').addEventListener('click', () => closeModal('modal-rename-vlan'));
+  document.getElementById('form-rename-vlan').addEventListener('submit', async e => {
+    e.preventDefault();
+    const vid      = document.getElementById('rename-vlan-id').value;
+    const newVlanId = Number(document.getElementById('rename-vlan-value').value);
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Renommage…';
+    try {
+      const description = document.getElementById('rename-vlan-description').value.trim();
+      await put(`/api/vlans/${encodeURIComponent(vid)}`, { vlan_id: newVlanId, description });
+      showToast(`VLAN renommé en ${newVlanId}`, 'success');
+      closeModal('modal-rename-vlan');
+      await loadVlans();
+    } catch (err) { await showAlert({ title: 'Conflit détecté', message: err.message }); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Renommer'; }
+  });
+}
+
+function openRenameVlanModal(vid, vlanId, siteName, network, description = '') {
+  document.getElementById('rename-vlan-id').value = vid;
+  document.getElementById('rename-vlan-value').value = vlanId;
+  document.getElementById('rename-vlan-subtitle').textContent = `${siteName} — ${network || 'réseau non défini'}`;
+  document.getElementById('rename-vlan-description').value = description;
+  openModal('modal-rename-vlan');
+}
+
+async function confirmDeleteVlan(vid, vlanId, siteName) {
+  if (!await showConfirm({ title: `Supprimer VLAN ${vlanId}`, message: `Supprimer VLAN ${vlanId} du site "${siteName}" ? Toutes les IPs associées seront définitivement supprimées. Cette action est IRRÉVERSIBLE.`, confirmText: 'Supprimer', danger: true })) return;
+  try {
+    await del(`/api/vlans/${encodeURIComponent(vid)}`);
+    showToast(`VLAN ${vlanId} supprimé`, 'success');
+    await loadVlans();
+    await loadSites(); // mise à jour du compteur de VLANs dans l'onglet Sites
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// =============================================================================
+// LOGS
+// =============================================================================
+let allLogs = [];
+
+async function loadLogs() {
+  try {
+    const data = await get('/api/logs?limit=2000');
+    allLogs = data.logs || [];
+
+    // Bouton "Effacer" visible uniquement pour le super admin
+    const clearBtn = document.getElementById('btn-clear-logs');
+    const cu = getUser();
+    if (cu?.username?.toLowerCase() === 'admin' || cu?.elevated === 'sa') {
+      clearBtn.classList.remove('hidden');
+      if (!clearBtn._listenerAttached) {
+        clearBtn._listenerAttached = true;
+        clearBtn.addEventListener('click', async () => {
+          if (!await showConfirm({ title: 'Effacer les journaux', message: 'Effacer tous les journaux d\'activité ? Cette action est irréversible.', confirmText: 'Effacer', danger: true })) return;
+          try {
+            await del('/api/logs');
+            showToast('Journaux effacés', 'success');
+            allLogs = [];
+            renderLogs();
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      }
+    }
+
+    // Peupler le sélecteur d'actions avec les valeurs uniques présentes dans les logs
+    const actionSel = document.getElementById('log-filter-action');
+    const actions = [...new Set(allLogs.map(l => l.action).filter(Boolean))].sort();
+    actionSel.innerHTML = '<option value="">Toutes les actions</option>' +
+      actions.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
+
+    renderLogs();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function renderLogs() {
+  const dateVal   = document.getElementById('log-filter-date')?.value   || '';
+  const actionVal = document.getElementById('log-filter-action')?.value || '';
+
+  const filtered = allLogs.filter(l => {
+    if (dateVal) {
+      const logDate = l.created_at ? new Date(l.created_at).toISOString().slice(0, 10) : '';
+      if (logDate !== dateVal) return false;
+    }
+    if (actionVal && l.action !== actionVal) return false;
+    return true;
+  });
+
+  const countEl = document.getElementById('log-count');
+  if (countEl) {
+    countEl.textContent = (dateVal || actionVal)
+      ? `${filtered.length} / ${allLogs.length} résultat(s)`
+      : `${allLogs.length} entrée(s)`;
+  }
+
+  const tbody = document.getElementById('logs-tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--tx-3);padding:32px;">Aucun résultat</td></tr>';
+    return;
+  }
+  const _u = getUser();
+  const isSuperAdmin = _u?.username?.toLowerCase() === 'admin' || _u?.elevated === 'sa';
+  tbody.innerHTML = filtered.map((l, i) => `
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:10px 16px;color:var(--tx-4);font-size:12px;white-space:nowrap;">${fmtDate(l.created_at)}</td>
+      <td style="padding:10px 16px;color:var(--tx-3);font-size:13px;">${esc(l.username || '—')}</td>
+      <td style="padding:10px 16px;color:var(--tx-1);font-size:13px;">${esc(l.action || '')}</td>
+      <td style="padding:10px 16px;color:var(--tx-3);font-size:12px;font-family:monospace;">${esc(l.details || '')}</td>
+      <td style="padding:6px 12px;text-align:right;white-space:nowrap;">
+        ${isSuperAdmin ? `<button class="btn-del-log" data-idx="${i}"
+          style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:4px;"
+          title="Supprimer ce log">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        </button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  if (isSuperAdmin) {
+    tbody.querySelectorAll('.btn-del-log').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const log = filtered[Number(btn.dataset.idx)];
+        if (!log) return;
+        if (!await showConfirm({ title: 'Supprimer ce log', message: `Supprimer l'entrée « ${log.action} » du ${fmtDate(log.created_at)} ?`, confirmText: 'Supprimer', danger: true })) return;
+        try {
+          await delBody('/api/logs/entry', { raw: log._raw });
+          allLogs = allLogs.filter(l => l._raw !== log._raw);
+          showToast('Log supprimé', 'success');
+          renderLogs();
+        } catch (err) { showToast(err.message, 'error'); }
+      });
+    });
+  }
+}
+
+function setupLogFilters() {
+  document.getElementById('log-filter-date')?.addEventListener('change', renderLogs);
+  document.getElementById('log-filter-action')?.addEventListener('change', renderLogs);
+  document.getElementById('btn-log-reset')?.addEventListener('click', () => {
+    document.getElementById('log-filter-date').value = '';
+    document.getElementById('log-filter-action').value = '';
+    renderLogs();
+  });
+}
+
+// =============================================================================
+// PASSWORD CHANGE (own password)
+// =============================================================================
+// =============================================================================
+// Clé de bypass
+// =============================================================================
+async function loadBypassKey() {
+  try {
+    const data    = await get('/api/config/bypass-key');
+    const display = document.getElementById('bypass-key-display');
+    const meta    = document.getElementById('bypass-key-meta');
+    const status  = document.getElementById('bypass-key-status');
+
+    if (!data.generated_at) {
+      display.textContent = '—';
+      meta.textContent = 'Aucune clé générée';
+      status.style.display = 'none';
+      return;
+    }
+
+    const genDate = new Date(data.generated_at);
+    const expDate = data.expires_at ? new Date(data.expires_at) : null;
+    const fmt     = d => `${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    if (data.expired || !data.key) {
+      display.textContent = '— expirée —';
+      display.style.color = 'var(--tx-4)';
+    } else {
+      display.textContent = data.key;
+      display.style.color = '#58a6ff';
+    }
+
+    meta.textContent = `Générée par ${data.generated_by} le ${fmt(genDate)}${expDate ? ' · expire le ' + fmt(expDate) : ''}`;
+
+    if (data.used_at) {
+      const usedDate = new Date(data.used_at);
+      const purposeLabel = { scan: 'Scan réseau', services: 'Services', cert: 'Certificat SSL', nettools: 'Nmap / tcpdump' }[data.used_for] || data.used_for;
+      status.style.cssText = 'display:block;background:#0d2e1a;border:1px solid #238636;color:#3fb950;border-radius:7px;padding:7px 10px;font-size:12px;margin-top:10px';
+      status.textContent   = `✓ Utilisée par ${data.used_by} le ${fmt(usedDate)} — ${purposeLabel}`;
+    } else if (!data.expired && data.key) {
+      status.style.cssText = 'display:block;background:#0d2240;border:1px solid #1f4080;color:#58a6ff;border-radius:7px;padding:7px 10px;font-size:12px;margin-top:10px';
+      status.textContent   = '⏳ Non utilisée — disponible';
+    } else {
+      status.style.display = 'none';
+    }
+  } catch (e) { showToast('Erreur chargement clé de bypass', 'error'); }
+}
+
+function setupBypassKey() {
+  document.getElementById('btn-generate-bypass-key').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-generate-bypass-key');
+    btn.disabled = true; btn.textContent = 'Génération…';
+    try {
+      const data = await post('/api/config/bypass-key/generate', {});
+      document.getElementById('bypass-key-display').textContent = data.key;
+      const now = new Date();
+      document.getElementById('bypass-key-meta').textContent =
+        `Générée à l'instant — ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+      showToast('Nouvelle clé générée', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> Générer une nouvelle clé`;
+    }
+  });
+
+  document.getElementById('btn-copy-bypass-key').addEventListener('click', () => {
+    const key = document.getElementById('bypass-key-display').textContent.trim();
+    if (!key || key === '—') { showToast('Aucune clé à copier', 'warn'); return; }
+    navigator.clipboard.writeText(key).then(() => showToast('Clé copiée', 'success'));
+  });
+}
+
+// =============================================================================
+// POPUP DE CONNEXION
+// =============================================================================
+async function loadLoginPopup() {
+  try {
+    const d = await get('/api/login-popup');
+    document.getElementById('lp-enabled').checked = !!d.enabled;
+    document.getElementById('lp-message').value   = d.message || '';
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupLoginPopup() {
+  const btn = document.getElementById('btn-save-login-popup');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const enabled = document.getElementById('lp-enabled').checked;
+    const message = document.getElementById('lp-message').value;
+    if (enabled && !message.trim()) { showToast('Le message ne peut pas être vide', 'warn'); return; }
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put('/api/login-popup', { enabled, message });
+      showToast('Popup de connexion enregistré', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer';
+    }
+  });
+}
+
+// =============================================================================
+// POPUP MIGRATION (post-Réserver/Utiliser)
+// =============================================================================
+async function loadMigrationPrompt() {
+  try {
+    const d = await get('/api/migrations/prompt-config');
+    document.getElementById('mp-enabled').checked = !!d.enabled;
+    document.getElementById('mp-message-reserve').value = d.message_reserve || '';
+    document.getElementById('mp-message-use').value = d.message_use || '';
+    const tags = new Set(d.vlan_tags || []);
+    document.querySelectorAll('.mp-tag-cb').forEach(cb => { cb.checked = tags.has(cb.value); });
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupMigrationPrompt() {
+  const btn = document.getElementById('btn-save-migration-prompt');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const enabled = document.getElementById('mp-enabled').checked;
+    const message_reserve = document.getElementById('mp-message-reserve').value;
+    const message_use = document.getElementById('mp-message-use').value;
+    const vlan_tags = [...document.querySelectorAll('.mp-tag-cb:checked')].map(cb => cb.value);
+    if (enabled && (!message_reserve.trim() || !message_use.trim())) {
+      showToast('Les deux messages ne peuvent pas être vides', 'warn'); return;
+    }
+    if (enabled && !vlan_tags.length) {
+      showToast('Sélectionnez au moins un VLAN', 'warn'); return;
+    }
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put('/api/migrations/prompt-config', { enabled, message_reserve, message_use, vlan_tags });
+      showToast('Popup Migration enregistré', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer';
+    }
+  });
+}
+
+// =============================================================================
+// POPUP DE RÉSERVATION (par tag de VLAN)
+// =============================================================================
+async function loadVlanPopups() {
+  const list = document.getElementById('vp-list');
+  try {
+    const { popups } = await get('/api/vlan-popups');
+    const entries = Object.entries(popups || {}).sort(([a], [b]) => a.localeCompare(b));
+    if (!entries.length) {
+      list.innerHTML = '<p style="color:var(--tx-3);font-size:13px">Aucun message configuré.</p>';
+      return;
+    }
+    list.innerHTML = entries.map(([tag, msg]) => `
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:16px 18px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:700;font-size:13px;color:#58a6ff">VLAN ${esc(tag)}</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-g btn-sm vp-edit" data-tag="${esc(tag)}">Modifier</button>
+            <button class="btn btn-g btn-sm vp-del" data-tag="${esc(tag)}" style="color:#f85149">Supprimer</button>
+          </div>
+        </div>
+        <pre style="white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono','Consolas',monospace;font-size:12px;line-height:1.55;color:var(--tx-2);margin:0">${esc(msg)}</pre>
+      </div>`).join('');
+    list.querySelectorAll('.vp-edit').forEach(b => b.addEventListener('click', () => {
+      document.getElementById('vp-tag').value = b.dataset.tag;
+      document.getElementById('vp-message').value = popups[b.dataset.tag] || '';
+      document.getElementById('vp-message').focus();
+    }));
+    list.querySelectorAll('.vp-del').forEach(b => b.addEventListener('click', async () => {
+      if (!await showConfirm({ title: 'Supprimer le message', message: `Supprimer le message du VLAN ${b.dataset.tag} ?`, confirmText: 'Supprimer', danger: true })) return;
+      try {
+        await put('/api/vlan-popups', { tag: b.dataset.tag, message: '' });
+        showToast('Message supprimé', 'success');
+        loadVlanPopups();
+      } catch (e) { showToast(e.message, 'error'); }
+    }));
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupVlanPopups() {
+  const btn = document.getElementById('btn-save-vlan-popup');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const tag = document.getElementById('vp-tag').value.trim().toUpperCase();
+    const message = document.getElementById('vp-message').value;
+    if (!tag) { showToast('Indiquez un tag de VLAN', 'warn'); return; }
+    if (!message.trim()) { showToast('Le message ne peut pas être vide', 'warn'); return; }
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await put('/api/vlan-popups', { tag, message });
+      showToast('Message enregistré', 'success');
+      document.getElementById('vp-tag').value = '';
+      document.getElementById('vp-message').value = '';
+      loadVlanPopups();
+    } catch (e) { showToast(e.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer';
+    }
+  });
+}
+
+// =============================================================================
+// MIGRATION SERVEURS — CATALOGUE DES OS
+// =============================================================================
+let migrationOsCache = { old: [], new: [] };
+
+async function loadMigrationOs() {
+  try {
+    migrationOsCache = await get('/api/migrations/os-config');
+    renderMigrationOsList('old');
+    renderMigrationOsList('new');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function renderMigrationOsList(list) {
+  const el = document.getElementById(`mos-list-${list}`);
+  const entries = migrationOsCache[list] || [];
+  if (!entries.length) {
+    el.innerHTML = '<p style="color:var(--tx-3);font-size:12px">Aucune entrée.</p>';
+    return;
+  }
+  el.innerHTML = entries.map((e, i) => `
+    <div style="display:flex;align-items:center;gap:10px;background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:8px 10px">
+      <img src="/img/os/${esc(e.icon)}.svg" width="20" height="20" alt="${esc(e.icon)}">
+      <span style="flex:1;font-size:13px;font-weight:600">${esc(e.value)}</span>
+      ${e.locked ? '<span style="font-size:11px;color:#d29922;background:#d2992218;border:1px solid #d2992240;border-radius:5px;padding:1px 7px">Admin</span>' : ''}
+      <button class="mos-del" data-list="${list}" data-i="${i}" title="Supprimer" style="background:none;border:none;color:#f85149;cursor:pointer;padding:3px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+    </div>`).join('');
+  el.querySelectorAll('.mos-del').forEach(b => b.addEventListener('click', () => removeMigrationOsEntry(b.dataset.list, parseInt(b.dataset.i))));
+}
+
+async function saveMigrationOsList(list, entries) {
+  await put('/api/migrations/os-config', { list, entries });
+  migrationOsCache[list] = entries;
+  renderMigrationOsList(list);
+}
+
+async function removeMigrationOsEntry(list, index) {
+  const entries = (migrationOsCache[list] || []).filter((_, i) => i !== index);
+  if (!entries.length) { showToast('Au moins une entrée est requise', 'warn'); return; }
+  try {
+    await saveMigrationOsList(list, entries);
+    showToast('Entrée supprimée', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function setupMigrationOs() {
+  ['old', 'new'].forEach(list => {
+    const btn = document.getElementById(`btn-mos-add-${list}`);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const value  = document.getElementById(`mos-${list}-value`).value.trim();
+      const icon   = document.getElementById(`mos-${list}-icon`).value;
+      const locked = document.getElementById(`mos-${list}-locked`).checked;
+      if (!value) { showToast('Indiquez une valeur', 'warn'); return; }
+      const entries = [...(migrationOsCache[list] || [])];
+      if (entries.some(e => e.value.toLowerCase() === value.toLowerCase())) {
+        showToast('Cette valeur existe déjà', 'warn'); return;
+      }
+      entries.push({ value, icon, locked });
+      try {
+        await saveMigrationOsList(list, entries);
+        document.getElementById(`mos-${list}-value`).value = '';
+        document.getElementById(`mos-${list}-locked`).checked = false;
+        showToast('Entrée ajoutée', 'success');
+      } catch (e) { showToast(e.message, 'error'); }
+    });
+  });
+}
+
+function setupPasswordChange() {
+  document.getElementById('form-change-pw').addEventListener('submit', async e => {
+    e.preventDefault();
+    const current = document.getElementById('current-pw').value;
+    const newpw   = document.getElementById('new-pw').value;
+    const confirm2 = document.getElementById('confirm-pw').value;
+    if (newpw !== confirm2) { showToast('Les mots de passe ne correspondent pas', 'warn'); return; }
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Mise à jour…';
+    try {
+      await post('/api/me/password', { currentPassword: current, newPassword: newpw });
+      showToast('Mot de passe modifié avec succès', 'success');
+      e.target.reset();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Modifier'; }
+  });
+}
+
+// =============================================================================
+// Sidebar population
+// =============================================================================
+async function loadAdminSidebar() {
+  try {
+    const data = await get('/api/sites');
+    const sites = data.sites || [];
+    const searchEl = document.getElementById('sidebar-search');
+    const listEl   = document.getElementById('site-list');
+
+    function renderList(q = '') {
+      const sorted = sortSites(sites);
+      const filtered = q ? sorted.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sorted;
+      listEl.innerHTML = filtered.map(s =>
+        `<a href="/site.html?id=${encodeURIComponent(s.id)}" class="site-item">
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px">${esc(s.name)}</span>
+          <span style="font-size:11px;color:var(--tx-5);-ms-flex-negative:0;flex-shrink:0">${s.total || 0}</span>
+        </a>`
+      ).join('');
+    }
+
+    searchEl?.addEventListener('input', e => renderList(e.target.value.trim()));
+    renderList();
+  } catch (_) { /* sidebar is non-critical */ }
+}
+
+// =============================================================================
+// VLAN REQUESTS
+// =============================================================================
+async function loadVlanRequests() {
+  try {
+    const data = await get('/api/vlan_requests');
+    const requests = data.requests || [];
+    renderVlanRequests(requests);
+
+    // Badge on tab
+    const badge = document.getElementById('vlan-requests-badge');
+    if (badge) {
+      if (requests.length) {
+        badge.textContent = requests.length;
+        badge.classList.remove('hidden');
+        badge.style.display = 'inline-block';
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function renderVlanRequests(requests) {
+  const tbody = document.getElementById('vlan-requests-tbody');
+  const empty = document.getElementById('vlan-requests-empty');
+
+  if (!requests.length) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  tbody.innerHTML = requests.map(r => `
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:11px 16px;font-size:13px;font-weight:600;color:var(--tx-1);">${esc(r.site_name)}</td>
+      <td style="padding:11px 16px;font-size:13px;color:#58a6ff;font-weight:700;">${esc(r.vlan_id)}</td>
+      <td style="padding:11px 16px;font-size:13px;font-family:monospace;color:var(--tx-1);">${esc(r.network || '—')}</td>
+      <td style="padding:11px 16px;font-size:12px;color:var(--tx-3);">${esc(r.gateway || '—')} / ${esc(r.mask || '—')}</td>
+      <td style="padding:11px 16px;">
+        <span style="background:#58a6ff18;border:1px solid #58a6ff44;color:#58a6ff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:600;">${esc(r.username)}</span>
+      </td>
+      <td style="padding:11px 16px;font-size:12px;color:var(--tx-4);white-space:nowrap;">${fmtDate(r.created_at)}</td>
+      <td style="padding:11px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
+        <button data-rid="${r.id}" class="btn-approve-vlan"
+          style="background:#1a3d2b;color:#3fb950;border:1px solid #2a5f38;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+          ✓ Valider
+        </button>
+        <button data-rid="${r.id}" class="btn-reject-vlan"
+          style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+          ✕ Refuser
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('.btn-approve-vlan').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!await showConfirm({ title: 'Valider la demande', message: 'Valider cette demande de VLAN et créer le VLAN ?', confirmText: 'Valider' })) return;
+      try {
+        await post(`/api/vlan_requests/${encodeURIComponent(btn.dataset.rid)}/approve`, {});
+        showToast('VLAN créé avec succès', 'success');
+        await loadVlanRequests();
+      } catch (err) { await showAlert({ title: 'Conflit détecté', message: err.message }); }
+    });
+  });
+
+  document.querySelectorAll('.btn-reject-vlan').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!await showConfirm({ title: 'Refuser la demande', message: 'Refuser et supprimer cette demande de VLAN ?', confirmText: 'Refuser', danger: true })) return;
+      try {
+        await del(`/api/vlan_requests/${encodeURIComponent(btn.dataset.rid)}`);
+        showToast('Demande refusée', 'info');
+        await loadVlanRequests();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+  });
+}
+
+// =============================================================================
+// ACCOUNT REQUESTS
+// =============================================================================
+async function loadAccountRequests() {
+  try {
+    const data = await get('/api/account_requests');
+    const requests = data.requests || [];
+    renderAccountRequests(requests);
+
+    // Badge on tab
+    const badge = document.getElementById('account-requests-badge');
+    if (badge) {
+      if (requests.length) {
+        badge.textContent = requests.length;
+        badge.classList.remove('hidden');
+        badge.style.display = 'inline-block';
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function renderAccountRequests(requests) {
+  const tbody = document.getElementById('account-requests-tbody');
+  const empty = document.getElementById('account-requests-empty');
+
+  if (!requests.length) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  tbody.innerHTML = requests.map(r => `
+    <tr style="border-bottom:1px solid var(--bg-4);"
+        onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
+      <td style="padding:11px 16px;font-size:13px;font-weight:600;color:var(--tx-1);">${esc(r.full_name)}</td>
+      <td style="padding:11px 16px;">
+        <span style="background:#58a6ff18;border:1px solid #58a6ff44;color:#58a6ff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:600;font-family:monospace;">${esc(r.username)}</span>
+      </td>
+      <td style="padding:11px 16px;font-size:12px;color:var(--tx-4);white-space:nowrap;">${fmtDate(r.created_at)}</td>
+      <td style="padding:11px 16px;text-align:right;display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-webkit-box-pack:end;-ms-flex-pack:end;justify-content:flex-end;">
+        <button data-rid="${r.id}" class="btn-approve-account"
+          style="background:#1a3d2b;color:#3fb950;border:1px solid #2a5f38;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+          ✓ Approuver
+        </button>
+        <button data-rid="${r.id}" class="btn-reject-account"
+          style="background:#3d1a1a;color:#f85149;border:1px solid #6b2020;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+          ✕ Refuser
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('.btn-approve-account').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!await showConfirm({ title: 'Approuver la demande', message: 'Approuver cette demande et créer le compte utilisateur ?', confirmText: 'Approuver' })) return;
+      try {
+        await post(`/api/account_requests/${encodeURIComponent(btn.dataset.rid)}/approve`, {});
+        showToast('Compte créé avec succès', 'success');
+        await loadAccountRequests();
+        await loadUsers();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+  });
+
+  document.querySelectorAll('.btn-reject-account').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!await showConfirm({ title: 'Refuser la demande', message: 'Refuser et supprimer cette demande de compte ?', confirmText: 'Refuser', danger: true })) return;
+      try {
+        await del(`/api/account_requests/${encodeURIComponent(btn.dataset.rid)}`);
+        showToast('Demande refusée', 'info');
+        await loadAccountRequests();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+  });
+}
+
+// =============================================================================
+// STAT DU SITE
+// =============================================================================
+async function loadSiteStats() {
+  const el = document.getElementById('site-stats-content');
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--tx-3);font-size:13px;">Chargement…</p>';
+  try {
+    const d = await get('/api/logs/site-stats');
+    const fmtDur = s => {
+      if (s === null || s === undefined) return '—';
+      if (s < 60)  return `${s}s`;
+      if (s < 3600) return `${Math.floor(s/60)}min ${s%60}s`;
+      return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}min`;
+    };
+    const stat = (label, value, color = '#58a6ff') => `
+      <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:20px 24px;text-align:center;">
+        <div style="font-size:28px;font-weight:700;color:${color};letter-spacing:-0.02em;">${value}</div>
+        <div style="font-size:12px;color:var(--tx-3);margin-top:4px;font-weight:500;">${label}</div>
+      </div>`;
+
+    const ROLE_COLORS = { admin: '#58a6ff', user: '#3fb950', viewer: '#d29922' };
+    const ROLE_LABELS = { admin: 'Administrateur', user: 'Utilisateur', viewer: 'Lecteur' };
+
+    function donutSvg(slices) {
+      const total = slices.reduce((s, r) => s + r.value, 0);
+      if (!total) return `<text x="60" y="65" text-anchor="middle" font-size="11" fill="#8b949e">Aucune donnée</text>`;
+      const R = 50, IR = 28, cx = 60, cy = 60;
+      // If only one slice has data, draw full rings instead of arc paths (arc 360° is degenerate)
+      const nonZero = slices.filter(s => s.value > 0);
+      if (nonZero.length === 1) {
+        const s = nonZero[0];
+        return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${s.color}"/>
+          <circle cx="${cx}" cy="${cy}" r="${IR}" fill="var(--bg-2)"/>
+          <text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="13" font-weight="700" fill="#e6edf3">${total.toLocaleString('fr')}</text>
+          <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="9" fill="#8b949e">total</text>`;
+      }
+      let angle = -Math.PI / 2;
+      const paths = slices.map(s => {
+        const pct = s.value / total;
+        if (pct === 0) return '';
+        const a0 = angle, a1 = angle + pct * 2 * Math.PI;
+        angle = a1;
+        const large = a1 - a0 > Math.PI ? 1 : 0;
+        const x1 = cx + R * Math.cos(a0), y1 = cy + R * Math.sin(a0);
+        const x2 = cx + R * Math.cos(a1), y2 = cy + R * Math.sin(a1);
+        const x3 = cx + IR * Math.cos(a1), y3 = cy + IR * Math.sin(a1);
+        const x4 = cx + IR * Math.cos(a0), y4 = cy + IR * Math.sin(a0);
+        const path = `M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${x3},${y3} A${IR},${IR} 0 ${large},0 ${x4},${y4}Z`;
+        return `<path d="${path}" fill="${s.color}"><title>${s.label} : ${Math.round(pct*100)}%</title></path>`;
+      }).join('');
+      const totalLabel = total.toLocaleString('fr');
+      return `${paths}<text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="13" font-weight="700" fill="#e6edf3">${totalLabel}</text><text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="9" fill="#8b949e">total</text>`;
+    }
+
+    function donutChart(title, slices) {
+      const total = slices.reduce((s, r) => s + r.value, 0);
+      const legend = slices.map(s => {
+        const pct = total ? Math.round(s.value / total * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bg-4);">
+          <div style="width:10px;height:10px;border-radius:3px;background:${s.color};flex-shrink:0"></div>
+          <span style="font-size:12px;color:var(--tx-2);flex:1">${s.label}</span>
+          <span style="font-size:12px;font-weight:700;color:${s.color}">${pct}%</span>
+          <span style="font-size:11px;color:var(--tx-4);min-width:40px;text-align:right">${s.sub}</span>
+        </div>`;
+      }).join('');
+      return `
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px 24px;">
+          <div style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:16px;">${title}</div>
+          <div style="display:flex;align-items:center;gap:20px;">
+            <svg width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0">${donutSvg(slices)}</svg>
+            <div style="flex:1;min-width:0">${legend}</div>
+          </div>
+        </div>`;
+    }
+
+    function userLoginsList(users) {
+      if (!users.length) {
+        return `<div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px 24px;color:var(--tx-3);font-size:13px;">Aucune connexion tracée.</div>`;
+      }
+      const max = Math.max(...users.map(u => u.logins));
+      const rows = users.map(u => `
+        <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--bg-4);">
+          <span style="font-size:13px;color:var(--tx-1);font-weight:500;min-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(u.username)}</span>
+          <div style="flex:1;background:var(--bg-4);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:${max ? Math.round(u.logins / max * 100) : 0}%;height:100%;background:#58a6ff;border-radius:4px;"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:#58a6ff;min-width:70px;text-align:right;">${u.logins.toLocaleString('fr')} cnx</span>
+        </div>`).join('');
+      return `
+        <div style="background:var(--bg-2);border:1px solid var(--brd);border-radius:12px;padding:20px 24px;">
+          <div style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">Connexions par utilisateur</div>
+          ${rows}
+        </div>`;
+    }
+
+    const br = d.by_role || {};
+    const roles = ['admin', 'user', 'viewer'];
+
+    const loginSlices = roles.map(r => ({
+      label: ROLE_LABELS[r], color: ROLE_COLORS[r],
+      value: br[r]?.logins || 0,
+      sub:   `${(br[r]?.logins || 0).toLocaleString('fr')} cnx`,
+    }));
+
+    const durSlices = roles.map(r => ({
+      label: ROLE_LABELS[r], color: ROLE_COLORS[r],
+      value: br[r]?.avg_duration_s || 0,
+      sub:   fmtDur(br[r]?.avg_duration_s),
+    }));
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+        ${stat('Connexions cette semaine', d.week.toLocaleString('fr'))}
+        ${stat('Connexions ce mois', d.month.toLocaleString('fr'))}
+        ${stat('Connexions cette année', d.year.toLocaleString('fr'))}
+        ${stat('Durée moy. de session', fmtDur(d.avg_duration_s), '#a371f7')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        ${donutChart('Connexions par rôle', loginSlices)}
+        ${donutChart('Durée moy. par rôle', durSlices)}
+      </div>
+      <div style="margin-bottom:16px;">
+        ${userLoginsList(d.by_user || [])}
+      </div>
+      <p style="color:var(--tx-4);font-size:12px;margin:0;">
+        Durée calculée sur ${d.sample} session${d.sample !== 1 ? 's' : ''} tracée${d.sample !== 1 ? 's' : ''}.
+      </p>`;
+  } catch (err) {
+    el.innerHTML = `<p style="color:#f85149;font-size:13px;">${err.message}</p>`;
+  }
+}
+
+// =============================================================================
+// EXPORT EXCEL
+// =============================================================================
+function setupExport() {
+  const listEl   = document.getElementById('export-site-list');
+  const searchEl = document.getElementById('export-search');
+  const countEl  = document.getElementById('export-selection-count');
+  const btnAll   = document.getElementById('btn-select-all');
+  const btnNone  = document.getElementById('btn-deselect-all');
+  const btnExport = document.getElementById('btn-do-export');
+
+  // Render checkboxes from allSites
+  function renderExportList(q = '') {
+    const sorted = sortSites(allSites);
+    const filtered = q ? sorted.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sorted;
+    listEl.innerHTML = filtered.map(s => `
+      <label style="display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;-webkit-transition:background .1s;transition:background .1s"
+             onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background=''">
+        <input type="checkbox" class="export-cb" data-id="${s.id}" data-name="${esc(s.name)}"
+               style="accent-color:#58a6ff;width:14px;height:14px;-ms-flex-negative:0;flex-shrink:0">
+        <span style="font-size:13px;color:var(--tx-1);-webkit-box-flex:1;-ms-flex:1;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+        <span style="font-size:11px;color:var(--tx-5);-ms-flex-negative:0;flex-shrink:0">${s.total || 0} IPs</span>
+      </label>
+    `).join('');
+    listEl.querySelectorAll('.export-cb').forEach(cb => cb.addEventListener('change', updateCount));
+    updateCount();
+  }
+
+  function updateCount() {
+    const n = listEl.querySelectorAll('.export-cb:checked').length;
+    countEl.textContent = `${n} site${n !== 1 ? 's' : ''} sélectionné${n !== 1 ? 's' : ''}`;
+  }
+
+  searchEl.addEventListener('input', e => renderExportList(e.target.value.trim()));
+
+  btnAll.addEventListener('click', () => {
+    listEl.querySelectorAll('.export-cb').forEach(cb => { cb.checked = true; });
+    updateCount();
+  });
+  btnNone.addEventListener('click', () => {
+    listEl.querySelectorAll('.export-cb').forEach(cb => { cb.checked = false; });
+    updateCount();
+  });
+
+  btnExport.addEventListener('click', async () => {
+    const selected = [...listEl.querySelectorAll('.export-cb:checked')];
+    if (!selected.length) { showToast('Sélectionnez au moins un site', 'warn'); return; }
+
+    const format      = document.querySelector('input[name="export-format"]:checked')?.value || 'multi';
+    const filterStatus = document.getElementById('export-filter-status').value;
+    const colVlan     = document.getElementById('col-vlan').checked;
+    const colNetwork  = document.getElementById('col-network').checked;
+    const colHostname = document.getElementById('col-hostname').checked;
+    const colStatus   = document.getElementById('col-status').checked;
+    const colGateway  = document.getElementById('col-gateway').checked;
+
+    btnExport.disabled = true;
+    btnExport.textContent = `Chargement… (0/${selected.length})`;
+
+    try {
+      const wb = XLSX.utils.book_new();
+
+      if (format === 'single') {
+        // Tout en un seul onglet
+        const header = buildHeader({ colVlan, colNetwork, colHostname, colStatus, colGateway, single: true });
+        const rows   = [header];
+
+        for (let i = 0; i < selected.length; i++) {
+          const cb       = selected[i];
+          const siteId   = cb.dataset.id;
+          const siteName = cb.dataset.name;
+          btnExport.textContent = `Chargement… (${i + 1}/${selected.length})`;
+
+          const data = await get(`/api/sites/${encodeURIComponent(siteId)}`);
+          appendRows(rows, data, siteName, filterStatus, { colVlan, colNetwork, colHostname, colStatus, colGateway, single: true });
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        styleSheet(ws, rows.length);
+        XLSX.utils.book_append_sheet(wb, ws, 'Export IPAM');
+
+      } else {
+        // Un onglet par site
+        for (let i = 0; i < selected.length; i++) {
+          const cb       = selected[i];
+          const siteId   = cb.dataset.id;
+          const siteName = cb.dataset.name;
+          btnExport.textContent = `Chargement… (${i + 1}/${selected.length})`;
+
+          const data = await get(`/api/sites/${encodeURIComponent(siteId)}`);
+          const header = buildHeader({ colVlan, colNetwork, colHostname, colStatus, colGateway, single: false });
+          const rows   = [header];
+          appendRows(rows, data, siteName, filterStatus, { colVlan, colNetwork, colHostname, colStatus, colGateway, single: false });
+
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          styleSheet(ws, rows.length);
+          const sheetName = siteName.substring(0, 31); // max 31 chars
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        }
+      }
+
+      const date = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `IPAM_Export_${date}.xlsx`);
+      showToast(`Export réussi — ${selected.length} site(s)`, 'success');
+
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btnExport.disabled = false;
+      btnExport.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Télécharger`;
+    }
+  });
+
+  // Initialiser la liste une fois les sites chargés (allSites peut être vide au moment du setup)
+  // On re-render quand l'onglet export est activé
+  document.querySelectorAll('.admin-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.tab === 'export') renderExportList(searchEl.value.trim());
+    });
+  });
+}
+
+function buildHeader({ colVlan, colNetwork, colHostname, colStatus, colGateway, single }) {
+  const h = [];
+  if (single) h.push('Site');
+  if (colVlan)     h.push('VLAN ID');
+  if (colNetwork)  h.push('Réseau');
+  h.push('Adresse IP');
+  if (colHostname) h.push('Hostname');
+  if (colStatus)   h.push('Statut');
+  if (colGateway)  h.push('Gateway');
+  return h;
+}
+
+function appendRows(rows, data, siteName, filterStatus, opts) {
+  const vlans = data.vlans || [];
+  const ips   = data.ips   || [];
+
+  const vlanMap = {};
+  vlans.forEach(v => { vlanMap[String(v.id)] = v; });
+
+  for (const ip of ips) {
+    if (filterStatus !== 'all' && ip.status !== filterStatus) continue;
+    const vlan = vlanMap[String(ip.vlan_id)] || {};
+    const row  = [];
+    if (opts.single)     row.push(siteName);
+    if (opts.colVlan)    row.push(vlan.vlan_id || '');
+    if (opts.colNetwork) row.push(vlan.network || '');
+    row.push(ip.ip_address || '');
+    if (opts.colHostname) row.push(ip.hostname || '');
+    if (opts.colStatus)   row.push(ip.status || '');
+    if (opts.colGateway)  row.push(vlan.gateway || '');
+    rows.push(row);
+  }
+}
+
+function styleSheet(ws, nRows) {
+  // Largeur des colonnes automatique (estimation)
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  const cols = [];
+  for (let c = range.s.c; c <= range.e.c; c++) cols.push({ wch: 22 });
+  ws['!cols'] = cols;
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
