@@ -117,24 +117,64 @@ async function loadSidebar() {
 }
 
 // ---------------------------------------------------------------------------
-// Vue d'ensemble (aucun site sélectionné) — migrations enregistrées vs
-// serveurs encore éligibles côté OLD (live, non utilisés dans une migration)
-// pour chaque site. Réutilise isDeviceExcluded/isWin2016, qui ne dépendent
-// pas du site actuellement chargé. La migration ne concerne que les
-// serveurs Windows (isWin2016) — les serveurs Linux (XG) en sont exclus.
+// Classification Windows/Linux — copie exacte de classifyHostname() côté
+// stats.js / server/routes/sites.mjs (métier-recap → "Serveurs Windows" de
+// l'accueil Site IPAM). Utilisée uniquement ici pour que "Total serveurs"
+// de la vue d'ensemble Migration Serveurs tombe EXACTEMENT sur le même
+// chiffre que "Serveurs Windows" (même dédup par hostname, tous VLAN,
+// IDRAC exclu) — la migration ne concerne que les serveurs Windows.
 // ---------------------------------------------------------------------------
-function countEligibleOldRemaining(ips, vlans, siteMigrations) {
-  const used = new Set();
-  siteMigrations.forEach(m => { if (m.old_hostname) used.add(m.old_hostname); if (m.new_hostname) used.add(m.new_hostname); });
-  return (ips || []).filter(ip => {
-    if (!ip.hostname || (ip.status !== 'Utilisé' && ip.status !== 'Réservée')) return false;
-    if (isDeviceExcluded(ip.hostname)) return false;
-    if (!isWin2016(ip.hostname)) return false;
-    if (isWin2022(ip)) return false;
-    const vlan = (vlans || []).find(v => String(v.id) === String(ip.vlan_id));
-    if ((vlan?.description || '').trim().toUpperCase() === 'ADMIN') return false;
-    return !used.has(ip.hostname);
-  }).length;
+const WIN_DOMAIN  = '.dct.adt.local';
+const LIN_DOMAINS = ['.hdcadmin.sf.intra.laposte.fr', '.sf.intra.laposte.fr'];
+
+function classifyHostname(raw) {
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  const label = raw.split('.')[0];
+  if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
+  const lastDash = label.lastIndexOf('-');
+  if (lastDash >= 0) {
+    const prefix = label.slice(0, lastDash);
+    if (/ZN$/i.test(prefix)) return { type: 'windows', role: 'ZN' };
+    if (/QN$/i.test(prefix)) return { type: 'windows', role: 'QN' };
+  }
+  const isWindows = lower.endsWith(WIN_DOMAIN);
+  const isLinux   = LIN_DOMAINS.some(d => lower.endsWith(d));
+  if (!isWindows && !isLinux) return null;
+  if (isLinux) {
+    if (/^SP/i.test(label)) return { type: 'nutanix', role: 'SPHY' };
+    if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
+    if (label.match(/^[A-Z]{2}XD\d+$/i)) return { type: 'linux', role: 'XG' };
+    return null;
+  }
+  if (lastDash < 0) return null;
+  const suffix = label.slice(lastDash + 1);
+  const m = suffix.match(/^([A-Z]{2})\d+$/i);
+  if (!m) return null;
+  return { type: 'windows', role: m[1].toUpperCase() };
+}
+
+// Vue d'ensemble (aucun site sélectionné) — pour chaque site : nombre de
+// serveurs Windows distincts (même méthode que "Serveurs Windows" de
+// l'accueil Site IPAM), et parmi eux, combien ont déjà une migration
+// enregistrée (done) vs pas encore (remaining). done + remaining == total
+// par construction (pas de dérive possible entre les deux compteurs).
+function computeSiteWindowsStats(ips, siteMigrations) {
+  const seen = new Set();
+  const windowsHostnames = new Set();
+  for (const ip of (ips || [])) {
+    if (!ip.hostname || ip.status === 'Libre') continue;
+    const key = ip.hostname.split('.')[0].toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const result = classifyHostname(ip.hostname);
+    if (result?.type === 'windows' && result.role !== 'IDRAC') windowsHostnames.add(ip.hostname);
+  }
+  let done = 0;
+  siteMigrations
+    .filter(m => m.old_manual !== '1' && m.new_manual !== '1')
+    .forEach(m => { if (m.old_hostname && windowsHostnames.has(m.old_hostname)) done++; });
+  return { total: windowsHostnames.size, done, remaining: windowsHostnames.size - done };
 }
 
 function renderOverviewGrid(q = '') {
@@ -177,15 +217,12 @@ async function loadOverview() {
             get(`/api/migrations?site_id=${encodeURIComponent(s.id)}`),
           ]);
           const siteMigrations = migRes.migrations || [];
-          return {
-            id: s.id, name: s.name,
-            done: siteMigrations.filter(m => m.old_manual !== '1' && m.new_manual !== '1').length,
-            remaining: countEligibleOldRemaining(data.ips, data.vlans, siteMigrations),
-          };
-        } catch { return { id: s.id, name: s.name, done: 0, remaining: 0 }; }
+          const { total, done, remaining } = computeSiteWindowsStats(data.ips, siteMigrations);
+          return { id: s.id, name: s.name, total, done, remaining };
+        } catch { return { id: s.id, name: s.name, total: 0, done: 0, remaining: 0 }; }
       }));
       const totalDone = rows.reduce((sum, r) => sum + r.done, 0);
-      const totalServers = rows.reduce((sum, r) => sum + r.done + r.remaining, 0);
+      const totalServers = rows.reduce((sum, r) => sum + r.total, 0);
       document.getElementById('overview-total-servers').textContent = totalServers;
       document.getElementById('overview-total-migrated').textContent = totalDone;
 
