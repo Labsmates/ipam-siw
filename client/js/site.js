@@ -366,6 +366,21 @@ async function checkLoginPopup() {
 // GET /api/sites/metier-recap) + grille des sites triés par ordre
 // alphanumérique, chacun cliquable vers sa fiche.
 // ---------------------------------------------------------------------------
+let _recapSiteCounts = []; // [{id, name, count}] — pour filtrage par la recherche sidebar
+
+function renderWelcomeSitesGrid(q = '') {
+  const gridEl = document.getElementById('welcome-sites-grid');
+  if (!gridEl) return;
+  const query = q.trim().toLowerCase();
+  const filtered = query ? _recapSiteCounts.filter(s => s.name.toLowerCase().includes(query)) : _recapSiteCounts;
+  const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
+  gridEl.innerHTML = sorted.map(s => `
+    <a href="/site.html?id=${encodeURIComponent(s.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+      <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+      <span style="flex-shrink:0;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${s.count}</span>
+    </a>`).join('');
+}
+
 async function loadSiteRecap() {
   const loadEl    = document.getElementById('welcome-loading');
   const contentEl = document.getElementById('welcome-content');
@@ -377,12 +392,8 @@ async function loadSiteRecap() {
     document.getElementById('welcome-total-linux').textContent = totals.linux;
     document.getElementById('welcome-total-nutanix').textContent = totals.nutanix_clusters;
 
-    const sorted = [...siteCounts].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
-    document.getElementById('welcome-sites-grid').innerHTML = sorted.map(s => `
-      <a href="/site.html?id=${encodeURIComponent(s.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
-        <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
-        <span style="flex-shrink:0;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${s.count}</span>
-      </a>`).join('');
+    _recapSiteCounts = siteCounts;
+    renderWelcomeSitesGrid(document.getElementById('sidebar-search')?.value || '');
 
     contentEl.classList.remove('hidden');
   } catch (err) {
@@ -1580,7 +1591,10 @@ async function loadSidebar() {
       }).join('');
     }
 
-    searchEl?.addEventListener('input', e => renderList(e.target.value.trim()));
+    searchEl?.addEventListener('input', e => {
+      renderList(e.target.value.trim());
+      renderWelcomeSitesGrid(e.target.value);
+    });
     renderList();
   } catch (_) { /* sidebar is non-critical */ }
 }
