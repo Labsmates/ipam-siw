@@ -71,27 +71,43 @@ function classifyHostname(raw) {
   return { type: 'windows', role: m[1].toUpperCase() };
 }
 
+// Compte les serveurs Windows/Linux distincts d'un site — VLAN ADMIN et
+// IPMI exclus (interfaces de management/infra, pas des serveurs) ; tous
+// les autres VLAN (METIER, PROCEF, CACI, etc.) comptent. `seen` est un Set
+// fourni par l'appelant (portée site ou globale selon le besoin) — un
+// hostname dupliqué entre un VLAN exclu et un VLAN éligible (ex. miroir
+// ADMIN) ne doit jamais bloquer l'occurrence valide : l'exclusion VLAN est
+// donc vérifiée AVANT de marquer `seen`.
+function countSiteWindowsLinux(data, seen, counts) {
+  const excludedVlanIds = new Set(
+    (data?.vlans || [])
+      .filter(v => ['ADMIN', 'IPMI'].includes((v.description || '').trim().toUpperCase()))
+      .map(v => String(v.id))
+  );
+  for (const ip of (data?.ips || [])) {
+    if (!ip.hostname || ip.status === 'Libre') continue;
+    if (excludedVlanIds.has(String(ip.vlan_id))) continue;
+    const key = ip.hostname.split('.')[0].toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const result = classifyHostname(ip.hostname);
+    if (!result) continue;
+    if (result.type === 'windows' && result.role !== 'IDRAC') counts.windows++;
+    else if (result.type === 'linux') counts.linux++;
+  }
+}
+
 // GET /api/sites/os-summary — total Windows/Linux distincts, tous sites
 // confondus (hors sites archivés) — pastilles du menu "Sites IPAM".
 router.get('/os-summary', requireAuth, async (req, res) => {
   try {
     const sites = (await listSitesWithStats()).filter(s => !s.archived);
-    let windows = 0, linux = 0;
     const seen = new Set();
+    const counts = { windows: 0, linux: 0 };
     for (const s of sites) {
-      const data = await getSiteData(s.id);
-      for (const ip of (data?.ips || [])) {
-        if (!ip.hostname || ip.status === 'Libre') continue;
-        const key = ip.hostname.split('.')[0].toUpperCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const result = classifyHostname(ip.hostname);
-        if (!result) continue;
-        if (result.type === 'windows' && result.role !== 'IDRAC') windows++;
-        else if (result.type === 'linux') linux++;
-      }
+      countSiteWindowsLinux(await getSiteData(s.id), seen, counts);
     }
-    res.json({ windows, linux });
+    res.json(counts);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -99,7 +115,8 @@ router.get('/os-summary', requireAuth, async (req, res) => {
 // nombre de serveurs par site, pour la vue d'accueil de Site IPAM (aucun
 // site sélectionné).
 // - totals.windows / totals.linux : mêmes chiffres que la page Statistiques
-//   (tous VLAN, dédupliqué globalement — identique à GET /os-summary).
+//   (VLAN ADMIN et IPMI exclus, dédupliqué globalement — identique à
+//   GET /os-summary).
 // - totals.nutanix_clusters : hostnames contenant "CLU" (ex.
 //   SPHXXXXCLU.hdcadmin.sf.intra.laposte.fr), qui ne vivent QUE dans le
 //   VLAN ADMIN — dédupliqués par site.
@@ -109,23 +126,14 @@ router.get('/os-summary', requireAuth, async (req, res) => {
 router.get('/metier-recap', requireAuth, async (req, res) => {
   try {
     const sites = (await listSitesWithStats()).filter(s => !s.archived);
-    let windows = 0, linux = 0, nutanixClusters = 0;
+    let nutanixClusters = 0;
     const seenGlobal = new Set();
+    const globalCounts = { windows: 0, linux: 0 };
     const siteCounts = [];
     for (const s of sites) {
       const data = await getSiteData(s.id);
 
-      // Totaux Windows/Linux — mêmes chiffres que Statistiques (tous VLAN, dédup globale)
-      for (const ip of (data?.ips || [])) {
-        if (!ip.hostname || ip.status === 'Libre') continue;
-        const key = ip.hostname.split('.')[0].toUpperCase();
-        if (seenGlobal.has(key)) continue;
-        seenGlobal.add(key);
-        const result = classifyHostname(ip.hostname);
-        if (!result) continue;
-        if (result.type === 'windows' && result.role !== 'IDRAC') windows++;
-        else if (result.type === 'linux') linux++;
-      }
+      countSiteWindowsLinux(data, seenGlobal, globalCounts);
 
       const metierVlanIds = new Set(
         (data?.vlans || [])
@@ -166,7 +174,7 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
       }
       siteCounts.push({ id: s.id, name: s.name, count: siteCount });
     }
-    res.json({ totals: { windows, linux, nutanix_clusters: nutanixClusters }, sites: siteCounts });
+    res.json({ totals: { windows: globalCounts.windows, linux: globalCounts.linux, nutanix_clusters: nutanixClusters }, sites: siteCounts });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

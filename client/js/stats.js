@@ -171,17 +171,35 @@ async function loadStats() {
 
     for (const site of details) {
       const ips = site.ips || [];
+      // Serveurs Windows/Linux : VLAN METIER/PROCEF/CACI/etc. uniquement —
+      // ADMIN et IPMI exclus (interfaces de management/infra, pas des
+      // serveurs). Nutanix (sphyTotal) n'est PAS concerné par cette
+      // exclusion : les clusters Nutanix ne vivent que dans le VLAN ADMIN.
+      const excludedVlanIds = new Set(
+        (site.vlans || [])
+          .filter(v => ['ADMIN', 'IPMI'].includes((v.description || '').trim().toUpperCase()))
+          .map(v => String(v.id))
+      );
       for (const ip of ips) {
         if (ip.status === 'Libre' || !ip.hostname) continue;
-        const key = ip.hostname.split('.')[0].toUpperCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
         const result = classifyHostname(ip.hostname);
         if (!result) continue;
+        const key = ip.hostname.split('.')[0].toUpperCase();
+
         if (result.type === 'nutanix') {
+          if (seen.has(key)) continue;
+          seen.add(key);
           sphyTotal++;
           sphyHostnames.push(ip.hostname);
-        } else if (result.type === 'linux') {
+          continue;
+        }
+        // Un même hostname peut apparaître à la fois dans un VLAN exclu (ex.
+        // miroir ADMIN) et un VLAN éligible : ne marquer `seen` qu'une fois
+        // l'exclusion VLAN passée, pour ne jamais bloquer l'occurrence valide.
+        if (excludedVlanIds.has(String(ip.vlan_id))) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (result.type === 'linux') {
           linTotal++;
           linRoleCounts[result.role] = (linRoleCounts[result.role] || 0) + 1;
           if (!linRoleHostnames[result.role]) linRoleHostnames[result.role] = [];
