@@ -8,7 +8,7 @@ import {
   openModal, closeModal, cidrToIPs, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, setupGlobalIpSearch,
   restoreElevationSession, setupElevationMode, setupAdminSectionToggle,
 } from './api.js?v=fe0d3aa';
-import { WIN_ROLES, LIN_ROLES, XMB_ROLE_LABEL } from './server-roles.js?v=fe0d3aa';
+import { WIN_ROLES, LIN_ROLES } from './server-roles.js?v=fe0d3aa';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -119,7 +119,7 @@ const CPU_OPTIONS = ['1 vCPU', '2 vCPU', '4 vCPU', '6 vCPU', '8 vCPU', '12 vCPU'
 const RAM_OPTIONS = ['1 Go', '2 Go', '4 Go', '6 Go', '8 Go', '16 Go', '64 Go'];
 // Rôles repris des Statistiques serveurs (Windows par rôle, Linux par rôle, XMB) —
 // la sélection "Autre (saisie manuelle)" couvre les futurs rôles non encore catalogués.
-const ROLE_OPTIONS = [...WIN_ROLES.map(r => r.label), ...LIN_ROLES.map(r => r.label), XMB_ROLE_LABEL];
+const ROLE_OPTIONS = [...WIN_ROLES.map(r => r.label), ...LIN_ROLES.map(r => r.label)];
 
 function setOsPicker(pickerId, hiddenId, value) {
   const picker = document.getElementById(pickerId);

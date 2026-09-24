@@ -24,6 +24,10 @@ function classifyHostname(raw) {
   // que soit le domaine (même serveur vu sous plusieurs domaines).
   if (/IPAM|DOCKER|REBOND/i.test(label)) return { type: 'linux', role: 'XG' };
 
+  // XMB — catégorie à part (voir XMB_ROLE_LABEL, server-roles.js), comptée
+  // comme Windows (domaine .dct.adt.local observé), indépendamment du tiret.
+  if (/XMB/i.test(label)) return { type: 'windows', role: 'XMB' };
+
   // XG/XD (Linux/CFT) — détecté par motif de label, indépendant du domaine :
   // certains hostnames Linux restent déclarés sous le domaine Windows
   // .dct.adt.local plutôt que .sf.intra.laposte.fr (ex. GRXG02.dct.adt.local).
