@@ -49,6 +49,11 @@ function classifyHostname(raw) {
   // que soit le domaine (même serveur vu sous plusieurs domaines).
   if (/IPAM|DOCKER|REBOND/i.test(label)) return { type: 'linux', role: 'XG' };
 
+  // XG/XD (Linux/CFT) — détecté par motif de label, indépendant du domaine :
+  // certains hostnames Linux restent déclarés sous le domaine Windows
+  // .dct.adt.local plutôt que .sf.intra.laposte.fr (ex. GRXG02.dct.adt.local).
+  if (/^[A-Z]{2}XG\d+$/i.test(label) || /^[A-Z]{2}XD\d+$/i.test(label)) return { type: 'linux', role: 'XG' };
+
   if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
 
   const lastDash = label.lastIndexOf('-');
@@ -64,9 +69,7 @@ function classifyHostname(raw) {
 
   if (isLinux) {
     if (/^SP/i.test(label)) return { type: 'nutanix', role: 'SPHY' };
-    if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
-    if (label.match(/^[A-Z]{2}XD\d+$/i)) return { type: 'linux', role: 'XG' };
-    return null;
+    return null; // XG/XD déjà traités plus haut, indépendamment du domaine
   }
 
   if (lastDash < 0) return null;
@@ -125,9 +128,9 @@ router.get('/os-summary', requireAuth, async (req, res) => {
 // - totals.nutanix_clusters : hostnames contenant "CLU" (ex.
 //   SPHXXXXCLU.hdcadmin.sf.intra.laposte.fr), qui ne vivent QUE dans le
 //   VLAN ADMIN — dédupliqués par site.
-// - sites[].count : nombre de serveurs par site, VLAN METIER uniquement
-//   (seul VLAN qui « remonte » un nom de serveur pour cette liste),
-//   dédupliqué par site.
+// - sites[].count : nombre de serveurs par site, même périmètre que les
+//   totaux globaux (VLAN ADMIN et IPMI exclus — METIER, PROCEF, CACI, etc.
+//   comptent tous), dédupliqué par site.
 router.get('/metier-recap', requireAuth, async (req, res) => {
   try {
     const sites = (await listSitesWithStats()).filter(s => !s.archived);
@@ -140,11 +143,6 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
 
       countSiteWindowsLinux(data, seenGlobal, globalCounts);
 
-      const metierVlanIds = new Set(
-        (data?.vlans || [])
-          .filter(v => (v.description || '').trim().toUpperCase() === 'METIER')
-          .map(v => String(v.id))
-      );
       const adminVlanIds = new Set(
         (data?.vlans || [])
           .filter(v => (v.description || '').trim().toUpperCase() === 'ADMIN')
@@ -164,20 +162,10 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
       }
       nutanixClusters += siteClu;
 
-      // Compte par site — VLAN METIER uniquement, dédup par site
-      let siteCount = 0;
-      const seenSite = new Set();
-      for (const ip of (data?.ips || [])) {
-        if (!ip.hostname || ip.status === 'Libre') continue;
-        if (!metierVlanIds.has(String(ip.vlan_id))) continue;
-        const key = ip.hostname.split('.')[0].toUpperCase();
-        if (seenSite.has(key)) continue;
-        seenSite.add(key);
-        const result = classifyHostname(ip.hostname);
-        if (!result) continue;
-        if ((result.type === 'windows' && result.role !== 'IDRAC') || result.type === 'linux') siteCount++;
-      }
-      siteCounts.push({ id: s.id, name: s.name, count: siteCount });
+      // Compte par site — même périmètre que le total global (VLAN ADMIN/IPMI exclus)
+      const siteCounts_ = { windows: 0, linux: 0 };
+      countSiteWindowsLinux(data, new Set(), siteCounts_);
+      siteCounts.push({ id: s.id, name: s.name, count: siteCounts_.windows + siteCounts_.linux });
     }
     res.json({ totals: { windows: globalCounts.windows, linux: globalCounts.linux, nutanix_clusters: nutanixClusters }, sites: siteCounts });
   } catch (e) { res.status(500).json({ error: e.message }); }

@@ -135,6 +135,10 @@ function classifyHostname(raw) {
   // convention REGATE+SN/QN-ROLE##, comptée manuellement comme Linux, quel
   // que soit le domaine (même serveur vu sous plusieurs domaines).
   if (/IPAM|DOCKER|REBOND/i.test(label)) return { type: 'linux', role: 'XG' };
+  // XG/XD (Linux/CFT) — détecté par motif de label, indépendant du domaine :
+  // certains hostnames Linux restent déclarés sous le domaine Windows
+  // .dct.adt.local plutôt que .sf.intra.laposte.fr (ex. GRXG02.dct.adt.local).
+  if (/^[A-Z]{2}XG\d+$/i.test(label) || /^[A-Z]{2}XD\d+$/i.test(label)) return { type: 'linux', role: 'XG' };
   if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
   const lastDash = label.lastIndexOf('-');
   if (lastDash >= 0) {
@@ -147,9 +151,7 @@ function classifyHostname(raw) {
   if (!isWindows && !isLinux) return null;
   if (isLinux) {
     if (/^SP/i.test(label)) return { type: 'nutanix', role: 'SPHY' };
-    if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
-    if (label.match(/^[A-Z]{2}XD\d+$/i)) return { type: 'linux', role: 'XG' };
-    return null;
+    return null; // XG/XD déjà traités plus haut, indépendamment du domaine
   }
   if (lastDash < 0) return null;
   const suffix = label.slice(lastDash + 1);

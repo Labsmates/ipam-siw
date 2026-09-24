@@ -24,6 +24,11 @@ function classifyHostname(raw) {
   // que soit le domaine (même serveur vu sous plusieurs domaines).
   if (/IPAM|DOCKER|REBOND/i.test(label)) return { type: 'linux', role: 'XG' };
 
+  // XG/XD (Linux/CFT) — détecté par motif de label, indépendant du domaine :
+  // certains hostnames Linux restent déclarés sous le domaine Windows
+  // .dct.adt.local plutôt que .sf.intra.laposte.fr (ex. GRXG02.dct.adt.local).
+  if (/^[A-Z]{2}XG\d+$/i.test(label) || /^[A-Z]{2}XD\d+$/i.test(label)) return { type: 'linux', role: 'XG' };
+
   // IDRAC/ILO — détecté par préfixe, indépendant du suffixe de domaine
   // Ex: IDRAC-924700SN-AP01  ou  ILO-924700SN-FS01.dct.adt.local
   if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
@@ -44,9 +49,7 @@ function classifyHostname(raw) {
 
   if (isLinux) {
     if (/^SP/i.test(label)) return { type: 'nutanix', role: 'SPHY' };
-    if (label.match(/^[A-Z]{2}XG\d+$/i)) return { type: 'linux', role: 'XG' };
-    if (label.match(/^[A-Z]{2}XD\d+$/i)) return { type: 'linux', role: 'XG' }; // XD = CFT
-    return null;
+    return null; // XG/XD déjà traités plus haut, indépendamment du domaine
   }
 
   // Windows (.dct.adt.local) — rôle déterminé par les 2 lettres après le dernier tiret
