@@ -155,10 +155,14 @@ function classifyHostname(raw) {
 }
 
 // Vue d'ensemble (aucun site sélectionné) — pour chaque site : nombre de
-// serveurs Windows distincts (même méthode que "Serveurs Windows" de
-// l'accueil Site IPAM), et parmi eux, combien ont déjà une migration
-// enregistrée (done) vs pas encore (remaining). done + remaining == total
-// par construction (pas de dérive possible entre les deux compteurs).
+// serveurs Windows distincts actuellement dans Site IPAM (même méthode que
+// "Serveurs Windows" de l'accueil Site IPAM), le nombre de migrations
+// enregistrées (done — TOUTES les lignes non manuelles, même méthode que
+// le badge sidebar/remaining-count côté serveur, y compris quand le
+// serveur OLD a depuis été décommissionné et n'apparaît donc plus dans
+// Site IPAM), et le nombre de serveurs Windows live pas encore engagés
+// dans une migration (remaining). "done" n'est PAS borné par "total" : un
+// serveur migré puis décommissionné compte dans done mais plus dans total.
 function computeSiteWindowsStats(ips, siteMigrations) {
   const seen = new Set();
   const windowsHostnames = new Set();
@@ -170,11 +174,11 @@ function computeSiteWindowsStats(ips, siteMigrations) {
     const result = classifyHostname(ip.hostname);
     if (result?.type === 'windows' && result.role !== 'IDRAC') windowsHostnames.add(ip.hostname);
   }
-  let done = 0;
-  siteMigrations
-    .filter(m => m.old_manual !== '1' && m.new_manual !== '1')
-    .forEach(m => { if (m.old_hostname && windowsHostnames.has(m.old_hostname)) done++; });
-  return { total: windowsHostnames.size, done, remaining: windowsHostnames.size - done };
+  const done = siteMigrations.filter(m => m.old_manual !== '1' && m.new_manual !== '1').length;
+  const used = new Set();
+  siteMigrations.forEach(m => { if (m.old_hostname) used.add(m.old_hostname); if (m.new_hostname) used.add(m.new_hostname); });
+  const remaining = [...windowsHostnames].filter(h => !used.has(h)).length;
+  return { total: windowsHostnames.size, done, remaining };
 }
 
 function renderOverviewGrid(q = '') {

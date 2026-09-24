@@ -206,6 +206,10 @@ router.get('/hostname-conflicts', requireAuth, async (req, res) => {
         seen.add(key);
         const result = classifyHostname(ip.hostname);
         if (!result || result.type !== 'windows' || result.role === 'IDRAC') continue;
+        // Convention ZN (ex. 758100ZN-FS22) : infrastructure mutualisée dont le
+        // préfixe ne suit volontairement pas le Code Regate du site où elle est
+        // rangée — ne jamais signaler de conflit pour ces hostnames.
+        if (result.role === 'ZN') continue;
 
         const detected = key.slice(0, codeRegate.length);
         if (detected === codeRegate) continue;
