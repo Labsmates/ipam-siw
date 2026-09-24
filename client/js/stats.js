@@ -19,6 +19,11 @@ function classifyHostname(raw) {
   const lower = raw.toLowerCase();
   const label = raw.split('.')[0]; // first DNS label, e.g. "758100ZN-FS01"
 
+  // Infrastructure utilitaire (IPAM, Docker, Rebond CFT...) — ne suit pas la
+  // convention REGATE+SN/QN-ROLE##, comptée manuellement comme Linux, quel
+  // que soit le domaine (même serveur vu sous plusieurs domaines).
+  if (/IPAM|DOCKER|REBOND/i.test(label)) return { type: 'linux', role: 'XG' };
+
   // IDRAC/ILO — détecté par préfixe, indépendant du suffixe de domaine
   // Ex: IDRAC-924700SN-AP01  ou  ILO-924700SN-FS01.dct.adt.local
   if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };

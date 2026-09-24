@@ -44,6 +44,11 @@ function classifyHostname(raw) {
   const lower = raw.toLowerCase();
   const label = raw.split('.')[0];
 
+  // Infrastructure utilitaire (IPAM, Docker, Rebond CFT...) — ne suit pas la
+  // convention REGATE+SN/QN-ROLE##, comptée manuellement comme Linux, quel
+  // que soit le domaine (même serveur vu sous plusieurs domaines).
+  if (/IPAM|DOCKER|REBOND/i.test(label)) return { type: 'linux', role: 'XG' };
+
   if (/^(IDRAC|ILO)-/i.test(label)) return { type: 'windows', role: 'IDRAC' };
 
   const lastDash = label.lastIndexOf('-');
