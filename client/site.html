@@ -220,23 +220,26 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         </div>
       </div>
       <div id="welcome-conflicts" class="hidden" style="margin-bottom:22px;background:rgba(248,81,73,.08);border:1px solid #f85149;border-radius:10px;padding:14px 18px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button type="button" id="welcome-conflicts-toggle" style="display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;padding:0;cursor:pointer;text-align:left">
+          <svg id="welcome-conflicts-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f85149" stroke-width="2.5" style="transition:transform .15s;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
           <span style="font-size:13px">⚠️</span>
           <div style="font-size:13px;font-weight:700;color:#f85149">Conflit Site Hostname</div>
           <span id="welcome-conflicts-count" style="background:#f85149;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px"></span>
+        </button>
+        <div id="welcome-conflicts-body" class="hidden" style="margin-top:10px">
+          <div style="font-size:11.5px;color:var(--tx-3);margin-bottom:10px">Serveurs dont le hostname ne correspond pas au Code Regate du site où ils sont rangés (Configuration → Codes Site, Regate).</div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid var(--brd)">
+                <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Hostname</th>
+                <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Site actuel</th>
+                <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Code détecté</th>
+                <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Site probable</th>
+              </tr>
+            </thead>
+            <tbody id="welcome-conflicts-tbody"></tbody>
+          </table>
         </div>
-        <div style="font-size:11.5px;color:var(--tx-3);margin-bottom:10px">Serveurs dont le hostname ne correspond pas au Code Regate du site où ils sont rangés (Configuration → Codes Site, Regate).</div>
-        <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr style="border-bottom:1px solid var(--brd)">
-              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Hostname</th>
-              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Site actuel</th>
-              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Code détecté</th>
-              <th style="text-align:left;padding:6px 8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-3)">Site probable</th>
-            </tr>
-          </thead>
-          <tbody id="welcome-conflicts-tbody"></tbody>
-        </table>
       </div>
       <div id="welcome-sites-grid" style="display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px"></div>
     </div>

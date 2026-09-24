@@ -389,6 +389,19 @@ function renderWelcomeConflicts(conflicts) {
   if (!blockEl) return;
   if (!conflicts || !conflicts.length) { blockEl.classList.add('hidden'); return; }
 
+  // Plié par défaut — un clic sur l'en-tête déplie/replie la liste.
+  const toggleBtn = document.getElementById('welcome-conflicts-toggle');
+  if (toggleBtn && !toggleBtn.dataset.wired) {
+    toggleBtn.dataset.wired = '1';
+    toggleBtn.addEventListener('click', () => {
+      const body = document.getElementById('welcome-conflicts-body');
+      const chevron = document.getElementById('welcome-conflicts-chevron');
+      const expanded = !body.classList.contains('hidden');
+      body.classList.toggle('hidden', expanded);
+      chevron.style.transform = expanded ? '' : 'rotate(90deg)';
+    });
+  }
+
   document.getElementById('welcome-conflicts-count').textContent = conflicts.length;
   document.getElementById('welcome-conflicts-tbody').innerHTML = conflicts.map(c => `
     <tr style="border-bottom:1px solid var(--bg-4)">

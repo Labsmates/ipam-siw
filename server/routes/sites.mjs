@@ -220,14 +220,18 @@ router.get('/hostname-conflicts', requireAuth, async (req, res) => {
         if (detected === codeRegate) continue;
 
         const expected = codeToSite.get(detected);
+        // Le code détecté correspond au Code Regate d'un AUTRE site déjà connu
+        // (ex. 932580 = LBPFI ST DENIS) : mapping intentionnel, pas une anomalie.
+        if (expected && String(expected.id) !== String(site.id)) continue;
+
         conflicts.push({
           hostname: ip.hostname,
           ip_address: ip.ip_address,
           current_site_id: site.id,
           current_site_name: site.name,
           detected_code: detected,
-          expected_site_id: expected && String(expected.id) !== String(site.id) ? expected.id : null,
-          expected_site_name: expected && String(expected.id) !== String(site.id) ? expected.name : null,
+          expected_site_id: null,
+          expected_site_name: null,
         });
       }
     }
@@ -305,6 +309,29 @@ router.patch('/:id/codes', requireAuth, requireAdmin, async (req, res) => {
     if (code_regate !== undefined) fields.code_regate = String(code_regate || '').trim().toUpperCase().slice(0, 10);
     if (code_pst     !== undefined) fields.code_pst    = String(code_pst    || '').trim().toUpperCase().slice(0, 10);
     await updateSiteFields(req.params.id, fields);
+    // Synchroniser vers config:infos.site_codes — source lue par /hostname-conflicts
+    // et par Configuration → Codes Site, Regate (sinon un code posé ici via la fiche
+    // site n'est jamais vu par le détecteur de conflits).
+    try {
+      const raw = await redis.get('config:infos');
+      const infos = raw ? JSON.parse(raw) : {};
+      infos.site_codes = infos.site_codes || [];
+      let entry = infos.site_codes.find(sc => String(sc.site_id) === String(req.params.id));
+      if (!entry) {
+        entry = { site_id: req.params.id, site_name: site.name, code: site.site_code || '' };
+        infos.site_codes.push(entry);
+      }
+      entry.site_name = site.name;
+      if (fields.code_regate !== undefined) {
+        if (fields.code_regate) entry.code_regate = fields.code_regate; else delete entry.code_regate;
+      }
+      if (fields.code_pst !== undefined) {
+        if (fields.code_pst) entry.code_pst = fields.code_pst; else delete entry.code_pst;
+      }
+      infos.site_codes.sort((a, b) =>
+        (a.site_name || '').localeCompare(b.site_name || '', 'fr', { sensitivity: 'base' }));
+      await redis.set('config:infos', JSON.stringify(infos));
+    } catch (_) {}
     await addLog(req.user.username, 'UPDATE_SITE_CODES', `Codes site « ${site.name} » mis à jour`, 'info');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
