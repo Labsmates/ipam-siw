@@ -250,6 +250,11 @@ async function loadOverview() {
 function isDeviceExcluded(hostname) {
   const h = (hostname || '').toUpperCase();
   if (!h) return false;
+  // Domaine .hdcadmin.* (ex. .hdcadmin.sf.intra.laposte.fr, ou variante
+  // .hdcadmin.sf.intra.fr) : miroir réseau de management d'un serveur déjà
+  // présent sous un autre domaine (ex. .dct.adt.local) — exclu même si le
+  // VLAN qui le contient n'est pas (encore) tagué ADMIN.
+  if (/\.HDCADMIN\./.test(h)) return true;
   return h.startsWith('GATEWAY') || h.startsWith('ILO-') || h.startsWith('IDRAC-') || /^(?:SPH|SPY|SQH)/.test(h);
 }
 function isWin2016(hostname) { return /(?:SN|QN)-[A-Z0-9]{2}/i.test(hostname || ''); }
