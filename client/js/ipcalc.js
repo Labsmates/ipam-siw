@@ -5,13 +5,13 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, showToast, showConfirm, initTheme, initSidebarCollapse, sortSites,
-  restoreElevationSession, setupElevationMode,
+  restoreElevationSession, setupElevationMode, loadMigrationBadge, loadSiteOsBadges,
 } from './api.js?v=f75ce83';
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
   checkHttps();
-  initTheme(); initSidebarCollapse();
+  initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
   if (!requireAuth()) return;
   startInactivityTimer();
 
