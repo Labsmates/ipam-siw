@@ -253,9 +253,9 @@ router.get('/remaining-count', async (req, res) => {
         rows.forEach(([, m]) => {
           if (m?.old_hostname) used.add(m.old_hostname);
           if (m?.new_hostname) used.add(m.new_hostname);
-          // Les saisies manuelles (Old/New "Autre") ne comptent pas comme
-          // "migré" — voir client/js/migration.js (old_manual/new_manual).
-          if (m?.old_manual !== '1' && m?.new_manual !== '1') migrated++;
+          // Comptée par défaut, y compris en saisie manuelle — sauf case
+          // "Ne pas comptabiliser" cochée explicitement (exclude_count).
+          if (m?.exclude_count !== '1') migrated++;
         });
       }
       for (const ip of siteData.ips || []) {
@@ -423,7 +423,7 @@ router.get('/', async (req, res) => {
 // POST /api/migrations — crée une ligne (tous sauf viewer)
 router.post('/', requireNonViewer, async (req, res) => {
   try {
-    const { site_id, old_hostname, old_os, new_hostname, new_os, comment, resp_metier, old_manual, new_manual, old_ip_manual } = req.body || {};
+    const { site_id, old_hostname, old_os, new_hostname, new_os, comment, resp_metier, old_manual, new_manual, old_ip_manual, exclude_count } = req.body || {};
     if (!site_id) return res.status(400).json({ error: 'site_id requis' });
     if (!old_hostname || !new_hostname) return res.status(400).json({ error: "L'ancien et le nouveau hostname sont requis" });
     if (!comment?.trim()) return res.status(400).json({ error: 'Le commentaire est obligatoire' });
@@ -470,6 +470,7 @@ router.post('/', requireNonViewer, async (req, res) => {
       old_hostname, old_ip: oldHost.ip_address, old_os,
       new_hostname, new_ip: newHost.ip_address, new_os,
       old_manual: old_manual ? '1' : '0', new_manual: new_manual ? '1' : '0',
+      exclude_count: exclude_count ? '1' : '0',
       comment: comment.trim(), resp_metier: (resp_metier || '').trim(),
       created_by: req.user.username, created_at: now, updated_at: now,
     };
@@ -501,6 +502,7 @@ router.put('/:id', requireNonViewer, async (req, res) => {
       patch.comment = String(req.body.comment).trim();
     }
     if (req.body?.resp_metier !== undefined) patch.resp_metier = String(req.body.resp_metier).trim();
+    if (req.body?.exclude_count !== undefined) patch.exclude_count = req.body.exclude_count ? '1' : '0';
 
     let archiveRegistration = null;
     if (isAdmin) {

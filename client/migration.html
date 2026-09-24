@@ -304,6 +304,12 @@ button:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
         <label style="font-size:12px;font-weight:600;color:var(--tx-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:7px">Resp. Métier</label>
         <input type="text" id="mig-resp-metier" class="inp" placeholder="ex : Jean Dupont" autocomplete="off">
       </div>
+      <div style="margin-bottom:20px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx-2);cursor:pointer">
+          <input type="checkbox" id="mig-exclude-count" style="width:16px;height:16px;flex-shrink:0">
+          Ne pas comptabiliser dans « Serveurs migrés »
+        </label>
+      </div>
       <div style="display:flex;gap:9px;justify-content:flex-end">
         <button type="button" id="btn-cancel-migration" class="btn btn-g" onclick="closeModal('modal-migration')">Annuler</button>
         <button type="submit" id="btn-save-migration" class="btn btn-p">Enregistrer</button>

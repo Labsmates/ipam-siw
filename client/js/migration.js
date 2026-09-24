@@ -166,10 +166,11 @@ function classifyHostname(raw) {
 // Vue d'ensemble (aucun site sélectionné) — pour chaque site : nombre de
 // serveurs Windows distincts actuellement dans Site IPAM (même méthode que
 // "Serveurs Windows" de l'accueil Site IPAM), le nombre de migrations
-// enregistrées (done — TOUTES les lignes non manuelles, même méthode que
-// le badge sidebar/remaining-count côté serveur, y compris quand le
-// serveur OLD a depuis été décommissionné et n'apparaît donc plus dans
-// Site IPAM), et le nombre de serveurs Windows live pas encore engagés
+// enregistrées (done — TOUTES les lignes, saisie manuelle comprise, sauf
+// case "Ne pas comptabiliser" cochée explicitement — exclude_count — même
+// méthode que le badge sidebar/remaining-count côté serveur, y compris
+// quand le serveur OLD a depuis été décommissionné et n'apparaît donc plus
+// dans Site IPAM), et le nombre de serveurs Windows live pas encore engagés
 // dans une migration (remaining). "done" n'est PAS borné par "total" : un
 // serveur migré puis décommissionné compte dans done mais plus dans total.
 function computeSiteWindowsStats(ips, siteMigrations) {
@@ -183,7 +184,7 @@ function computeSiteWindowsStats(ips, siteMigrations) {
     const result = classifyHostname(ip.hostname);
     if (result?.type === 'windows' && result.role !== 'IDRAC') windowsHostnames.add(ip.hostname);
   }
-  const done = siteMigrations.filter(m => m.old_manual !== '1' && m.new_manual !== '1').length;
+  const done = siteMigrations.filter(m => m.exclude_count !== '1').length;
   const used = new Set();
   siteMigrations.forEach(m => { if (m.old_hostname) used.add(m.old_hostname); if (m.new_hostname) used.add(m.new_hostname); });
   const remaining = [...windowsHostnames].filter(h => !used.has(h)).length;
@@ -478,7 +479,7 @@ function renderTable() {
       <td style="padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:13px">${esc(m.new_hostname)}</td>
       <td style="padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--tx-3)">${esc(m.new_ip)}</td>
       <td style="padding:9px 12px;text-align:center;font-size:12.5px">${osBadge(osConfig.new, m.new_os)}</td>
-      <td style="padding:9px 12px;font-size:13px;color:var(--tx-2);max-width:220px">${esc(m.comment)}</td>
+      <td style="padding:9px 12px;font-size:13px;color:var(--tx-2);max-width:220px">${esc(m.comment)}${m.exclude_count === '1' ? ' <span title="Non comptabilisée dans Serveurs migrés" style="color:var(--tx-4);font-size:11px;white-space:nowrap">(hors comptage)</span>' : ''}</td>
       <td style="padding:9px 12px;font-size:13px;color:var(--tx-2)">${m.resp_metier ? esc(m.resp_metier) : '<span style="color:var(--tx-5)">—</span>'}</td>
       <td style="padding:9px 12px;text-align:right;white-space:nowrap">
         ${canEdit ? `<button class="btn btn-g btn-sm mig-edit" data-id="${m.id}" title="Modifier">
@@ -655,6 +656,7 @@ function openMigrationModal(row) {
 
   document.getElementById('mig-comment').value = row?.comment || (isEdit ? '' : 'Migration Windows 2022');
   document.getElementById('mig-resp-metier').value = row?.resp_metier || '';
+  document.getElementById('mig-exclude-count').checked = row?.exclude_count === '1';
 
   openModal('modal-migration');
 }
@@ -669,8 +671,9 @@ function setupMigrationForm() {
     const comment = document.getElementById('mig-comment').value.trim();
     if (!comment) { showToast('Le commentaire est obligatoire', 'warn'); return; }
     const resp_metier = document.getElementById('mig-resp-metier').value.trim();
+    const exclude_count = document.getElementById('mig-exclude-count').checked;
 
-    const payload = { comment, resp_metier };
+    const payload = { comment, resp_metier, exclude_count };
     if (!isEdit || isAdmin) {
       const oldSelectEl = document.getElementById('mig-old-hostname');
       const newSelectEl = document.getElementById('mig-new-hostname');
