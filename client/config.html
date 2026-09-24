@@ -8,7 +8,7 @@
 <title>IPAM SIW — Configuration système</title>
 <link rel="stylesheet" href="/vendor/fonts.css">
 <link rel="stylesheet" href="/css/theme.css">
-<script src="/js/protect.js?v=6584238"></script>
+<script src="/js/protect.js?v=4d28ea3"></script>
 <script src="/vendor/tailwind.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -826,6 +826,7 @@ th{text-align:left}
             </div>
             <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--tx-2);line-height:1.85">
               <!-- CHANGELOG_INSERT -->
+              <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">4d28ea3</code> fix: l'export Excel multi-sites échouait si un nom de site contenait :\/*?[] <span style="color:var(--tx-3);font-size:11px">(2026-09-24)</span></li>
               <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">6584238</code> feat: Serveurs Windows/Linux (Statistiques + pastilles) excluent les VLAN ADMIN et IPMI <span style="color:var(--tx-3);font-size:11px">(2026-09-24)</span></li>
               <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">25c48bd</code> fix: pastille &quot;Serveurs migrés&quot; (vue d'ensemble) sous-comptait ; faux conflits sur les hostnames ZN <span style="color:var(--tx-3);font-size:11px">(2026-09-24)</span></li>
               <li class="changelog-commit-line"><code style="font-size:11px;color:var(--tx-3)">f413486</code> chore(versionning): v2 — snapshot des fichiers livrés (2.2.65) <span style="color:var(--tx-3);font-size:11px">(2026-09-24)</span></li>
@@ -1242,6 +1243,6 @@ th{text-align:left}
     </div>
   </div>
 
-<script type="module" src="/js/config.js?v=6584238"></script>
+<script type="module" src="/js/config.js?v=4d28ea3"></script>
 </body>
 </html>
