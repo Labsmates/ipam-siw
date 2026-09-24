@@ -168,8 +168,7 @@ function setupExport(allSites) {
 
           const ws = XLSX.utils.aoa_to_sheet(rows);
           styleSheet(ws);
-          const sheetName = siteName.substring(0, 31);
-          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+          XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, siteName));
         }
       }
 
@@ -234,4 +233,21 @@ function styleSheet(ws) {
 
 function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Noms d'onglet Excel : 31 caractères max, et ':', '\\', '/', '?', '*', '[', ']'
+// interdits (SheetJS lève une erreur sinon) — un nom de site contenant l'un de
+// ces caractères faisait échouer tout l'export. Garantit aussi l'unicité si la
+// troncature/le nettoyage fait coïncider deux noms de site différents.
+function uniqueSheetName(wb, rawName) {
+  let name = String(rawName || 'Site').replace(/[:\\/?*[\]]/g, '-').trim().slice(0, 31) || 'Site';
+  const existing = new Set(wb.SheetNames);
+  if (!existing.has(name)) return name;
+  let n = 2;
+  while (true) {
+    const suffix = ` (${n})`;
+    const candidate = name.slice(0, 31 - suffix.length) + suffix;
+    if (!existing.has(candidate)) return candidate;
+    n++;
+  }
 }
