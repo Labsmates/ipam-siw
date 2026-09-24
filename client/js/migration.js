@@ -6,7 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
   restoreElevationSession, setupElevationMode, setupAdminSectionToggle, openModal, closeModal,
-} from './api.js?v=a1c94ce';
+} from './api.js?v=f75ce83';
 
 function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
