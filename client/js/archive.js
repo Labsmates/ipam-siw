@@ -6,7 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
   restoreElevationSession, setupElevationMode,
-} from './api.js?v=c779984';
+} from './api.js?v=6d514fa';
 
 function fmtDate(ts) {
   if (!ts) return '—';
