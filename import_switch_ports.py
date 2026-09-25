@@ -120,6 +120,59 @@ def set_port_if_absent(r, switch_id, port, server, description, dry_run):
     return True
 
 
+def run_flat_import(r, rows, header, dry_run):
+    """Format plat (1 ligne = 1 port) : Site | Switch | Model | Port | Server | Description.
+    C'est le format produit par export_switch_ports.py — représente fidèlement
+    n'importe quelle configuration (nombre de ports quelconque par switch)."""
+    c_site  = _find_col(header, 'Site')
+    c_sw    = _find_col(header, 'Switch', 'Nom du switch')
+    c_model = _find_col(header, 'Model', 'Modèle')
+    c_port  = _find_col(header, 'Port', 'Numéro/Nom du port')
+    c_srv   = _find_col(header, 'Server', 'Serveur')
+    c_desc  = _find_col(header, 'Description')
+
+    if c_site is None or c_sw is None or c_port is None or c_srv is None:
+        sys.exit(f"Colonnes 'Site' / 'Switch' / 'Port' / 'Server' introuvables. En-tête lu : {header}")
+
+    site_ids = r.smembers('sites')
+    sites_by_name = {}
+    for sid in site_ids:
+        nm = r.hget(f'site:{sid}', 'name')
+        if nm:
+            sites_by_name[nm.strip().upper()] = sid
+
+    switches_cache = {}
+    stats = {'switch_created': 0, 'switch_reused': 0, 'port_added': 0, 'port_skipped': 0, 'rows_skipped_no_site': 0}
+    unresolved_sites = set()
+
+    for row in rows[1:]:
+        site_raw = _cell(row, c_site)
+        sw_raw   = _cell(row, c_sw)
+        port_raw = _cell(row, c_port)
+        srv_raw  = _cell(row, c_srv)
+        if not site_raw or not sw_raw or not port_raw or not srv_raw:
+            continue
+        model = _cell(row, c_model) or 'CISCO'
+        desc  = _cell(row, c_desc)
+
+        site_id = resolve_site_id(sites_by_name, site_raw)
+        if not site_id:
+            unresolved_sites.add(site_raw)
+            stats['rows_skipped_no_site'] += 1
+            continue
+
+        sw_id, created = get_or_create_switch(r, site_id, sw_raw, switches_cache, dry_run)
+        if model and not dry_run and not str(sw_id).startswith('DRYRUN'):
+            r.hset(f'switch:{sw_id}', 'model', model)
+        stats['switch_created' if created else 'switch_reused'] += 1
+        added = set_port_if_absent(r, sw_id, port_raw, srv_raw, desc, dry_run)
+        stats['port_added' if added else 'port_skipped'] += 1
+        tag = 'AJOUTÉ' if added else 'ignoré (existe déjà)'
+        print(f"  [{sw_raw}] {port_raw} -> {srv_raw} ({desc})  {tag}")
+
+    return stats, unresolved_sites
+
+
 def main():
     parser = argparse.ArgumentParser(description="Importe des ports de switch (Excel) dans Redis, sans écraser l'existant")
     parser.add_argument('--xlsx', required=True)
@@ -139,6 +192,34 @@ def main():
     if not rows:
         sys.exit("Feuille vide.")
     header = rows[0]
+    header_low = [str(h).strip().lower() if h else '' for h in header]
+
+    try:
+        r = _redis_lib.Redis(host=args.host, port=args.port, password=args.password, decode_responses=True)
+        r.ping()
+        print(f"Redis connecté : {args.host}:{args.port}")
+    except Exception as e:
+        sys.exit(f"Impossible de se connecter à Redis : {e}")
+    if args.dry_run:
+        print("Mode DRY-RUN -- aucune écriture Redis\n")
+
+    # Détection du format : plat (Switch/Port/Server, 1 ligne = 1 port) vs
+    # tableau (Nom du Switch / Numero/Nom du port (1) / ..., 1 ligne = 1 serveur).
+    is_flat = 'switch' in header_low and 'port' in header_low and 'server' in header_low
+    if is_flat:
+        stats, unresolved_sites = run_flat_import(r, rows, header, args.dry_run)
+        print("\n" + "=" * 55)
+        print(f"Switches créés   : {stats['switch_created']}")
+        print(f"Switches réutilisés (déjà existants) : {stats['switch_reused']}")
+        print(f"Ports ajoutés    : {stats['port_added']}")
+        print(f"Ports ignorés (déjà existants, non écrasés) : {stats['port_skipped']}")
+        if stats['rows_skipped_no_site']:
+            print(f"Lignes ignorées (site introuvable) : {stats['rows_skipped_no_site']}")
+            print(f"  Sites non résolus : {sorted(unresolved_sites)}")
+        if args.dry_run:
+            print("\n(DRY-RUN -- rien n'a été écrit dans Redis)")
+        print()
+        return
 
     c_site   = _find_col(header, 'Site')
     c_host   = _find_col(header, 'Hostname')
@@ -152,16 +233,6 @@ def main():
 
     if c_site is None or c_host is None:
         sys.exit(f"Colonnes 'Site' / 'Hostname' introuvables. En-tête lu : {header}")
-
-    try:
-        r = _redis_lib.Redis(host=args.host, port=args.port, password=args.password, decode_responses=True)
-        r.ping()
-        print(f"Redis connecté : {args.host}:{args.port}")
-    except Exception as e:
-        sys.exit(f"Impossible de se connecter à Redis : {e}")
-
-    if args.dry_run:
-        print("Mode DRY-RUN -- aucune écriture Redis\n")
 
     site_ids = r.smembers('sites')
     sites_by_name = {}
