@@ -79,7 +79,9 @@ router.put('/:id/ports/:port', requireAuth, requireAdmin, async (req, res) => {
   try {
     const sw = await getSwitch(req.params.id);
     if (!sw) return res.status(404).json({ error: 'Switch introuvable' });
-    const port = req.params.port.trim();
+    // Express ne décode pas %2F dans un segment de route (sécurité anti-ambiguïté),
+    // indispensable ici car les noms de port contiennent des "/" (ex. "Gi 1/0/13").
+    const port = decodeURIComponent(req.params.port).trim();
     if (!port) return res.status(400).json({ error: 'Numéro de port requis' });
     const { server, description } = req.body || {};
     if (!server?.trim()) return res.status(400).json({ error: 'Nom du serveur requis' });
@@ -94,8 +96,9 @@ router.delete('/:id/ports/:port', requireAuth, requireAdmin, async (req, res) =>
   try {
     const sw = await getSwitch(req.params.id);
     if (!sw) return res.status(404).json({ error: 'Switch introuvable' });
-    await deleteSwitchPort(req.params.id, req.params.port);
-    await addLog(req.user.username, 'DEL_PORT', `Port ${req.params.port} retiré du switch « ${sw.name} »`, 'info');
+    const port = decodeURIComponent(req.params.port).trim();
+    await deleteSwitchPort(req.params.id, port);
+    await addLog(req.user.username, 'DEL_PORT', `Port ${port} retiré du switch « ${sw.name} »`, 'info');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

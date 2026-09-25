@@ -348,7 +348,6 @@ function openPortModal(switchId, switchName, editPort, editServer, editDesc) {
   document.getElementById('port-number').value  = editPort   || '';
   document.getElementById('port-server').value  = editServer || '';
   document.getElementById('port-desc').value    = editDesc   || '';
-  document.getElementById('port-number').disabled = !!editPort;
   document.getElementById('port-error').style.display = 'none';
 
   closeCombobox();
@@ -432,13 +431,20 @@ if (_serverInput) {
 
 document.getElementById('form-port').addEventListener('submit', async e => {
   e.preventDefault();
-  const port   = (_portEditing || document.getElementById('port-number').value).trim();
+  const port   = document.getElementById('port-number').value.trim();
   const server = document.getElementById('port-server').value.trim();
   const desc   = document.getElementById('port-desc').value.trim();
   const err    = document.getElementById('port-error');
   err.style.display = 'none';
+  if (!port) { err.textContent = 'Numéro / nom du port requis'; err.style.display = 'block'; return; }
 
   try {
+    // Renommage : le numéro de port a changé pendant l'édition — un port est
+    // une clé de hash Redis, pas un champ modifiable en place, donc on
+    // supprime l'ancienne clé avant de créer la nouvelle.
+    if (_portEditing && _portEditing !== port) {
+      await del(`/api/switches/${_portSwitchId}/ports/${encodeURIComponent(_portEditing)}`);
+    }
     await put(`/api/switches/${_portSwitchId}/ports/${encodeURIComponent(port)}`, { server, description: desc });
     showToast('Port enregistré', 'success');
     document.getElementById('modal-port').classList.add('hidden');
