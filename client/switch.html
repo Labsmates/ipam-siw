@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/css/theme.css">
   <script src="/js/protect.js?v=c779984"></script>
   <script src="/vendor/tailwind.min.js"></script>
+  <script src="/vendor/xlsx.full.min.js"></script>
   <style>
     *{box-sizing:border-box}
     body{background:var(--bg-1);color:var(--tx-1);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;height:100vh;overflow:hidden}
@@ -168,10 +169,16 @@
             <h2 style="color:var(--tx-1);font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em">Switch Config Ports</h2>
             <p id="summary" style="color:var(--tx-3);font-size:13px;margin:4px 0 0"></p>
           </div>
-          <button id="btn-add-switch" class="btn-p hidden" style="display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Ajouter un switch
-          </button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="btn-import-switches" class="btn-g hidden" style="display:inline-flex;align-items:center;gap:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Importer CSV/Excel
+            </button>
+            <button id="btn-add-switch" class="btn-p hidden" style="display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;gap:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Ajouter un switch
+            </button>
+          </div>
         </div>
 
         <div id="sites-container"></div>
@@ -183,6 +190,35 @@
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ MODAL IMPORT SWITCHES ══════════════════ -->
+  <div id="modal-import-switches" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">Importer des switches/ports (CSV ou Excel)</div>
+        <button id="btn-cancel-import-switches" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div style="font-size:12.5px;color:var(--tx-3);margin-bottom:14px;line-height:1.5">
+        Colonnes attendues : <b>Site, Switch, Model, Port, Server, Description</b> (1 ligne = 1 port).
+        Un switch déjà présent sur le site est réutilisé, un port déjà présent est ignoré — <b>rien n'est jamais écrasé</b>.
+        <br><a id="link-template-csv" href="/templates/switch_ports_template.csv" download style="color:#58a6ff">Télécharger le modèle CSV</a>
+        &nbsp;·&nbsp;
+        <a id="link-template-xlsx" href="/templates/switch_ports_template.xlsx" download style="color:#58a6ff">Télécharger le modèle Excel</a>
+      </div>
+      <form id="form-import-switches">
+        <div class="form-row">
+          <label class="lbl">Fichier <span style="color:#f85149">*</span></label>
+          <input id="import-switches-file" type="file" accept=".csv,.xlsx" class="inp" required>
+        </div>
+        <div id="import-switches-error" style="color:#f85149;font-size:13px;margin-bottom:12px;display:none"></div>
+        <div id="import-switches-result" style="display:none;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;line-height:1.8"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" id="btn-cancel-import-switches2" class="btn-g">Fermer</button>
+          <button type="submit" class="btn-p" id="btn-import-switches-submit">Importer</button>
+        </div>
+      </form>
     </div>
   </div>
 

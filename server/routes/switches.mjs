@@ -2,17 +2,103 @@ import express from 'express';
 import {
   createSwitch, getSwitch, listSwitchesBySite, updateSwitch, deleteSwitch,
   setSwitchPort, deleteSwitchPort, getSwitchPorts,
-  getSite, addLog, listServerHostnames,
+  getSite, addLog, listServerHostnames, listSitesWithStats, redis,
 } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
 
 const router = express.Router();
+
+// Préfixes essayés dans l'ordre pour retrouver un site à partir d'un nom
+// abrégé dans un fichier d'import (ex. "AJACCIO" -> "CREC AJACCIO").
+const SITE_NAME_PREFIXES = ['', 'CREC ', 'DSIBA ', 'DOP ', 'EBR ', 'LBPE ', 'LBPF '];
+
+function resolveSiteId(sitesByName, rawName) {
+  const nameUp = String(rawName || '').trim().toUpperCase();
+  if (!nameUp) return null;
+  if (sitesByName.has(nameUp)) return sitesByName.get(nameUp);
+  for (const prefix of SITE_NAME_PREFIXES) {
+    const candidate = `${prefix}${nameUp}`.trim();
+    if (sitesByName.has(candidate)) return sitesByName.get(candidate);
+  }
+  const matches = [...sitesByName.entries()].filter(([nm]) => nm.includes(nameUp));
+  return matches.length === 1 ? matches[0][1] : null;
+}
 
 // GET /api/switches/servers — hostnames filtrés pour la combobox
 router.get('/servers', requireAuth, async (_req, res) => {
   try {
     const servers = await listServerHostnames();
     res.json({ servers });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/switches/import  (admin) — import en masse depuis CSV/Excel
+// (parsé côté client), format plat 1 ligne = 1 port :
+//   { rows: [{ site, switch, model, port, server, description }, …] }
+// Ne remplace JAMAIS l'existant : un switch déjà présent sur le site (même
+// nom) est réutilisé, un port déjà présent sur un switch (même numéro) est
+// ignoré — seuls les nouveaux switches/ports sont créés.
+router.post('/import', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    if (!rows.length) return res.status(400).json({ error: 'Aucune ligne à importer' });
+
+    const sites = (await listSitesWithStats()).filter(s => !s.archived);
+    const sitesByName = new Map(sites.map(s => [s.name.trim().toUpperCase(), s.id]));
+
+    const switchCache = new Map(); // `${siteId}::${NAME}` -> switchId
+    const stats = { switch_created: 0, switch_reused: 0, port_added: 0, port_skipped: 0, rows_skipped: 0 };
+    const unresolvedSites = new Set();
+    const details = [];
+
+    for (const row of rows) {
+      const siteRaw   = String(row?.site || '').trim();
+      const swRaw      = String(row?.switch || '').trim();
+      const model      = String(row?.model || '').trim() || 'CISCO';
+      const portRaw    = String(row?.port || '').trim();
+      const serverRaw  = String(row?.server || '').trim();
+      const description = String(row?.description || '').trim();
+
+      if (!siteRaw || !swRaw || !portRaw || !serverRaw) { stats.rows_skipped++; continue; }
+
+      const siteId = resolveSiteId(sitesByName, siteRaw);
+      if (!siteId) { unresolvedSites.add(siteRaw); stats.rows_skipped++; continue; }
+
+      const cacheKey = `${siteId}::${swRaw.toUpperCase()}`;
+      let switchId = switchCache.get(cacheKey);
+      let switchCreated = false;
+      if (!switchId) {
+        const existingIds = await redis.smembers(`site:${siteId}:switches`);
+        for (const sid of existingIds) {
+          const nm = await redis.hget(`switch:${sid}`, 'name');
+          if ((nm || '').trim().toUpperCase() === swRaw.toUpperCase()) { switchId = sid; break; }
+        }
+        if (!switchId) {
+          const created = await createSwitch(siteId, { name: swRaw, model });
+          switchId = String(created.id);
+          switchCreated = true;
+        }
+        switchCache.set(cacheKey, switchId);
+        stats[switchCreated ? 'switch_created' : 'switch_reused']++;
+      }
+
+      const alreadyExists = await redis.hexists(`switch:${switchId}:ports`, portRaw);
+      if (alreadyExists) {
+        stats.port_skipped++;
+        details.push({ switch: swRaw, port: portRaw, status: 'skipped' });
+      } else {
+        await setSwitchPort(switchId, portRaw, { server: serverRaw, description });
+        stats.port_added++;
+        details.push({ switch: swRaw, port: portRaw, status: 'added' });
+      }
+    }
+
+    await addLog(req.user.username, 'IMPORT_SWITCHES', {
+      switch_created: stats.switch_created, switch_reused: stats.switch_reused,
+      port_added: stats.port_added, port_skipped: stats.port_skipped, rows_skipped: stats.rows_skipped,
+    }, 'ok');
+
+    res.json({ ...stats, unresolved_sites: [...unresolvedSites], details });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

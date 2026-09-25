@@ -28,6 +28,7 @@ document.getElementById('btn-logout').addEventListener('click', logout);
 
 if (isAdmin) {
   document.getElementById('btn-add-switch').classList.remove('hidden');
+  document.getElementById('btn-import-switches').classList.remove('hidden');
   document.getElementById('nav-admin-link').classList.remove('hidden');
   document.getElementById('nav-config-link').classList.remove('hidden');
 }
@@ -478,6 +479,117 @@ async function confirmDeletePort(switchId, port) {
 
 // ── Global "add switch" button ─────────────────────────────────────────────
 document.getElementById('btn-add-switch').addEventListener('click', () => openSwitchModal(null));
+
+// ── Import CSV/Excel (admin) ────────────────────────────────────────────────
+// Parsing entièrement côté navigateur (CSV fait main, Excel via SheetJS déjà
+// vendorisé) — aucune dépendance serveur, fonctionne même sans accès Internet
+// depuis le serveur de prod. Colonnes : Site, Switch, Model, Port, Server, Description.
+function parseCsvText(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+  if (!lines.length) return [];
+  const parseLine = line => {
+    const out = []; let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQuotes) {
+        if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (c === '"') inQuotes = false;
+        else cur += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { out.push(cur); cur = ''; }
+        else cur += c;
+      }
+    }
+    out.push(cur);
+    return out;
+  };
+  const header = parseLine(lines[0]).map(h => h.trim().toLowerCase());
+  return lines.slice(1).map(l => {
+    const cols = parseLine(l);
+    const row = {};
+    header.forEach((h, i) => { row[h] = (cols[i] ?? '').trim(); });
+    return row;
+  });
+}
+
+function rowsFromSheet(aoa) {
+  const header = aoa[0].map(h => String(h ?? '').trim().toLowerCase());
+  return aoa.slice(1).filter(r => r.some(c => String(c ?? '').trim() !== '')).map(r => {
+    const row = {};
+    header.forEach((h, i) => { row[h] = String(r[i] ?? '').trim(); });
+    return row;
+  });
+}
+
+document.getElementById('btn-import-switches')?.addEventListener('click', () => {
+  document.getElementById('import-switches-result').style.display = 'none';
+  document.getElementById('import-switches-error').style.display = 'none';
+  document.getElementById('form-import-switches').reset();
+  document.getElementById('modal-import-switches').classList.remove('hidden');
+});
+['btn-cancel-import-switches', 'btn-cancel-import-switches2'].forEach(id =>
+  document.getElementById(id)?.addEventListener('click', () =>
+    document.getElementById('modal-import-switches').classList.add('hidden')
+  )
+);
+
+document.getElementById('form-import-switches')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const fileEl    = document.getElementById('import-switches-file');
+  const err       = document.getElementById('import-switches-error');
+  const resultBox = document.getElementById('import-switches-result');
+  const btn       = e.target.querySelector('button[type=submit]');
+  err.style.display = 'none';
+  resultBox.style.display = 'none';
+
+  const file = fileEl.files[0];
+  if (!file) { err.textContent = 'Sélectionnez un fichier'; err.style.display = 'block'; return; }
+
+  btn.disabled = true; btn.textContent = 'Import…';
+  try {
+    let parsedRows;
+    if (/\.csv$/i.test(file.name)) {
+      parsedRows = parseCsvText(await file.text());
+    } else {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      parsedRows = rowsFromSheet(aoa);
+    }
+
+    const rows = parsedRows
+      .map(r => ({
+        site: r.site || '', switch: r.switch || r['nom du switch'] || '',
+        model: r.model || r['modèle'] || '', port: r.port || '',
+        server: r.server || r.serveur || '', description: r.description || '',
+      }))
+      .filter(r => r.site && r.switch && r.port && r.server);
+
+    if (!rows.length) {
+      err.textContent = 'Aucune ligne valide — colonnes requises : Site, Switch, Port, Server';
+      err.style.display = 'block';
+      return;
+    }
+
+    const res = await post('/api/switches/import', { rows });
+    resultBox.innerHTML = `
+      Switches créés : <b>${res.switch_created}</b> · réutilisés : <b>${res.switch_reused}</b><br>
+      Ports ajoutés : <b style="color:#3fb950">${res.port_added}</b> · ignorés (déjà existants) : <b>${res.port_skipped}</b>
+      ${res.unresolved_sites?.length ? `<br><span style="color:#d29922">Sites non reconnus (ignorés) : ${res.unresolved_sites.map(esc).join(', ')}</span>` : ''}
+    `;
+    resultBox.style.display = 'block';
+    showToast(`${res.port_added} port(s) importé(s)`, 'success');
+
+    switchMap = {};
+    await renderAll();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Importer';
+  }
+});
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 function esc(str) {
