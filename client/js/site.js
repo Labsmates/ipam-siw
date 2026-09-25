@@ -376,7 +376,10 @@ function renderWelcomeSitesGrid(q = '') {
   const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
   gridEl.innerHTML = sorted.map(s => `
     <a href="/site.html?id=${encodeURIComponent(s.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
-      <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+      <span style="display:flex;align-items:center;gap:6px;min-width:0">
+        ${s.has_switches ? '<span title="Switch configuré" style="flex-shrink:0;width:8px;height:8px;border-radius:999px;background:#3fb950;display:inline-block"></span>' : ''}
+        <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
+      </span>
       <span style="flex-shrink:0;background:#58a6ff;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${s.count}</span>
     </a>`).join('');
 }

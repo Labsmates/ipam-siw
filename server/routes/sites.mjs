@@ -169,7 +169,8 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
       // Compte par site — même périmètre que le total global (VLAN ADMIN/IPMI exclus)
       const siteCounts_ = { windows: 0, linux: 0 };
       countSiteWindowsLinux(data, new Set(), siteCounts_);
-      siteCounts.push({ id: s.id, name: s.name, count: siteCounts_.windows + siteCounts_.linux });
+      const hasSwitches = (await redis.scard(`site:${s.id}:switches`)) > 0;
+      siteCounts.push({ id: s.id, name: s.name, count: siteCounts_.windows + siteCounts_.linux, has_switches: hasSwitches });
     }
     res.json({ totals: { windows: globalCounts.windows, linux: globalCounts.linux, nutanix_clusters: nutanixClusters }, sites: siteCounts });
   } catch (e) { res.status(500).json({ error: e.message }); }
