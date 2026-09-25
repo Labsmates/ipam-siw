@@ -6,7 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, del, delBody, patch, showToast, showAlert, fmtDate, openModal, closeModal, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
   restoreElevationSession, setupElevationMode,
-} from './api.js?v=9d8c36a';
+} from './api.js?v=81fdb14';
 
 document.addEventListener('DOMContentLoaded', async () => {
   restoreElevationSession();
