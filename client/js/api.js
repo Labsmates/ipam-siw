@@ -928,6 +928,26 @@ export function setupCentralSearch() {
         if (!cur) { byHost.set(key, r); deduped.push(r); }
         else if (cur.vlan_tag !== 'ADMIN' && r.vlan_tag === 'ADMIN') { deduped[deduped.indexOf(cur)] = r; byHost.set(key, r); }
       }
+      // Serveurs physiques (AF1x/AF2x, FS10) : on ajoute leur carte de management,
+      // IDRAC-<serveur> et ILO-<serveur>, de préférence dans un VLAN IPMI ou PROCEF.
+      const physLabels = [...new Set(deduped
+        .map(r => (r.hostname || '').split('.')[0].toUpperCase())
+        .filter(l => l && !/^(IDRAC|ILO)-/.test(l) && /AF[12]\d|FS10/.test(l)))].slice(0, 6);
+      if (physLabels.length) {
+        const mgmtRes = await Promise.all(physLabels.flatMap(l => ['IDRAC-', 'ILO-'].map(async p => {
+          try { return ((await get(`/api/ips/search?q=${encodeURIComponent(p + l)}&limit=100`)).results || []).filter(r => (r.hostname || '').split('.')[0].toUpperCase() === p + l); }
+          catch { return []; }
+        })));
+        const rank = r => (r.vlan_tag === 'IPMI' || r.vlan_tag === 'PROCEF') ? 0 : 1;
+        const have = new Set(deduped.map(r => (r.hostname || '').trim().toLowerCase()));
+        const best = new Map();
+        for (const r of mgmtRes.flat()) {
+          const key = (r.hostname || '').trim().toLowerCase();
+          if (have.has(key)) continue;
+          if (!best.has(key) || rank(r) < rank(best.get(key))) best.set(key, r);
+        }
+        deduped.push(...best.values());
+      }
       ipResults = deduped.slice(0, 50);
     }
     if (input.value.trim().toLowerCase() !== q) return;
