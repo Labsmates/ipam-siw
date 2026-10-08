@@ -948,11 +948,11 @@ export function setupCentralSearch() {
       const c = STATUS_COLOR[r.status] || 'var(--tx-3)';
       const href = `/site.html?id=${encodeURIComponent(r.site_id)}${vlpIds.has(String(r.site_id)) ? '&g=vlp' : ''}`;
       return `<a href="${href}" style="display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
-        <span style="font-family:monospace;font-size:13px;font-weight:600;color:var(--tx-1);min-width:120px">${esc(r.ip_address)}</span>
+        <span style="font-family:monospace;font-size:13px;font-weight:700;color:var(--tx-1);min-width:200px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.hostname ? esc(r.hostname) : '—'}</span>
+        <span style="font-family:monospace;font-size:13px;color:var(--tx-2);min-width:120px">${esc(r.ip_address)}</span>
+        <span style="font-size:12px;color:var(--tx-4);white-space:nowrap;min-width:70px">VLAN ${esc(r.vlan_id)}</span>
         <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${c}22;color:${c};border:1px solid ${c}44;white-space:nowrap">${esc(r.status)}</span>
-        <span style="font-size:12px;color:var(--tx-4);white-space:nowrap">VLAN ${esc(r.vlan_id)}</span>
-        <span style="font-size:12px;font-weight:600;color:var(--tx-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.site_name)}</span>
-        ${r.hostname ? `<span style="font-size:12px;color:var(--tx-1);font-family:monospace;white-space:nowrap">${esc(r.hostname)}</span>` : ''}
+        <span style="font-size:12px;font-weight:600;color:var(--tx-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">${esc(r.site_name)}</span>
       </a>`;
     });
     const ipSection = q.length < 3 ? '' : `
