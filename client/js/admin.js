@@ -439,6 +439,25 @@ function setupSiteModals() {
     renderSites();
   });
 
+  // Import de la liste des sites VLP (idempotent : rien n'est écrasé)
+  document.getElementById('btn-import-vlp').addEventListener('click', async () => {
+    const ok = await showConfirm({
+      title: 'Importer les sites VLP',
+      message: 'Créer les sites VLP manquants (VLAN Admin et Prod, IP /24, Gateway en .1) ? Les sites et VLAN existants ne sont pas modifiés.',
+      confirmText: 'Importer',
+    });
+    if (!ok) return;
+    const btn = document.getElementById('btn-import-vlp');
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.textContent = 'Import…';
+    try {
+      const res = await post('/api/sites/vlp-import', {});
+      showToast(`${res.created} site(s) VLP créé(s), ${res.existing} déjà présent(s)`, 'success');
+      await loadSites();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = label; }
+  });
+
   // Cleanup broadcast IPs
   document.getElementById('btn-cleanup-broadcast').addEventListener('click', async () => {
     const ok = await showConfirm({
