@@ -6,8 +6,8 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
   restoreElevationSession, setupElevationMode,
-} from './api.js?v=80a3911';
-import { WIN_ROLES, LIN_ROLES } from './server-roles.js?v=80a3911';
+} from './api.js?v=432ea9a';
+import { WIN_ROLES, LIN_ROLES } from './server-roles.js?v=432ea9a';
 
 // Domain suffixes are the source of truth for OS classification
 const WIN_DOMAIN  = '.dct.adt.local';
