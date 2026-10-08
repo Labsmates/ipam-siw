@@ -1,7 +1,7 @@
 import {
   requireAuth, getUser, logout, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, startInactivityTimer, setupCentralSearch,
   get, post, put, del, showToast, sortSites,
-} from '/js/api.js?v=3eabc69';
+} from '/js/api.js?v=56f2fbe';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let user      = null;
