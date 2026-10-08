@@ -20,6 +20,7 @@ function fmtDate(ts) {
   });
 }
 
+let isVlpView = false; // ?g=vlp : la sidebar liste les sites VLP
 let user     = null;
 let siteId   = null;
 let siteData = null;      // { site, vlans, ips }
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const params = new URLSearchParams(location.search);
   siteId = params.get('id');
+  isVlpView = params.get('g') === 'vlp';
 
   user = getUser();
   document.getElementById('nav-username').textContent = user?.username || '';
@@ -93,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadSidebar() {
   try {
-    const data = await get('/api/sites');
+    const data = await get(isVlpView ? '/api/sites?group=VLP' : '/api/sites');
     const sites = data.sites || [];
     const searchEl = document.getElementById('sidebar-search');
     const listEl   = document.getElementById('site-list');
@@ -103,7 +105,7 @@ async function loadSidebar() {
       const filtered = q ? sorted.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sorted;
       listEl.innerHTML = filtered.map(s => {
         const active = String(s.id) === String(siteId);
-        return `<a href="/migration.html?id=${encodeURIComponent(s.id)}" class="site-item${active ? ' on' : ''}">
+        return `<a href="/migration.html?id=${encodeURIComponent(s.id)}${isVlpView ? '&g=vlp' : ''}" class="site-item${active ? ' on' : ''}">
           <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px">${esc(s.name)}</span>
         </a>`;
       }).join('');
@@ -173,14 +175,20 @@ function classifyHostname(raw) {
 // dans Site IPAM), et le nombre de serveurs Windows live pas encore engagés
 // dans une migration (remaining). "done" n'est PAS borné par "total" : un
 // serveur migré puis décommissionné compte dans done mais plus dans total.
-function computeSiteWindowsStats(ips, siteMigrations) {
+function computeSiteWindowsStats(ips, siteMigrations, vlans = null) {
   const seen = new Set();
   const windowsHostnames = new Set();
+  // Sites VLP (vlans fourni) : tout serveur nommé hors VLAN ADMIN/IPMI est Windows (code VLP).
+  const excludedVlanIds = vlans ? new Set(vlans
+    .filter(v => ['ADMIN', 'IPMI'].includes((v.description || '').trim().toUpperCase()))
+    .map(v => String(v.id))) : null;
   for (const ip of (ips || [])) {
     if (!ip.hostname || ip.status === 'Libre') continue;
+    if (excludedVlanIds && excludedVlanIds.has(String(ip.vlan_id))) continue;
     const key = ip.hostname.split('.')[0].toUpperCase();
     if (seen.has(key)) continue;
     seen.add(key);
+    if (excludedVlanIds) { windowsHostnames.add(ip.hostname); continue; }
     const result = classifyHostname(ip.hostname);
     if (result?.type === 'windows' && result.role !== 'IDRAC') windowsHostnames.add(ip.hostname);
   }
@@ -191,19 +199,28 @@ function computeSiteWindowsStats(ips, siteMigrations) {
   return { total: windowsHostnames.size, done, remaining };
 }
 
-function renderOverviewGrid(q = '') {
-  const gridEl = document.getElementById('overview-sites-grid');
-  if (!gridEl) return;
-  const query = q.trim().toLowerCase();
-  const filtered = query ? _overviewRows.filter(r => r.name.toLowerCase().includes(query)) : _overviewRows;
-  gridEl.innerHTML = filtered.map(r => `
-    <a href="/migration.html?id=${encodeURIComponent(r.id)}" style="display:flex;flex-direction:column;gap:6px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+function overviewCardHtml(r) {
+  return `
+    <a href="/migration.html?id=${encodeURIComponent(r.id)}${r.vlp ? '&g=vlp' : ''}" style="display:flex;flex-direction:column;gap:6px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
       <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
       <span style="display:flex;gap:6px">
         <span style="flex-shrink:0;background:#3fb950;color:#0d1117;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.done}</span>
         <span style="flex-shrink:0;background:${r.remaining > 0 ? '#d29922' : 'var(--bg-4)'};color:${r.remaining > 0 ? '#0d1117' : 'var(--tx-4)'};border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center">${r.remaining}</span>
       </span>
-    </a>`).join('');
+    </a>`;
+}
+
+function renderOverviewGrid(q = '') {
+  const gridEl = document.getElementById('overview-sites-grid');
+  if (!gridEl) return;
+  const query = q.trim().toLowerCase();
+  const filtered = query ? _overviewRows.filter(r => r.name.toLowerCase().includes(query)) : _overviewRows;
+  gridEl.innerHTML = filtered.filter(r => !r.vlp).map(overviewCardHtml).join('');
+  // Bloc VLP — sites du groupe VLP, séparés de la grille principale
+  const vlpRows = filtered.filter(r => r.vlp);
+  document.getElementById('overview-vlp-block')?.classList.toggle('hidden', !vlpRows.length);
+  const vlpGrid = document.getElementById('overview-vlp-grid');
+  if (vlpGrid) vlpGrid.innerHTML = vlpRows.map(overviewCardHtml).join('');
 }
 
 async function loadOverview() {
@@ -215,7 +232,7 @@ async function loadOverview() {
   loadEl.style.display = 'flex';
   contentEl.classList.add('hidden');
   try {
-    const { sites } = await get('/api/sites');
+    const { sites } = await get('/api/sites?group=all');
     if (!sites.length) {
       emptyEl.classList.remove('hidden');
       gridEl.style.display = 'none';
@@ -231,9 +248,10 @@ async function loadOverview() {
             get(`/api/migrations?site_id=${encodeURIComponent(s.id)}`),
           ]);
           const siteMigrations = migRes.migrations || [];
-          const { total, done, remaining } = computeSiteWindowsStats(data.ips, siteMigrations);
-          return { id: s.id, name: s.name, total, done, remaining };
-        } catch { return { id: s.id, name: s.name, total: 0, done: 0, remaining: 0 }; }
+          const vlp = s.group === 'VLP';
+          const { total, done, remaining } = computeSiteWindowsStats(data.ips, siteMigrations, vlp ? data.vlans : null);
+          return { id: s.id, name: s.name, total, done, remaining, vlp };
+        } catch { return { id: s.id, name: s.name, total: 0, done: 0, remaining: 0, vlp: s.group === 'VLP' }; }
       }));
       const totalDone = rows.reduce((sum, r) => sum + r.done, 0);
       const totalServers = rows.reduce((sum, r) => sum + r.total, 0);

@@ -154,7 +154,7 @@ async function loadStats() {
   try {
     // Fetch site list
     loadingMsg.textContent = 'Récupération de la liste des sites…';
-    const data = await get('/api/sites');
+    const data = await get('/api/sites?group=all');
     const sites = sortSites(data.sites || []);
 
     if (!sites.length) {
@@ -192,9 +192,11 @@ async function loadStats() {
           .filter(v => ['ADMIN', 'IPMI'].includes((v.description || '').trim().toUpperCase()))
           .map(v => String(v.id))
       );
+      const isVlp = site.group === 'VLP';
       for (const ip of ips) {
         if (ip.status === 'Libre' || !ip.hostname) continue;
-        const result = classifyHostname(ip.hostname);
+        // Sites VLP : tout serveur nommé est compté Windows, code VLP.
+        const result = isVlp ? { type: 'windows', role: 'VLP' } : classifyHostname(ip.hostname);
         if (!result) continue;
         const key = ip.hostname.split('.')[0].toUpperCase();
 

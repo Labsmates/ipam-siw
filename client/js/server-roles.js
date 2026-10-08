@@ -23,6 +23,7 @@ export const WIN_ROLES = [
   { code: 'AA',    label: 'Serveurs Rebond SRW' },
   { code: 'IDRAC', label: 'IDRAC / iLO' },
   { code: 'XMB',   label: 'Serveurs XMB' },
+  { code: 'VLP',   label: 'Serveurs VLP' },
 ];
 
 // Linux roles — CFT only (XG + XD fusionnés) ; SPHY compté séparément (Nutanix HDC)

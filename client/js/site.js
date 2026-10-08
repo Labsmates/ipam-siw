@@ -239,6 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const params = new URLSearchParams(location.search);
   siteId = params.get('id');
+  isVlpView = params.get('g') === 'vlp';
 
   user = getUser();
   document.getElementById('nav-username').textContent = user?.username || '';
@@ -289,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!siteId) {
     document.getElementById('view-welcome').style.display = 'flex';
     document.getElementById('view-site').style.display = 'none';
-    await loadSiteRecap();
+    await (isVlpView ? loadVlpRecap() : loadSiteRecap());
     return;
   }
 
@@ -366,6 +367,10 @@ async function checkLoginPopup() {
 // GET /api/sites/metier-recap) + grille des sites triés par ordre
 // alphanumérique, chacun cliquable vers sa fiche.
 // ---------------------------------------------------------------------------
+// Vue « Site VLP » (?g=vlp) : même page, liste restreinte aux sites du groupe VLP.
+let isVlpView = false;
+const siteHref = id => `/site.html?id=${encodeURIComponent(id)}${isVlpView ? '&g=vlp' : ''}`;
+
 let _recapSiteCounts = []; // [{id, name, count}] — pour filtrage par la recherche sidebar
 
 function renderWelcomeSitesGrid(q = '') {
@@ -375,7 +380,7 @@ function renderWelcomeSitesGrid(q = '') {
   const filtered = query ? _recapSiteCounts.filter(s => s.name.toLowerCase().includes(query)) : _recapSiteCounts;
   const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
   gridEl.innerHTML = sorted.map(s => `
-    <a href="/site.html?id=${encodeURIComponent(s.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+    <a href="${siteHref(s.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
       <span style="display:flex;align-items:center;gap:6px;min-width:0">
         ${s.has_switches ? '<span title="Switch configuré" style="flex-shrink:0;width:8px;height:8px;border-radius:999px;background:#3fb950;display:inline-block"></span>' : ''}
         <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</span>
@@ -414,6 +419,29 @@ function renderWelcomeConflicts(conflicts) {
       <td style="padding:6px 8px;font-size:12.5px">${c.expected_site_id ? `<a href="/site.html?id=${encodeURIComponent(c.expected_site_id)}" style="color:#3fb950;text-decoration:underline">${esc(c.expected_site_name)}</a>` : '<span style="color:var(--tx-4)">inconnu</span>'}</td>
     </tr>`).join('');
   blockEl.classList.remove('hidden');
+}
+
+// Accueil « Site VLP » : grille des sites VLP avec le nombre de serveurs VLP
+// (VLAN ADMIN/IPMI exclus) ; récap Windows/Linux/Nutanix et conflits masqués.
+async function loadVlpRecap() {
+  const loadEl    = document.getElementById('welcome-loading');
+  const contentEl = document.getElementById('welcome-content');
+  document.getElementById('welcome-title').textContent = 'Site VLP';
+  document.getElementById('welcome-subtitle').textContent = "Sites VLP — VLAN Admin et Prod — cliquez un site pour l'ouvrir";
+  document.getElementById('welcome-totals').classList.add('hidden');
+  document.getElementById('welcome-conflicts').classList.add('hidden');
+  loadEl.style.display = 'flex';
+  contentEl.classList.add('hidden');
+  try {
+    const { sites } = await get('/api/sites/vlp-recap');
+    _recapSiteCounts = sites;
+    renderWelcomeSitesGrid(document.getElementById('sidebar-search')?.value || '');
+    contentEl.classList.remove('hidden');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    loadEl.style.display = 'none';
+  }
 }
 
 async function loadSiteRecap() {
@@ -1612,7 +1640,7 @@ function setupModals(user) {
 // ---------------------------------------------------------------------------
 async function loadSidebar() {
   try {
-    const data = await get('/api/sites');
+    const data = await get(isVlpView ? '/api/sites?group=VLP' : '/api/sites');
     const sites = data.sites || [];
     const searchEl = document.getElementById('sidebar-search');
     const listEl   = document.getElementById('site-list');
@@ -1622,7 +1650,7 @@ async function loadSidebar() {
       const filtered = q ? sorted.filter(s => s.name.toLowerCase().includes(q.toLowerCase())) : sorted;
       listEl.innerHTML = filtered.map(s => {
         const active = s.id === siteId;
-        return `<a href="/site.html?id=${encodeURIComponent(s.id)}"
+        return `<a href="${siteHref(s.id)}"
           class="site-item${active ? ' on' : ''}">
           <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px">${esc(s.name)}</span>
           <span style="font-size:11px;color:${active ? '#58a6ff' : 'var(--tx-5)'};-ms-flex-negative:0;flex-shrink:0">${s.total || 0}</span>

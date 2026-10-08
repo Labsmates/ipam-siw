@@ -11,6 +11,11 @@ router.get('/', requireAuth, async (req, res) => {
     let sites = await listSitesWithStats();
     const includeArchived = req.query.all === '1' && req.user.role === 'admin';
     if (!includeArchived) sites = sites.filter(s => !s.archived);
+    // Groupe VLP : masqué de la liste normale (Sites IPAM) ; ?group=VLP ne renvoie que
+    // les sites VLP, ?group=all renvoie tout (Statistiques).
+    const group = String(req.query.group || '');
+    if (group === 'VLP') sites = sites.filter(s => s.group === 'VLP');
+    else if (group !== 'all') sites = sites.filter(s => s.group !== 'VLP');
     try {
       const raw = await redis.get('config:infos');
       const infos = raw ? JSON.parse(raw) : {};
@@ -90,7 +95,7 @@ function classifyHostname(raw) {
 // hostname dupliqué entre un VLAN exclu et un VLAN éligible (ex. miroir
 // ADMIN) ne doit jamais bloquer l'occurrence valide : l'exclusion VLAN est
 // donc vérifiée AVANT de marquer `seen`.
-function countSiteWindowsLinux(data, seen, counts) {
+function countSiteWindowsLinux(data, seen, counts, isVlp = false) {
   const excludedVlanIds = new Set(
     (data?.vlans || [])
       .filter(v => ['ADMIN', 'IPMI'].includes((v.description || '').trim().toUpperCase()))
@@ -102,6 +107,8 @@ function countSiteWindowsLinux(data, seen, counts) {
     const key = ip.hostname.split('.')[0].toUpperCase();
     if (seen.has(key)) continue;
     seen.add(key);
+    // Sites VLP : tout serveur nommé est compté Windows (code VLP), sans motif de hostname.
+    if (isVlp) { counts.windows++; counts.vlp = (counts.vlp || 0) + 1; continue; }
     const result = classifyHostname(ip.hostname);
     if (!result) continue;
     if (result.type === 'windows' && result.role !== 'IDRAC') counts.windows++;
@@ -115,9 +122,9 @@ router.get('/os-summary', requireAuth, async (req, res) => {
   try {
     const sites = (await listSitesWithStats()).filter(s => !s.archived);
     const seen = new Set();
-    const counts = { windows: 0, linux: 0 };
+    const counts = { windows: 0, linux: 0, vlp: 0 };
     for (const s of sites) {
-      countSiteWindowsLinux(await getSiteData(s.id), seen, counts);
+      countSiteWindowsLinux(await getSiteData(s.id), seen, counts, s.group === 'VLP');
     }
     res.json(counts);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -140,12 +147,13 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
     const sites = (await listSitesWithStats()).filter(s => !s.archived);
     let nutanixClusters = 0;
     const seenGlobal = new Set();
-    const globalCounts = { windows: 0, linux: 0 };
+    const globalCounts = { windows: 0, linux: 0, vlp: 0 };
     const siteCounts = [];
     for (const s of sites) {
       const data = await getSiteData(s.id);
 
-      countSiteWindowsLinux(data, seenGlobal, globalCounts);
+      countSiteWindowsLinux(data, seenGlobal, globalCounts, s.group === 'VLP');
+      if (s.group === 'VLP') continue; // affiché dans Site VLP, pas dans la grille Sites IPAM
 
       const adminVlanIds = new Set(
         (data?.vlans || [])
@@ -176,6 +184,23 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/sites/vlp-recap — serveurs par site du groupe VLP (page Site VLP).
+// Tout hostname saisi hors VLAN ADMIN/IPMI est un serveur VLP (compté Windows).
+router.get('/vlp-recap', requireAuth, async (req, res) => {
+  try {
+    const sites = (await listSitesWithStats()).filter(s => !s.archived && s.group === 'VLP');
+    const out = [];
+    let total = 0;
+    for (const s of sites) {
+      const counts = { windows: 0, linux: 0, vlp: 0 };
+      countSiteWindowsLinux(await getSiteData(s.id), new Set(), counts, true);
+      total += counts.vlp;
+      out.push({ id: s.id, name: s.name, count: counts.vlp, vlan_count: s.vlan_count });
+    }
+    res.json({ total, sites: out });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/sites/hostname-conflicts — détecte les serveurs Windows dont le
 // hostname ne correspond pas au Code Regate du site où ils sont rangés
 // (Code Regate = 6 premiers caractères du hostname, ex. "138100SN-AF12" →
@@ -185,7 +210,7 @@ router.get('/metier-recap', requireAuth, async (req, res) => {
 // au Code Regate d'un AUTRE site, on le propose comme site probable.
 router.get('/hostname-conflicts', requireAuth, async (req, res) => {
   try {
-    const sites = (await listSitesWithStats()).filter(s => !s.archived);
+    const sites = (await listSitesWithStats()).filter(s => !s.archived && s.group !== 'VLP');
     let siteCodes = [];
     try {
       const raw = await redis.get('config:infos');
@@ -275,7 +300,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const name = (req.body?.name || '').trim().toUpperCase();
     if (!name) return res.status(400).json({ error: 'Nom requis' });
-    const site = await createSite(name);
+    const site = await createSite(name, req.body?.group === 'VLP' ? 'VLP' : '');
     await addLog(req.user.username, 'ADD_SITE', `Site « ${name} » créé`, 'ok');
     res.json(site);
   } catch (e) {

@@ -165,17 +165,17 @@ export async function updateUserStatus(id, disabled) {
 // =============================================================================
 // SITES
 // =============================================================================
-export async function createSite(name) {
+export async function createSite(name, group = '') {
   const nameKey = name.toUpperCase();
   const existing = await redis.hget('sites:idx:name', nameKey);
   if (existing) throw Object.assign(new Error('Ce site existe déjà'), { code: 'CONFLICT' });
   const id = String(await redis.incr('seq:sites'));
   const pipe = redis.pipeline();
-  pipe.hset(`site:${id}`, { name, created_at: now() });
+  pipe.hset(`site:${id}`, group ? { name, created_at: now(), group } : { name, created_at: now() });
   pipe.hset('sites:idx:name', nameKey, id);
   pipe.sadd('sites', id);
   await pipe.exec();
-  return { id: parseInt(id), name };
+  return { id: parseInt(id), name, group };
 }
 
 export async function getSite(id) {
@@ -264,6 +264,7 @@ export async function listSitesWithStats() {
         code_regate:  s.code_regate  || '',
         code_pst:     s.code_pst     || '',
         archived:     s.archived === '1',
+        group:        s.group || '',
       };
     })
     .filter(Boolean)

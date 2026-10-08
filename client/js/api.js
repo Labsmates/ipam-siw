@@ -197,6 +197,13 @@ export function loadSiteOsBadges() {
     const linBadge = document.getElementById('nav-site-lin-badge');
     const w = r?.windows || 0;
     const l = r?.linux || 0;
+    const v = r?.vlp || 0;
+    const vlpBadge = document.getElementById('nav-vlp-badge');
+    if (vlpBadge && v > 0) {
+      vlpBadge.textContent = v;
+      vlpBadge.title = `${v} serveur${v !== 1 ? 's' : ''} VLP`;
+      vlpBadge.classList.remove('hidden');
+    }
     if (winBadge && w > 0) {
       winBadge.textContent = w;
       winBadge.title = `${w} serveur${w !== 1 ? 's' : ''} Windows`;
