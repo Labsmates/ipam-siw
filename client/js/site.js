@@ -369,6 +369,7 @@ async function checkLoginPopup() {
 // ---------------------------------------------------------------------------
 // Vue « Site VLP » (?g=vlp) : même page, liste restreinte aux sites du groupe VLP.
 let isVlpView = false;
+let hideFreeIps = null; // sites VLP : masque les IP libres (bouton) — initialisé au premier chargement
 const siteHref = id => `/site.html?id=${encodeURIComponent(id)}${isVlpView ? '&g=vlp' : ''}`;
 
 let _recapSiteCounts = []; // [{id, name, count}] — pour filtrage par la recherche sidebar
@@ -470,6 +471,22 @@ async function loadSiteRecap() {
   }
 }
 
+// Sites VLP : un seul serveur par site, les IP libres sont masquées par défaut ;
+// le bouton les affiche / les masque.
+function setupFreeIpToggle(data) {
+  const btn = document.getElementById('btn-toggle-free');
+  if (!btn) return;
+  if (data.group !== 'VLP') { hideFreeIps = false; btn.classList.add('hidden'); return; }
+  if (!btn.dataset.wired) hideFreeIps = true;
+  btn.classList.remove('hidden');
+  const refresh = () => { btn.textContent = hideFreeIps ? 'Afficher les IP libres' : 'Masquer les IP libres'; };
+  refresh();
+  if (!btn.dataset.wired) {
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => { hideFreeIps = !hideFreeIps; page = 1; refresh(); renderTable(); });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Load site data
 // ---------------------------------------------------------------------------
@@ -483,6 +500,7 @@ async function loadSite() {
   try {
     const data = await get(`/api/sites/${encodeURIComponent(siteId)}`);
     siteData = data;
+    setupFreeIpToggle(data);
     document.title = `IPAM — ${data.name}`;
     document.getElementById('site-name').textContent = data.name;
     renderArchivedBanner(data);
@@ -687,6 +705,7 @@ function getFilteredIPs() {
   );
   if (currentVlan !== 'all') ips = ips.filter(ip => String(ip.vlan_id) === String(currentVlan));
   if (filterStatus !== 'all') ips = ips.filter(ip => ip.status === filterStatus);
+  if (hideFreeIps) ips = ips.filter(ip => ip.status !== 'Libre');
   if (searchIP) {
     const q = searchIP.toLowerCase();
     ips = ips.filter(ip =>

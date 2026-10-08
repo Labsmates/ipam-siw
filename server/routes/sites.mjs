@@ -108,7 +108,7 @@ function countSiteWindowsLinux(data, seen, counts, isVlp = false) {
     if (seen.has(key)) continue;
     seen.add(key);
     // Sites VLP : tout serveur nommé est compté Windows (code VLP), sans motif de hostname.
-    if (isVlp) { counts.windows++; counts.vlp = (counts.vlp || 0) + 1; continue; }
+    if (isVlp) { if (/^(Gateway|Broadcast|Réservée)/i.test(ip.hostname.trim())) continue; counts.windows++; counts.vlp = (counts.vlp || 0) + 1; continue; }
     const result = classifyHostname(ip.hostname);
     if (!result) continue;
     if (result.type === 'windows' && result.role !== 'IDRAC') counts.windows++;

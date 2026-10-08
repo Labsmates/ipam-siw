@@ -34,6 +34,14 @@ function hosts24(net) {
   return Array.from({ length: 254 }, (_, i) => `${a}.${b}.${c}.${i + 1}`);
 }
 
+const gw = net => net.replace(/.0$/, '.1');
+
+// Gateway en .1 : IP « Utilisé » nommée Gateway (comme sur les autres sites)
+async function setGateway(vlanDbId, net) {
+  const ipId = await redis.hget(`vlan:${vlanDbId}:ips:idx`, gw(net));
+  if (ipId) await redis.hset(`ip:${ipId}`, { status: 'Utilisé', hostname: 'Gateway', updated_at: new Date().toISOString() });
+}
+
 for (const [name, adminNet, adminId, prodNet, prodId] of SITES) {
   let siteId = await redis.hget('sites:idx:name', name);
   if (!siteId) {
@@ -45,8 +53,9 @@ for (const [name, adminNet, adminId, prodNet, prodId] of SITES) {
   }
   for (const [net, vid, tag] of [[adminNet, adminId, 'ADMIN'], [prodNet, prodId, 'METIER']]) {
     try {
-      const { vlanDbId, added } = await createVlan(siteId, String(vid), `${net}/24`, MASK, '', hosts24(net));
+      const { vlanDbId, added } = await createVlan(siteId, String(vid), `${net}/24`, MASK, gw(net), hosts24(net));
       await updateVlan(vlanDbId, { description: tag });
+      await setGateway(vlanDbId, net);
       console.log(`    VLAN ${vid} ${tag} ${net}/24 — ${added} IP`);
     } catch (e) {
       console.log(`    VLAN ${vid} ${net}/24 ignoré : ${e.message}`);

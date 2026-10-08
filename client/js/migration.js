@@ -185,6 +185,7 @@ function computeSiteWindowsStats(ips, siteMigrations, vlans = null) {
   for (const ip of (ips || [])) {
     if (!ip.hostname || ip.status === 'Libre') continue;
     if (excludedVlanIds && excludedVlanIds.has(String(ip.vlan_id))) continue;
+    if (excludedVlanIds && /^(Gateway|Broadcast|Réservée)/i.test(ip.hostname.trim())) continue;
     const key = ip.hostname.split('.')[0].toUpperCase();
     if (seen.has(key)) continue;
     seen.add(key);

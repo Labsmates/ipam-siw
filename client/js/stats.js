@@ -196,6 +196,7 @@ async function loadStats() {
       for (const ip of ips) {
         if (ip.status === 'Libre' || !ip.hostname) continue;
         // Sites VLP : tout serveur nommé est compté Windows, code VLP.
+        if (isVlp && /^(Gateway|Broadcast|Réservée)/i.test(ip.hostname.trim())) continue;
         const result = isVlp ? { type: 'windows', role: 'VLP' } : classifyHostname(ip.hostname);
         if (!result) continue;
         const key = ip.hostname.split('.')[0].toUpperCase();
