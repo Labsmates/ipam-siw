@@ -917,36 +917,22 @@ export function setupCentralSearch() {
     // Hostname / IP : recherche globale côté serveur (3 caractères minimum)
     let ipResults = [];
     if (q.length >= 3) {
-      try { ipResults = (await get(`/api/ips/search?q=${encodeURIComponent(q)}&limit=500`)).results || []; } catch { ipResults = []; }
-      // Pas de doublons du même hostname complet : on garde l'occurrence du VLAN ADMIN, sinon la première trouvée
+      try { ipResults = (await get(`/api/ips/search?q=${encodeURIComponent(q)}&limit=500&mgmt=1`)).results || []; } catch { ipResults = []; }
+      // Pas de doublons du même hostname complet : ADMIN prioritaire (cartes IDRAC-/ILO- :
+      // IPMI ou PROCEF), sinon la première occurrence trouvée.
+      const rank = r => {
+        const mgmt = /^(IDRAC|ILO)-/i.test(r.hostname || '');
+        if (mgmt) return (r.vlan_tag === 'IPMI' || r.vlan_tag === 'PROCEF') ? 0 : 1;
+        return r.vlan_tag === 'ADMIN' ? 0 : 1;
+      };
       const byHost = new Map();
       const deduped = [];
       for (const r of ipResults) {
-        const key = (r.hostname || '').trim().toLowerCase(); // hostname complet : .hdcadmin... (ADMIN) et .dct.adt.local (METIER) restent distincts
+        const key = (r.hostname || '').trim().toLowerCase();
         if (!key) { deduped.push(r); continue; }
         const cur = byHost.get(key);
         if (!cur) { byHost.set(key, r); deduped.push(r); }
-        else if (cur.vlan_tag !== 'ADMIN' && r.vlan_tag === 'ADMIN') { deduped[deduped.indexOf(cur)] = r; byHost.set(key, r); }
-      }
-      // Serveurs physiques (AF1x/AF2x, FS10) : on ajoute leur carte de management,
-      // IDRAC-<serveur> et ILO-<serveur>, de préférence dans un VLAN IPMI ou PROCEF.
-      const physLabels = [...new Set(deduped
-        .map(r => (r.hostname || '').split('.')[0].toUpperCase())
-        .filter(l => l && !/^(IDRAC|ILO)-/.test(l) && /AF[12]\d|FS10/.test(l)))].slice(0, 6);
-      if (physLabels.length) {
-        const mgmtRes = await Promise.all(physLabels.flatMap(l => ['IDRAC-', 'ILO-'].map(async p => {
-          try { return ((await get(`/api/ips/search?q=${encodeURIComponent(p + l)}&limit=100`)).results || []).filter(r => (r.hostname || '').split('.')[0].toUpperCase() === p + l); }
-          catch { return []; }
-        })));
-        const rank = r => (r.vlan_tag === 'IPMI' || r.vlan_tag === 'PROCEF') ? 0 : 1;
-        const have = new Set(deduped.map(r => (r.hostname || '').trim().toLowerCase()));
-        const best = new Map();
-        for (const r of mgmtRes.flat()) {
-          const key = (r.hostname || '').trim().toLowerCase();
-          if (have.has(key)) continue;
-          if (!best.has(key) || rank(r) < rank(best.get(key))) best.set(key, r);
-        }
-        deduped.push(...best.values());
+        else if (rank(r) < rank(cur)) { deduped[deduped.indexOf(cur)] = r; byHost.set(key, r); }
       }
       ipResults = deduped.slice(0, 50);
     }
@@ -966,7 +952,7 @@ export function setupCentralSearch() {
     const vlpIds = new Set(sites.filter(s => s.group === 'VLP').map(s => String(s.id)));
     const ipRows = ipResults.map(r => {
       const c = STATUS_COLOR[r.status] || 'var(--tx-3)';
-      const href = `/site.html?id=${encodeURIComponent(r.site_id)}${vlpIds.has(String(r.site_id)) ? '&g=vlp' : ''}`;
+      const href = `/site.html?id=${encodeURIComponent(r.site_id)}${vlpIds.has(String(r.site_id)) ? '&g=vlp' : ''}&ip=${encodeURIComponent(r.ip_address)}`;
       return `<a href="${href}" style="display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
         <span style="font-family:monospace;font-size:13px;font-weight:700;color:var(--tx-1);min-width:200px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.hostname ? esc(r.hostname) : '—'}</span>
         <span style="font-family:monospace;font-size:13px;color:var(--tx-2);min-width:120px">${esc(r.ip_address)}</span>
@@ -1014,10 +1000,10 @@ export function setupCentralSearch() {
         const site = sites.find(s => String(s.id) === String(r.site_id));
         if (!site) return;
         if (r.hostname && r.hostname.toLowerCase().includes(q)) {
-          items.push(item(`/site.html?id=${id(site)}${vlpSuffix(site)}`, r.hostname, `${r.ip_address} · ${site.name}`, true));
+          items.push(item(`/site.html?id=${id(site)}${vlpSuffix(site)}&ip=${encodeURIComponent(r.ip_address)}`, r.hostname, `${r.ip_address} · ${site.name}`, true));
         } else {
           // Recherche d'IP : l'IP s'affiche (le site associé en dessous)
-          items.push(item(`/site.html?id=${id(site)}${vlpSuffix(site)}`, r.ip_address, `${r.hostname ? r.hostname + ' · ' : ''}${site.name}`, true));
+          items.push(item(`/site.html?id=${id(site)}${vlpSuffix(site)}&ip=${encodeURIComponent(r.ip_address)}`, r.ip_address, `${r.hostname ? r.hostname + ' · ' : ''}${site.name}`, true));
         }
       });
       listEl.innerHTML = items.length ? items.slice(0, 80).join('') : '<div style="padding:12px 16px;font-size:12.5px;color:var(--tx-3)">Aucun résultat</div>';

@@ -616,9 +616,13 @@ export async function getIp(id) {
   return ip?.ip_address ? { id: parseInt(id), ...ip } : null;
 }
 
-// Recherche globale d'une IP ou d'un hostname dans tous les sites/VLANs
-export async function searchAllIPs(query, limit = 50) {
-  const q = query.toLowerCase();
+// Index (site, VLAN, IP, hostname, statut) de tous les sites non archivés —
+// mis en cache quelques secondes : la recherche de la barre latérale tape à
+// chaque saisie et re-parcourir toutes les IP à chaque fois est coûteux.
+let _ipIndexCache = { at: 0, rows: null };
+
+async function loadIpIndex() {
+  if (_ipIndexCache.rows && Date.now() - _ipIndexCache.at < 10_000) return _ipIndexCache.rows;
   const siteIds = await redis.smembers('sites');
   if (!siteIds.length) return [];
 
@@ -660,20 +664,17 @@ export async function searchAllIPs(query, limit = 50) {
   }
   if (!allEntries.length) return [];
 
-  // 3. Récupérer ip_address, hostname, status pour chaque IP
+  // 3. ip_address, hostname, status de chaque IP
   const pipe3 = redis.pipeline();
   allEntries.forEach(e => pipe3.hmget(`ip:${e.ipId}`, 'ip_address', 'hostname', 'status'));
   const r3 = await pipe3.exec();
 
-  const results = [];
+  const rows = [];
   for (let i = 0; i < allEntries.length; i++) {
     const [ipAddr, hostname, status] = r3[i][1];
     if (!ipAddr) continue;
-    const matchesIp       = ipAddr.includes(q);
-    const matchesHostname = hostname && hostname.toLowerCase().includes(q);
-    if (!matchesIp && !matchesHostname) continue;
     const e = allEntries[i];
-    results.push({
+    rows.push({
       ip_db_id:   parseInt(e.ipId),
       ip_address: ipAddr,
       hostname:   hostname || '',
@@ -683,12 +684,42 @@ export async function searchAllIPs(query, limit = 50) {
       vlan_id:    e.vlan_id,
       vlan_tag:   e.vlan_tag,
       vlan_db_id: e.vlan_db_id,
+      _label:     (hostname || '').split('.')[0].toUpperCase(),
     });
+  }
+  _ipIndexCache = { at: Date.now(), rows };
+  return rows;
+}
+
+// Recherche globale d'une IP ou d'un hostname dans tous les sites/VLANs.
+// `mgmt` : pour chaque serveur physique trouvé (AF1x/AF2x, FS10), ajoute aussi
+// ses cartes de management IDRAC-<serveur> / ILO-<serveur> (une seule passe).
+export async function searchAllIPs(query, limit = 50, { mgmt = false } = {}) {
+  const q = query.toLowerCase();
+  const rows = await loadIpIndex();
+  const strip = ({ _label, ...r }) => r;
+
+  const results = [];
+  for (const r of rows) {
+    if (!(r.ip_address.includes(q) || (r.hostname && r.hostname.toLowerCase().includes(q)))) continue;
+    results.push(r);
     if (results.length >= limit) break;
   }
 
+  if (mgmt) {
+    const phys = new Set(results
+      .map(r => r._label)
+      .filter(l => l && !/^(IDRAC|ILO)-/.test(l) && /AF[12]\d|FS10/.test(l)));
+    if (phys.size) {
+      const wanted = new Set([...phys].flatMap(l => [`IDRAC-${l}`, `ILO-${l}`]));
+      for (const r of rows) if (wanted.has(r._label)) results.push(r);
+    }
+  }
+
   const toInt = ip => ip.split('.').reduce((a, n) => a * 256 + parseInt(n), 0);
-  return results.sort((a, b) => toInt(a.ip_address) - toInt(b.ip_address));
+  // dédoublonne les lignes déjà présentes (match direct + carte de management)
+  const uniq = [...new Map(results.map(r => [r.ip_db_id, r])).values()];
+  return uniq.map(strip).sort((a, b) => toInt(a.ip_address) - toInt(b.ip_address));
 }
 
 // Index adresse IP → { site_id, site_name } sur l'ensemble des sites — sert à

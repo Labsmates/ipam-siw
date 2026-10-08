@@ -32,7 +32,7 @@ router.get('/search', requireAuth, async (req, res) => {
   if (q.length < 3) return res.json({ results: [] });
   try {
     const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit, 10) || 50));
-    res.json({ results: await searchAllIPs(q, limit) });
+    res.json({ results: await searchAllIPs(q, limit, { mgmt: req.query.mgmt === '1' }) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

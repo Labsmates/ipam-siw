@@ -344,9 +344,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupColumnSort();
 
   await loadSite();
+  focusIpFromUrl();
 });
 
 // ---------------------------------------------------------------------------
+// Arrivée depuis la recherche (?ip=…) : retire les filtres, va à la page de la
+// ligne, la fait défiler au centre et la surligne quelques secondes.
+function focusIpFromUrl() {
+  const target = new URLSearchParams(location.search).get('ip');
+  const ip = target && (siteData?.ips || []).find(i => i.ip_address === target);
+  if (!ip) return;
+  currentVlan = 'all'; filterStatus = 'all'; searchIP = '';
+  const fs_ = document.getElementById('filter-status'); if (fs_) fs_.value = 'all';
+  const si_ = document.getElementById('search-ip');     if (si_) si_.value = '';
+  const freeBtn = document.getElementById('btn-toggle-free');
+  if (hideFreeIps && ip.status === 'Libre' && freeBtn) freeBtn.click(); // affiche les IP libres
+  const idx = getFilteredIPs().findIndex(i => i.id === ip.id);
+  if (idx < 0) return;
+  page = Math.floor(idx / PER_PAGE) + 1;
+  renderVlanTabs();
+  renderTable();
+  const tr = document.querySelector(`tr[data-ip-id="${ip.id}"]`);
+  if (!tr) return;
+  tr.scrollIntoView({ block: 'center' });
+  tr.style.background = '#58a6ff44';
+  setTimeout(() => { tr.style.background = ''; }, 3500);
+}
+
 // Popup de connexion configurable (Administration > Popup connexion).
 // La case « Ne plus afficher » est mémorisée par navigateur et liée à la
 // version (hash) du message : un changement de texte la réactive.
@@ -808,7 +832,7 @@ function renderTable() {
         !/^(Gateway|Broadcast|Réservée)$/i.test(ip.hostname.trim());
 
       return `
-        <tr style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .1s;transition:background .1s;"
+        <tr data-ip-id="${ip.id}" style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .6s;transition:background .6s;"
             onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
           <td style="padding:10px 14px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13px;">${ip.ip_address}</td>
           <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 12px;color:var(--tx-3);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
