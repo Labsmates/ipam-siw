@@ -152,6 +152,7 @@ let siteData   = null;
 let currentVlan = 'all'; // 'all' or vlan id
 let filterStatus = 'all';
 let searchIP   = '';
+let focusedIpId = null; // ligne arrivée depuis la recherche (?ip=…) : reste en surbrillance
 let page       = 1;
 const PER_PAGE = 50;
 
@@ -349,7 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ---------------------------------------------------------------------------
 // Arrivée depuis la recherche (?ip=…) : retire les filtres, va à la page de la
-// ligne, la fait défiler au centre et la surligne quelques secondes.
+// ligne, la fait défiler au centre et la laisse surlignée.
 function focusIpFromUrl() {
   const target = new URLSearchParams(location.search).get('ip');
   const ip = target && (siteData?.ips || []).find(i => i.ip_address === target);
@@ -362,13 +363,18 @@ function focusIpFromUrl() {
   const idx = getFilteredIPs().findIndex(i => i.id === ip.id);
   if (idx < 0) return;
   page = Math.floor(idx / PER_PAGE) + 1;
+  focusedIpId = ip.id;
+  if (!document.getElementById('ip-focus-style')) {
+    const st = document.createElement('style');
+    st.id = 'ip-focus-style';
+    st.textContent = 'tr.ip-focus,tr.ip-focus:hover{background:rgba(88,166,255,.22)!important;box-shadow:inset 3px 0 0 #58a6ff}';
+    document.head.appendChild(st);
+  }
   renderVlanTabs();
   renderTable();
   const tr = document.querySelector(`tr[data-ip-id="${ip.id}"]`);
   if (!tr) return;
   tr.scrollIntoView({ block: 'center' });
-  tr.style.background = '#58a6ff44';
-  setTimeout(() => { tr.style.background = ''; }, 3500);
 }
 
 // Popup de connexion configurable (Administration > Popup connexion).
@@ -832,7 +838,7 @@ function renderTable() {
         !/^(Gateway|Broadcast|Réservée)$/i.test(ip.hostname.trim());
 
       return `
-        <tr data-ip-id="${ip.id}" style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .6s;transition:background .6s;"
+        <tr data-ip-id="${ip.id}" class="${ip.id === focusedIpId ? 'ip-focus' : ''}" style="border-bottom:1px solid var(--bg-4);-webkit-transition:background .6s;transition:background .6s;"
             onmouseenter="this.style.background='var(--bg-2)'" onmouseleave="this.style.background=''">
           <td style="padding:10px 14px;color:var(--tx-1);font-family:'JetBrains Mono',monospace;font-size:13px;">${ip.ip_address}</td>
           <td ${canPing ? `class="hostname-ping-target" data-id="${ip.id}" title="Clic droit pour lancer un ping"` : ''} style="padding:10px 12px;color:var(--tx-3);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${canPing ? 'cursor:context-menu;' : ''}">${ip.hostname || '<span style="color:var(--tx-5)">—</span>'}</td>
