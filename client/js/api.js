@@ -1017,3 +1017,6 @@ export function setupCentralSearch() {
   let _timer = null;
   input.addEventListener('input', () => { clearTimeout(_timer); _timer = setTimeout(render, 250); });
 }
+
+// Application web installable (PWA) : le service worker est requis par Chrome/Edge pour proposer « Installer ».
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
