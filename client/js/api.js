@@ -969,6 +969,39 @@ export function setupCentralSearch() {
       section('Migration Serveurs', '#3fb950', hits.map(s => card(`/migration.html?id=${id(s)}${s.group === 'VLP' ? '&g=vlp' : ''}`, s.name, '#3fb950'))) +
       section('Switch Config Port', '#d29922', hits.map(swCard)) +
       section('Site VLP', '#a371f7', vlp.map(s => card(`/site.html?id=${id(s)}&g=vlp`, s.name, '#a371f7')));
+    // Liste de la barre latérale : même résultat que le panneau central —
+    // site (nom ou code Regate), hostname (affiché tel quel) ou IP (affichée telle quelle).
+    const listEl = document.getElementById('site-list');
+    if (listEl) {
+      const ctx = location.pathname.includes('migration') ? 'migration' : location.pathname.includes('switch') ? 'switch' : 'site';
+      const vlpSuffix = s => (s.group === 'VLP' ? '&g=vlp' : '');
+      const siteHref = s => ctx === 'migration' ? `/migration.html?id=${id(s)}${vlpSuffix(s)}`
+                          : ctx === 'switch'    ? `/switch.html?site=${id(s)}`
+                          : `/site.html?id=${id(s)}${vlpSuffix(s)}`;
+      const item = (href, main, sub, mono) => `
+        <a href="${href}" style="padding:8px 16px;display:flex;flex-direction:column;gap:1px;text-decoration:none;border-left:2px solid transparent;transition:all .1s" onmouseenter="this.style.background='var(--bg-3)'" onmouseleave="this.style.background=''">
+          <span style="font-size:13px;color:var(--tx-1);${mono ? 'font-family:monospace;font-weight:600;' : ''}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(main)}</span>
+          ${sub ? `<span style="font-size:11px;color:var(--tx-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sub)}</span>` : ''}
+        </a>`;
+      const items = [];
+      const shownSites = new Set();
+      hits.forEach(s => {
+        shownSites.add(String(s.id));
+        const byCode = !s.name.toLowerCase().includes(q) ? codeOf(s).find(c => c.toLowerCase().includes(q)) : '';
+        items.push(item(siteHref(s), s.name, byCode ? `Code ${byCode}` : '', false));
+      });
+      ipResults.forEach(r => {
+        const site = sites.find(s => String(s.id) === String(r.site_id));
+        if (!site) return;
+        if (r.hostname && r.hostname.toLowerCase().includes(q)) {
+          items.push(item(`/site.html?id=${id(site)}${vlpSuffix(site)}`, r.hostname, `${r.ip_address} · ${site.name}`, true));
+        } else {
+          // Recherche d'IP : l'IP s'affiche (le site associé en dessous)
+          items.push(item(`/site.html?id=${id(site)}${vlpSuffix(site)}`, r.ip_address, `${r.hostname ? r.hostname + ' · ' : ''}${site.name}`, true));
+        }
+      });
+      listEl.innerHTML = items.length ? items.slice(0, 80).join('') : '<div style="padding:12px 16px;font-size:12.5px;color:var(--tx-3)">Aucun résultat</div>';
+    }
     panel.innerHTML =
       `<h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0 0 4px">Recherche : « ${esc(input.value.trim())} »</h1>
        <div style="font-size:12px;color:var(--tx-3);margin-bottom:20px">${hits.length} site${hits.length !== 1 ? 's' : ''} · ${ipRows.length} hostname/IP${q.length < 3 ? ' (3 caractères minimum pour hostname / IP)' : ''}</div>` +
