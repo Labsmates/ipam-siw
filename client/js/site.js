@@ -5,7 +5,7 @@
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, patch, del, showToast, showAlert, sortIPs, sortSites, statusBadge, fmtDate,
-  openModal, closeModal, cidrToIPs, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, setupGlobalIpSearch,
+  openModal, closeModal, cidrToIPs, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, setupCentralSearch, setupGlobalIpSearch,
   restoreElevationSession, setupElevationMode, setupAdminSectionToggle,
 } from './api.js?v=fdfb5f7';
 import { WIN_ROLES, LIN_ROLES } from './server-roles.js?v=fdfb5f7';
@@ -252,6 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupElevationMode();
   setupAdminSectionToggle();
   loadSidebar();
+  setupCentralSearch();
 
   // Popup de connexion (tous les rôles sauf viewer)
   if (user?.role !== 'viewer') checkLoginPopup();

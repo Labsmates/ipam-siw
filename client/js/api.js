@@ -867,3 +867,61 @@ export function setupElevationMode() {
     if (roleEl) roleEl.textContent = 'Super Administrateur';
   }
 }
+
+// ---------------------------------------------------------------------------
+// Recherche de la barre latérale — résultats dans la fenêtre centrale, quelle
+// que soit la page (Site IPAM, Migration Serveurs, Site VLP), groupés dans
+// l'ordre : Site IPAM, Migration Serveurs, Site VLP. Vider la recherche
+// referme le panneau.
+// ---------------------------------------------------------------------------
+export function setupCentralSearch() {
+  const input = document.getElementById('sidebar-search');
+  const main  = document.getElementById('app-main');
+  if (!input || !main) return;
+  let sites = null;
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const panel = document.createElement('div');
+  panel.id = 'central-search-results';
+  panel.className = 'hidden';
+  panel.style.cssText = 'position:absolute;top:0;right:0;bottom:0;left:0;z-index:30;background:var(--bg-1);overflow:auto;padding:18px 24px';
+  main.style.position = 'relative';
+  main.appendChild(panel);
+
+  const card = (href, name, color) => `
+    <a href="${href}" style="display:flex;align-items:center;gap:8px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='${color}';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+      <span style="font-size:12.5px;font-weight:600;color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</span>
+    </a>`;
+  const section = (title, color, items) => `
+    <div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${color}">${title}</span>
+        <span style="background:${color};color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 7px;line-height:18px">${items.length}</span>
+      </div>
+      ${items.length
+        ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">${items.join('')}</div>`
+        : '<div style="font-size:12.5px;color:var(--tx-3)">Aucun résultat</div>'}
+    </div>`;
+
+  async function render() {
+    const q = input.value.trim().toLowerCase();
+    if (!q) { panel.classList.add('hidden'); return; }
+    if (!sites) {
+      try { sites = sortSites((await get('/api/sites?group=all')).sites || []); }
+      catch { sites = []; }
+    }
+    if (input.value.trim().toLowerCase() !== q) return; // saisie plus récente en cours
+    const hits = sites.filter(s => s.name.toLowerCase().includes(q));
+    const ipam = hits.filter(s => s.group !== 'VLP');
+    const vlp  = hits.filter(s => s.group === 'VLP');
+    const id = s => encodeURIComponent(s.id);
+    panel.innerHTML =
+      `<h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0 0 4px">Recherche : « ${esc(input.value.trim())} »</h1>
+       <div style="font-size:12px;color:var(--tx-3);margin-bottom:20px">${hits.length} site${hits.length !== 1 ? 's' : ''} trouvé${hits.length !== 1 ? 's' : ''}</div>` +
+      section('Site IPAM', '#58a6ff', ipam.map(s => card(`/site.html?id=${id(s)}`, s.name, '#58a6ff'))) +
+      section('Migration Serveurs', '#3fb950', hits.map(s => card(`/migration.html?id=${id(s)}${s.group === 'VLP' ? '&g=vlp' : ''}`, s.name, '#3fb950'))) +
+      section('Site VLP', '#a371f7', vlp.map(s => card(`/site.html?id=${id(s)}&g=vlp`, s.name, '#a371f7')));
+    panel.classList.remove('hidden');
+  }
+  input.addEventListener('input', render);
+}

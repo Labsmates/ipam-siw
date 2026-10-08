@@ -4,7 +4,7 @@
 
 import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
-  get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges,
+  get, post, put, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, setupCentralSearch,
   restoreElevationSession, setupElevationMode, setupAdminSectionToggle, openModal, closeModal,
 } from './api.js?v=fdfb5f7';
 
@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupElevationMode();
   setupAdminSectionToggle();
   loadSidebar();
+  setupCentralSearch();
 
   if (!siteId) {
     document.getElementById('view-welcome').style.display = 'flex';
