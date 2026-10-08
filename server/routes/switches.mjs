@@ -32,6 +32,25 @@ router.get('/servers', requireAuth, async (_req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/switches/vlans — VLAN taggés IPMI ou PROCEF (tous sites), pour la liste de
+// choix du port ; la saisie manuelle d'un autre VLAN reste possible côté client.
+router.get('/vlans', requireAuth, async (_req, res) => {
+  try {
+    const sites = (await listSitesWithStats()).filter(x => !x.archived);
+    const pipe = redis.pipeline();
+    for (const x of sites) {
+      const ids = await redis.smembers(`site:${x.id}:vlans`);
+      ids.forEach(v => pipe.hmget(`vlan:${v}`, 'vlan_id', 'description'));
+    }
+    const out = new Map();
+    for (const [, [vid, desc]] of await pipe.exec()) {
+      const tag = (desc || '').trim().toUpperCase();
+      if (vid && (tag === 'IPMI' || tag === 'PROCEF')) out.set(`${vid}|${tag}`, { vlan_id: vid, tag });
+    }
+    res.json({ vlans: [...out.values()].sort((a, b) => a.tag.localeCompare(b.tag) || parseInt(a.vlan_id) - parseInt(b.vlan_id)) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/switches/import  (admin) — import en masse depuis CSV/Excel
 // (parsé côté client), format plat 1 ligne = 1 port :
 //   { rows: [{ site, switch, model, port, server, description }, …] }
@@ -58,6 +77,7 @@ router.post('/import', requireAuth, requireAdmin, async (req, res) => {
       const portRaw    = String(row?.port || '').trim();
       const serverRaw  = String(row?.server || '').trim();
       const description = String(row?.description || '').trim();
+      const vlanRaw    = String(row?.vlan || '').trim();
 
       if (!siteRaw || !swRaw || !portRaw || !serverRaw) { stats.rows_skipped++; continue; }
 
@@ -87,7 +107,7 @@ router.post('/import', requireAuth, requireAdmin, async (req, res) => {
         stats.port_skipped++;
         details.push({ switch: swRaw, port: portRaw, status: 'skipped' });
       } else {
-        await setSwitchPort(switchId, portRaw, { server: serverRaw, description });
+        await setSwitchPort(switchId, portRaw, { server: serverRaw, description, vlan: vlanRaw });
         stats.port_added++;
         details.push({ switch: swRaw, port: portRaw, status: 'added' });
       }
@@ -169,9 +189,11 @@ router.put('/:id/ports/:port', requireAuth, requireAdmin, async (req, res) => {
     // indispensable ici car les noms de port contiennent des "/" (ex. "Gi 1/0/13").
     const port = decodeURIComponent(req.params.port).trim();
     if (!port) return res.status(400).json({ error: 'Numéro de port requis' });
-    const { server, description } = req.body || {};
+    const { server, description, vlan } = req.body || {};
     if (!server?.trim()) return res.status(400).json({ error: 'Nom du serveur requis' });
-    await setSwitchPort(req.params.id, port, { server, description });
+    const vlanStr = String(vlan ?? '').trim();
+    if (vlanStr && !/^\d{1,4}$/.test(vlanStr)) return res.status(400).json({ error: 'VLAN invalide (nombre de 1 à 4094)' });
+    await setSwitchPort(req.params.id, port, { server, description, vlan: vlanStr });
     await addLog(req.user.username, 'SET_PORT', `Port ${port} → « ${server} » sur switch « ${sw.name} »`, 'ok');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

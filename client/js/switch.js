@@ -13,6 +13,8 @@ let switchMap = {};
 let openSites = new Set();
 // Server hostnames for combobox
 let serverHostnames = [];
+// VLAN IPMI / PROCEF proposés dans le formulaire de port [{vlan_id, tag}]
+let vlanChoices = [];
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 if (!requireAuth()) throw new Error('not authenticated');
@@ -66,6 +68,11 @@ async function load() {
       get('/api/switches/servers').catch(() => ({ servers: [] })),
     ]);
     serverHostnames = serversData.servers || [];
+    get('/api/switches/vlans').then(r => {
+      vlanChoices = r.vlans || [];
+      document.getElementById('port-vlan-list').innerHTML = vlanChoices
+        .map(v => `<option value="${esc(v.vlan_id)}">${esc(v.vlan_id)} — ${esc(v.tag)}</option>`).join('');
+    }).catch(() => {});
     const data = { sites: sitesData.sites };
     sites = sortSites(data.sites || []);
 
@@ -215,9 +222,19 @@ function buildSwitchCard(sw) {
       btn.addEventListener('click', () => confirmDeletePort(sw.id, btn.dataset.port));
     });
     card.querySelectorAll('.btn-edit-port').forEach(btn => {
-      btn.addEventListener('click', () => openPortModal(sw.id, sw.name, btn.dataset.port, btn.dataset.server, btn.dataset.desc));
+      btn.addEventListener('click', () => openPortModal(sw.id, sw.name, btn.dataset.port, btn.dataset.server, btn.dataset.desc, btn.dataset.vlan));
     });
   }
+
+  // Clic droit sur un port (tous les rôles) : menu « Ping » — ping du serveur
+  // dans le VLAN configuré sur le port.
+  card.querySelectorAll('tr.port-row').forEach(tr => {
+    tr.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const p = (sw.ports || []).find(x => x.port === tr.dataset.port);
+      if (p) showPortMenu(e.clientX, e.clientY, sw, p);
+    });
+  });
 
   return card;
 }
@@ -227,13 +244,14 @@ function buildPortTable(sw) {
     return `<p style="color:var(--tx-3);font-size:12px;padding:10px 16px 8px">Aucun port assigné.</p>`;
   }
   const rows = sw.ports.map(p => `
-    <tr>
+    <tr class="port-row" data-port="${esc(p.port)}" title="Clic droit : Ping">
       <td style="font-family:monospace;font-size:12px;color:#58a6ff;width:110px">${esc(p.port)}</td>
       <td style="font-weight:500;color:var(--tx-1)">${esc(p.server)}</td>
+      <td style="font-family:monospace;color:var(--tx-2);width:80px">${esc(p.vlan || '—')}</td>
       <td style="color:var(--tx-3)">${esc(p.description || '—')}</td>
       ${isAdmin ? `
       <td style="text-align:right;white-space:nowrap;width:90px">
-        <button class="btn-sm btn-edit-port" data-port="${esc(p.port)}" data-server="${esc(p.server)}" data-desc="${esc(p.description || '')}" style="margin-right:4px">
+        <button class="btn-sm btn-edit-port" data-port="${esc(p.port)}" data-server="${esc(p.server)}" data-vlan="${esc(p.vlan || '')}" data-desc="${esc(p.description || '')}" style="margin-right:4px">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
         <button class="btn-danger btn-del-port" data-port="${esc(p.port)}" style="padding:4px 7px">
@@ -249,6 +267,7 @@ function buildPortTable(sw) {
         <tr>
           <th>Port</th>
           <th>Serveur</th>
+          <th>VLAN</th>
           <th>Description</th>
           <th></th>
         </tr>
@@ -341,7 +360,7 @@ document.getElementById('form-switch').addEventListener('submit', async e => {
 let _portSwitchId   = null;
 let _portEditing    = null;
 
-function openPortModal(switchId, switchName, editPort, editServer, editDesc) {
+function openPortModal(switchId, switchName, editPort, editServer, editDesc, editVlan) {
   _portSwitchId = switchId;
   _portEditing  = editPort || null;
 
@@ -349,6 +368,7 @@ function openPortModal(switchId, switchName, editPort, editServer, editDesc) {
   document.getElementById('port-number').value  = editPort   || '';
   document.getElementById('port-server').value  = editServer || '';
   document.getElementById('port-desc').value    = editDesc   || '';
+  document.getElementById('port-vlan').value    = editVlan   || '';
   document.getElementById('port-error').style.display = 'none';
 
   closeCombobox();
@@ -435,6 +455,7 @@ document.getElementById('form-port').addEventListener('submit', async e => {
   const port   = document.getElementById('port-number').value.trim();
   const server = document.getElementById('port-server').value.trim();
   const desc   = document.getElementById('port-desc').value.trim();
+  const vlan   = document.getElementById('port-vlan').value.trim();
   const err    = document.getElementById('port-error');
   err.style.display = 'none';
   if (!port) { err.textContent = 'Numéro / nom du port requis'; err.style.display = 'block'; return; }
@@ -446,7 +467,7 @@ document.getElementById('form-port').addEventListener('submit', async e => {
     if (_portEditing && _portEditing !== port) {
       await del(`/api/switches/${_portSwitchId}/ports/${encodeURIComponent(_portEditing)}`);
     }
-    await put(`/api/switches/${_portSwitchId}/ports/${encodeURIComponent(port)}`, { server, description: desc });
+    await put(`/api/switches/${_portSwitchId}/ports/${encodeURIComponent(port)}`, { server, description: desc, vlan });
     showToast('Port enregistré', 'success');
     document.getElementById('modal-port').classList.add('hidden');
 
@@ -562,7 +583,7 @@ document.getElementById('form-import-switches')?.addEventListener('submit', asyn
       .map(r => ({
         site: r.site || '', switch: r.switch || r['nom du switch'] || '',
         model: r.model || r['modèle'] || '', port: r.port || '',
-        server: r.server || r.serveur || '', description: r.description || '',
+        server: r.server || r.serveur || '', description: r.description || '', vlan: r.vlan || '',
       }))
       .filter(r => r.site && r.switch && r.port && r.server);
 
@@ -590,6 +611,80 @@ document.getElementById('form-import-switches')?.addEventListener('submit', asyn
     btn.disabled = false; btn.textContent = 'Importer';
   }
 });
+
+// ── Ping d'un port (clic droit) ──────────────────────────────────────────────
+// L'IP pingée est celle du serveur dans Site IPAM, dans le VLAN configuré sur
+// le port (numéro de VLAN, ex. 600 — PROCEF / IPMI).
+let _pingCtx = null;
+let _menuCtx = null;
+
+function hidePortMenu() { document.getElementById('port-ctx-menu')?.classList.add('hidden'); }
+
+function showPortMenu(x, y, sw, p) {
+  _menuCtx = { sw, p };
+  const menu = document.getElementById('port-ctx-menu');
+  menu.classList.remove('hidden');
+  menu.style.left = Math.min(x, window.innerWidth - 170) + 'px';
+  menu.style.top  = Math.min(y, window.innerHeight - 60) + 'px';
+}
+
+document.getElementById('port-ctx-ping')?.addEventListener('click', () => {
+  hidePortMenu();
+  if (_menuCtx) openPing(_menuCtx.sw, _menuCtx.p);
+});
+document.addEventListener('click', hidePortMenu);
+document.addEventListener('scroll', hidePortMenu, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePortMenu(); });
+
+async function openPing(sw, p) {
+  _pingCtx = { sw, p };
+  document.getElementById('ping-title').textContent = `Ping — ${p.port}`;
+  document.getElementById('modal-ping').classList.remove('hidden');
+  await runPing();
+}
+
+async function runPing() {
+  const { sw, p } = _pingCtx;
+  const info = document.getElementById('ping-info');
+  const status = document.getElementById('ping-status');
+  const out = document.getElementById('ping-output');
+  const setStatus = (txt, bg, fg) => { status.textContent = txt; status.style.background = bg; status.style.color = fg; };
+  out.textContent = '';
+  info.innerHTML = `${esc(sw.name)} · ${esc(p.port)} · serveur <b>${esc(p.server)}</b> · VLAN <b>${esc(p.vlan || '—')}</b>`;
+  if (!p.vlan) {
+    setStatus('VLAN non renseigné', '#d2992222', '#d29922');
+    out.textContent = 'Renseignez le VLAN du port (admin) pour lancer le ping.';
+    return;
+  }
+  setStatus("Recherche de l'IP…", 'var(--bg-4)', 'var(--tx-3)');
+  try {
+    const siteId = findSiteForSwitch(sw.id);
+    const data = await get(`/api/sites/${encodeURIComponent(siteId)}`);
+    const label = s => String(s || '').split('.')[0].toUpperCase();
+    const ip = (data.ips || []).find(i => {
+      if (!i.hostname || i.status === 'Libre' || label(i.hostname) !== label(p.server)) return false;
+      const v = (data.vlans || []).find(x => String(x.id) === String(i.vlan_id));
+      return v && String(v.vlan_id) === String(p.vlan);
+    });
+    if (!ip) {
+      setStatus('IP introuvable', '#f8514922', '#f85149');
+      out.textContent = `Aucune IP pour « ${p.server} » dans le VLAN ${p.vlan} sur ce site (Site IPAM).`;
+      return;
+    }
+    info.innerHTML += ` · IP <b>${esc(ip.ip_address)}</b>`;
+    setStatus('Ping en cours…', 'var(--bg-4)', 'var(--tx-3)');
+    const res = await post('/api/nettools/ping', { target: ip.ip_address, count: 3 });
+    out.textContent = res.output || '';
+    if (res.success) setStatus('Répond', '#3fb95022', '#3fb950'); else setStatus('Ne répond pas', '#f8514922', '#f85149');
+  } catch (e) {
+    setStatus('Erreur', '#f8514922', '#f85149');
+    out.textContent = e.message;
+  }
+}
+['btn-close-ping', 'btn-close-ping2'].forEach(id =>
+  document.getElementById(id)?.addEventListener('click', () => document.getElementById('modal-ping').classList.add('hidden'))
+);
+document.getElementById('btn-ping-again')?.addEventListener('click', () => { if (_pingCtx) runPing(); });
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 function esc(str) {

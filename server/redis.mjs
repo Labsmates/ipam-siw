@@ -1139,8 +1139,8 @@ export async function deleteSwitch(id) {
   await pipe.exec();
 }
 
-export async function setSwitchPort(switchId, port, { server, description = '' }) {
-  await redis.hset(`switch:${switchId}:ports`, port, JSON.stringify({ server: (server || '').trim(), description: (description || '').trim() }));
+export async function setSwitchPort(switchId, port, { server, description = '', vlan = '' }) {
+  await redis.hset(`switch:${switchId}:ports`, port, JSON.stringify({ server: (server || '').trim(), description: (description || '').trim(), vlan: String(vlan ?? '').trim() }));
 }
 
 export async function deleteSwitchPort(switchId, port) {
@@ -1155,6 +1155,8 @@ export async function getSwitchPorts(switchId) {
       try { return { port, ...JSON.parse(val) }; }
       catch { return { port, server: val, description: '' }; }
     })
+    // VLAN par défaut = premier nombre de la Description (ports saisis avant la colonne VLAN)
+    .map(p => ({ ...p, vlan: p.vlan || ((p.description || '').match(/\d{1,4}/) || [''])[0] }))
     .sort((a, b) => a.port.localeCompare(b.port, undefined, { numeric: true }));
 }
 

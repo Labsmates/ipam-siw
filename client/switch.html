@@ -281,6 +281,11 @@
           </div>
         </div>
         <div class="form-row">
+          <label class="lbl">VLAN <span style="color:var(--tx-3);font-weight:400">(IPMI / PROCEF ou saisie manuelle — sert au ping)</span></label>
+          <input id="port-vlan" class="inp" list="port-vlan-list" inputmode="numeric" placeholder="ex: 600" autocomplete="off">
+          <datalist id="port-vlan-list"></datalist>
+        </div>
+        <div class="form-row">
           <label class="lbl">Description <span style="color:var(--tx-3);font-weight:400">(optionnel)</span></label>
           <input id="port-desc" class="inp" placeholder="ex: Lien montant VLAN 202">
         </div>
@@ -290,6 +295,31 @@
           <button type="submit" class="btn-p">Enregistrer</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════ MENU CLIC DROIT PORT ══════════════════ -->
+  <div id="port-ctx-menu" class="hidden" style="position:fixed;z-index:300;background:var(--bg-4);border:1px solid var(--brd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);padding:4px;min-width:150px">
+    <button id="port-ctx-ping" type="button" style="display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;color:var(--tx-1);font-size:13px;padding:8px 12px;border-radius:6px;cursor:pointer;text-align:left" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Ping
+    </button>
+  </div>
+
+  <!-- ══════════════════ MODAL PING PORT ══════════════════ -->
+  <div id="modal-ping" class="modal-overlay hidden">
+    <div class="modal-box" style="width:520px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div id="ping-title" style="font-size:17px;font-weight:700;letter-spacing:-.02em">Ping</div>
+        <button id="btn-close-ping" style="background:none;border:none;color:var(--tx-3);cursor:pointer;padding:4px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div id="ping-info" style="font-size:13px;color:var(--tx-2);margin-bottom:10px"></div>
+      <div id="ping-status" style="display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:3px 12px;margin-bottom:10px"></div>
+      <pre id="ping-output" style="background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;margin:0 0 14px"></pre>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button type="button" id="btn-ping-again" class="btn-g">Relancer le ping</button>
+        <button type="button" id="btn-close-ping2" class="btn-p">Fermer</button>
+      </div>
     </div>
   </div>
 
