@@ -917,7 +917,18 @@ export function setupCentralSearch() {
     // Hostname / IP : recherche globale côté serveur (3 caractères minimum)
     let ipResults = [];
     if (q.length >= 3) {
-      try { ipResults = (await get(`/api/ips/search?q=${encodeURIComponent(q)}`)).results || []; } catch { ipResults = []; }
+      try { ipResults = (await get(`/api/ips/search?q=${encodeURIComponent(q)}&limit=500`)).results || []; } catch { ipResults = []; }
+      // Pas de doublons de hostname : on garde l'occurrence du VLAN ADMIN, sinon la première trouvée
+      const byHost = new Map();
+      const deduped = [];
+      for (const r of ipResults) {
+        const key = (r.hostname || '').split('.')[0].toUpperCase();
+        if (!key) { deduped.push(r); continue; }
+        const cur = byHost.get(key);
+        if (!cur) { byHost.set(key, r); deduped.push(r); }
+        else if (cur.vlan_tag !== 'ADMIN' && r.vlan_tag === 'ADMIN') { deduped[deduped.indexOf(cur)] = r; byHost.set(key, r); }
+      }
+      ipResults = deduped.slice(0, 50);
     }
     if (input.value.trim().toLowerCase() !== q) return;
     const ipam = hits.filter(s => s.group !== 'VLP');

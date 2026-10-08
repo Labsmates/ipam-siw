@@ -617,7 +617,7 @@ export async function getIp(id) {
 }
 
 // Recherche globale d'une IP ou d'un hostname dans tous les sites/VLANs
-export async function searchAllIPs(query) {
+export async function searchAllIPs(query, limit = 50) {
   const q = query.toLowerCase();
   const siteIds = await redis.smembers('sites');
   if (!siteIds.length) return [];
@@ -654,6 +654,7 @@ export async function searchAllIPs(query) {
       site_id:    parseInt(sid),
       site_name:  siteNames[sid],
       vlan_id:    vlan.vlan_id,
+      vlan_tag:   (vlan.description || '').trim().toUpperCase(),
       vlan_db_id: parseInt(allVlanIds[i]),
     }));
   }
@@ -680,9 +681,10 @@ export async function searchAllIPs(query) {
       site_id:    e.site_id,
       site_name:  e.site_name,
       vlan_id:    e.vlan_id,
+      vlan_tag:   e.vlan_tag,
       vlan_db_id: e.vlan_db_id,
     });
-    if (results.length >= 50) break;
+    if (results.length >= limit) break;
   }
 
   const toInt = ip => ip.split('.').reduce((a, n) => a * 256 + parseInt(n), 0);
