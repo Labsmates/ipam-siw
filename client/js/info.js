@@ -6,7 +6,7 @@ import {
   requireAuth, startInactivityTimer, checkHttps, getUser, logout,
   get, post, put, patch, del, showToast, sortSites, showConfirm, initTheme, initSidebarCollapse,
   restoreElevationSession, setupElevationMode, loadMigrationBadge, loadSiteOsBadges,
-} from './api.js?v=dc88acf';
+} from './api.js?v=eaf336c';
 
 let isAdmin   = false;
 let infosData = null;
