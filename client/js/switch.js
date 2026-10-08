@@ -1,5 +1,5 @@
 import {
-  requireAuth, getUser, logout, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, startInactivityTimer,
+  requireAuth, getUser, logout, initTheme, initSidebarCollapse, loadMigrationBadge, loadSiteOsBadges, startInactivityTimer, setupCentralSearch,
   get, post, put, del, showToast, sortSites,
 } from '/js/api.js?v=ca5a72a';
 
@@ -21,7 +21,7 @@ if (!requireAuth()) throw new Error('not authenticated');
 user    = getUser();
 isAdmin = user?.role === 'admin';
 
-initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges();
+initTheme(); initSidebarCollapse(); loadMigrationBadge(); loadSiteOsBadges(); setupCentralSearch();
 startInactivityTimer();
 
 document.getElementById('nav-username').textContent = user?.username || '';
@@ -85,7 +85,11 @@ async function load() {
     }
 
     populateSiteSelect();
+    // ?site=ID (résultat de la recherche de la barre latérale) : ouvre ce site
+    const wanted = new URLSearchParams(location.search).get('site');
+    if (wanted) openSites.add(Number(wanted));
     await renderAll();
+    if (wanted) document.querySelector(`.site-section[data-site-id="${wanted}"]`)?.scrollIntoView({ block: 'start' });
   } catch (e) {
     showToast(e.message, 'error');
     document.getElementById('sites-container').innerHTML =

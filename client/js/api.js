@@ -871,7 +871,7 @@ export function setupElevationMode() {
 // ---------------------------------------------------------------------------
 // Recherche de la barre latérale — résultats dans la fenêtre centrale, quelle
 // que soit la page (Site IPAM, Migration Serveurs, Site VLP), groupés dans
-// l'ordre : Site IPAM, Migration Serveurs, Site VLP. Vider la recherche
+// l'ordre : Site IPAM, Migration Serveurs, Switch Config Port, Site VLP. Vider la recherche
 // referme le panneau.
 // ---------------------------------------------------------------------------
 export function setupCentralSearch() {
@@ -915,11 +915,19 @@ export function setupCentralSearch() {
     const ipam = hits.filter(s => s.group !== 'VLP');
     const vlp  = hits.filter(s => s.group === 'VLP');
     const id = s => encodeURIComponent(s.id);
+    // Switch Config Ports : nombre de switches configurés par site trouvé
+    const swCounts = {};
+    await Promise.all(hits.slice(0, 40).map(async s => {
+      try { swCounts[s.id] = ((await get(`/api/switches/site/${s.id}`)).switches || []).length; } catch { swCounts[s.id] = null; }
+    }));
+    if (input.value.trim().toLowerCase() !== q) return;
+    const swCard = s => card(`/switch.html?site=${id(s)}`, s.name + (swCounts[s.id] != null ? ` — ${swCounts[s.id]} switch${swCounts[s.id] !== 1 ? 'es' : ''}` : ''), '#d29922');
     panel.innerHTML =
       `<h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0 0 4px">Recherche : « ${esc(input.value.trim())} »</h1>
        <div style="font-size:12px;color:var(--tx-3);margin-bottom:20px">${hits.length} site${hits.length !== 1 ? 's' : ''} trouvé${hits.length !== 1 ? 's' : ''}</div>` +
       section('Site IPAM', '#58a6ff', ipam.map(s => card(`/site.html?id=${id(s)}`, s.name, '#58a6ff'))) +
       section('Migration Serveurs', '#3fb950', hits.map(s => card(`/migration.html?id=${id(s)}${s.group === 'VLP' ? '&g=vlp' : ''}`, s.name, '#3fb950'))) +
+      section('Switch Config Port', '#d29922', hits.map(swCard)) +
       section('Site VLP', '#a371f7', vlp.map(s => card(`/site.html?id=${id(s)}&g=vlp`, s.name, '#a371f7')));
     panel.classList.remove('hidden');
   }
