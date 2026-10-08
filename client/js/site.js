@@ -240,6 +240,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(location.search);
   siteId = params.get('id');
   isVlpView = params.get('g') === 'vlp';
+  // Vue Site VLP : le menu « Site VLP » devient l'entrée active (au lieu de « Sites IPAM »)
+  if (isVlpView) {
+    const ipamLink = document.querySelector('a[href="/site.html"]');
+    const vlpLink  = document.querySelector('a[href="/site.html?g=vlp"]');
+    if (ipamLink && vlpLink) {
+      const activeStyle = ipamLink.getAttribute('style');
+      ipamLink.setAttribute('style', vlpLink.getAttribute('style'));
+      vlpLink.setAttribute('style', activeStyle);
+      const enter = vlpLink.getAttribute('onmouseenter'), leave = vlpLink.getAttribute('onmouseleave');
+      vlpLink.removeAttribute('onmouseenter'); vlpLink.removeAttribute('onmouseleave');
+      if (enter) ipamLink.setAttribute('onmouseenter', enter);
+      if (leave) ipamLink.setAttribute('onmouseleave', leave);
+    }
+  }
 
   user = getUser();
   document.getElementById('nav-username').textContent = user?.username || '';
@@ -432,6 +446,24 @@ async function loadVlpRecap() {
   document.getElementById('welcome-subtitle').textContent = "Sites VLP — VLAN Admin et Prod — cliquez un site pour l'ouvrir";
   document.getElementById('welcome-totals').classList.add('hidden');
   document.getElementById('welcome-conflicts').classList.add('hidden');
+  const importBtn = document.getElementById('btn-vlp-import');
+  if (importBtn && user?.role === 'admin') {
+    importBtn.classList.remove('hidden');
+    if (!importBtn.dataset.wired) {
+      importBtn.dataset.wired = '1';
+      importBtn.addEventListener('click', async () => {
+        if (!(await showConfirm({ title: 'Importer la liste VLP', message: 'Créer les sites VLP manquants (VLAN Admin et Prod, IP /24, Gateway en .1) ? Les sites et VLAN existants ne sont pas modifiés.', confirmText: 'Importer' }))) return;
+        importBtn.disabled = true; importBtn.textContent = 'Import…';
+        try {
+          const r = await post('/api/sites/vlp-import', {});
+          showToast(`${r.created} site(s) VLP créé(s), ${r.existing} déjà présent(s)`, 'success');
+          await loadVlpRecap();
+          loadSidebar();
+        } catch (err) { showToast(err.message, 'error'); }
+        finally { importBtn.disabled = false; importBtn.textContent = 'Importer la liste VLP'; }
+      });
+    }
+  }
   loadEl.style.display = 'flex';
   contentEl.classList.add('hidden');
   try {

@@ -226,13 +226,12 @@ function buildSwitchCard(sw) {
     });
   }
 
-  // Clic droit sur un port (tous les rôles) : menu « Ping » — ping du serveur
-  // dans le VLAN configuré sur le port.
-  card.querySelectorAll('tr.port-row').forEach(tr => {
-    tr.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      const p = (sw.ports || []).find(x => x.port === tr.dataset.port);
-      if (p) showPortMenu(e.clientX, e.clientY, sw, p);
+  // Clic sur le nom de l'interface (tous les rôles) : ping du serveur dans le
+  // VLAN configuré sur le port.
+  card.querySelectorAll('.port-ping').forEach(el => {
+    el.addEventListener('click', () => {
+      const p = (sw.ports || []).find(x => x.port === el.dataset.port);
+      if (p) openPing(sw, p);
     });
   });
 
@@ -244,8 +243,8 @@ function buildPortTable(sw) {
     return `<p style="color:var(--tx-3);font-size:12px;padding:10px 16px 8px">Aucun port assigné.</p>`;
   }
   const rows = sw.ports.map(p => `
-    <tr class="port-row" data-port="${esc(p.port)}" title="Clic droit : Ping">
-      <td style="font-family:monospace;font-size:12px;color:#58a6ff;width:110px">${esc(p.port)}</td>
+    <tr>
+      <td style="font-family:monospace;font-size:12px;width:110px"><a href="#" class="port-ping" data-port="${esc(p.port)}" title="Cliquer pour lancer un ping" style="color:#58a6ff;text-decoration:underline dotted;cursor:pointer" onclick="return false">${esc(p.port)}</a></td>
       <td style="font-weight:500;color:var(--tx-1)">${esc(p.server)}</td>
       <td style="font-family:monospace;color:var(--tx-2);width:80px">${esc(p.vlan || '—')}</td>
       <td style="color:var(--tx-3)">${esc(p.description || '—')}</td>
@@ -612,30 +611,10 @@ document.getElementById('form-import-switches')?.addEventListener('submit', asyn
   }
 });
 
-// ── Ping d'un port (clic droit) ──────────────────────────────────────────────
+// ── Ping d'un port (clic sur le nom de l'interface) ──────────────────────────────────────────────
 // L'IP pingée est celle du serveur dans Site IPAM, dans le VLAN configuré sur
 // le port (numéro de VLAN, ex. 600 — PROCEF / IPMI).
 let _pingCtx = null;
-let _menuCtx = null;
-
-function hidePortMenu() { document.getElementById('port-ctx-menu')?.classList.add('hidden'); }
-
-function showPortMenu(x, y, sw, p) {
-  _menuCtx = { sw, p };
-  const menu = document.getElementById('port-ctx-menu');
-  menu.classList.remove('hidden');
-  menu.style.left = Math.min(x, window.innerWidth - 170) + 'px';
-  menu.style.top  = Math.min(y, window.innerHeight - 60) + 'px';
-}
-
-document.getElementById('port-ctx-ping')?.addEventListener('click', () => {
-  hidePortMenu();
-  if (_menuCtx) openPing(_menuCtx.sw, _menuCtx.p);
-});
-document.addEventListener('click', hidePortMenu);
-document.addEventListener('scroll', hidePortMenu, true);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePortMenu(); });
-
 async function openPing(sw, p) {
   _pingCtx = { sw, p };
   document.getElementById('ping-title').textContent = `Ping — ${p.port}`;

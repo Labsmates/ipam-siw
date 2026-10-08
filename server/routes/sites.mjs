@@ -2,6 +2,7 @@ import express from 'express';
 import { createSite, getSite, listSitesWithStats, getSiteData,
          renameSite, deleteSite, createVlan, importIps, cleanupBroadcastIps, addLog, updateSiteFields, setSiteArchived, redis } from '../redis.mjs';
 import { requireAuth, requireAdmin } from '../middleware/auth.mjs';
+import { importVlpSites } from '../vlp-sites.mjs';
 
 const router = express.Router();
 
@@ -198,6 +199,17 @@ router.get('/vlp-recap', requireAuth, async (req, res) => {
       out.push({ id: s.id, name: s.name, count: counts.vlp, vlan_count: s.vlan_count });
     }
     res.json({ total, sites: out });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/sites/vlp-import (admin) — importe la liste des sites VLP (idempotent :
+// sites/VLAN existants ignorés, rien n'est écrasé).
+router.post('/vlp-import', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const report = await importVlpSites();
+    const created = report.filter(r => r.created).length;
+    await addLog(req.user.username, 'IMPORT_VLP', `Import sites VLP : ${created} créé(s), ${report.length - created} existant(s)`, 'ok');
+    res.json({ ok: true, created, existing: report.length - created, report });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
