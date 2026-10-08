@@ -621,8 +621,19 @@ export async function getIp(id) {
 // chaque saisie et re-parcourir toutes les IP à chaque fois est coûteux.
 let _ipIndexCache = { at: 0, rows: null };
 
+let _ipIndexRefresh = null;
+
+// Frais < 10 s : servi tel quel. Entre 10 s et 60 s : servi immédiatement et
+// rafraîchi en arrière-plan (la recherche reste instantanée). Au-delà : on attend.
 async function loadIpIndex() {
-  if (_ipIndexCache.rows && Date.now() - _ipIndexCache.at < 10_000) return _ipIndexCache.rows;
+  const age = Date.now() - _ipIndexCache.at;
+  if (_ipIndexCache.rows && age < 10_000) return _ipIndexCache.rows;
+  if (!_ipIndexRefresh) _ipIndexRefresh = buildIpIndex().catch(() => null).finally(() => { _ipIndexRefresh = null; });
+  if (_ipIndexCache.rows && age < 60_000) return _ipIndexCache.rows;
+  return (await _ipIndexRefresh) || _ipIndexCache.rows || [];
+}
+
+async function buildIpIndex() {
   const siteIds = await redis.smembers('sites');
   if (!siteIds.length) return [];
 
@@ -690,6 +701,9 @@ async function loadIpIndex() {
   _ipIndexCache = { at: Date.now(), rows };
   return rows;
 }
+
+// Préchauffe l'index au démarrage : la première recherche est alors instantanée.
+setTimeout(() => { loadIpIndex().catch(() => {}); }, 3000).unref();
 
 // Recherche globale d'une IP ou d'un hostname dans tous les sites/VLANs.
 // `mgmt` : pour chaque serveur physique trouvé (AF1x/AF2x, FS10), ajoute aussi
