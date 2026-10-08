@@ -918,11 +918,11 @@ export function setupCentralSearch() {
     let ipResults = [];
     if (q.length >= 3) {
       try { ipResults = (await get(`/api/ips/search?q=${encodeURIComponent(q)}&limit=500`)).results || []; } catch { ipResults = []; }
-      // Pas de doublons de hostname : on garde l'occurrence du VLAN ADMIN, sinon la première trouvée
+      // Pas de doublons du même hostname complet : on garde l'occurrence du VLAN ADMIN, sinon la première trouvée
       const byHost = new Map();
       const deduped = [];
       for (const r of ipResults) {
-        const key = (r.hostname || '').split('.')[0].toUpperCase();
+        const key = (r.hostname || '').trim().toLowerCase(); // hostname complet : .hdcadmin... (ADMIN) et .dct.adt.local (METIER) restent distincts
         if (!key) { deduped.push(r); continue; }
         const cur = byHost.get(key);
         if (!cur) { byHost.set(key, r); deduped.push(r); }
