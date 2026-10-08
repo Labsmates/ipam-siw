@@ -869,7 +869,7 @@ export function setupElevationMode() {
 }
 
 // ---------------------------------------------------------------------------
-// Recherche de la barre latérale — résultats dans la fenêtre centrale, quelle
+// Recherche de la barre latérale (site, code Regate/PST, hostname, IP) — résultats dans la fenêtre centrale, quelle
 // que soit la page (Site IPAM, Migration Serveurs, Site VLP), groupés dans
 // l'ordre : Site IPAM, Migration Serveurs, Switch Config Port, Site VLP. Vider la recherche
 // referme le panneau.
@@ -911,7 +911,15 @@ export function setupCentralSearch() {
       catch { sites = []; }
     }
     if (input.value.trim().toLowerCase() !== q) return; // saisie plus récente en cours
-    const hits = sites.filter(s => s.name.toLowerCase().includes(q));
+    // Site : nom ou code (Regate / site / PST)
+    const codeOf = s => [s.code_regate, s.site_code, s.code_pst].filter(Boolean);
+    const hits = sites.filter(s => s.name.toLowerCase().includes(q) || codeOf(s).some(c => c.toLowerCase().includes(q)));
+    // Hostname / IP : recherche globale côté serveur (3 caractères minimum)
+    let ipResults = [];
+    if (q.length >= 3) {
+      try { ipResults = (await get(`/api/ips/search?q=${encodeURIComponent(q)}`)).results || []; } catch { ipResults = []; }
+    }
+    if (input.value.trim().toLowerCase() !== q) return;
     const ipam = hits.filter(s => s.group !== 'VLP');
     const vlp  = hits.filter(s => s.group === 'VLP');
     const id = s => encodeURIComponent(s.id);
@@ -922,14 +930,40 @@ export function setupCentralSearch() {
     }));
     if (input.value.trim().toLowerCase() !== q) return;
     const swCard = s => card(`/switch.html?site=${id(s)}`, s.name + (swCounts[s.id] != null ? ` — ${swCounts[s.id]} switch${swCounts[s.id] !== 1 ? 'es' : ''}` : ''), '#d29922');
-    panel.innerHTML =
-      `<h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0 0 4px">Recherche : « ${esc(input.value.trim())} »</h1>
-       <div style="font-size:12px;color:var(--tx-3);margin-bottom:20px">${hits.length} site${hits.length !== 1 ? 's' : ''} trouvé${hits.length !== 1 ? 's' : ''}</div>` +
+    // Hostname / IP : une ligne par adresse, lien vers le site (VLP → vue Site VLP)
+    const STATUS_COLOR = { 'Libre': '#3fb950', 'Utilisé': '#58a6ff', 'Réservée': '#d29922' };
+    const vlpIds = new Set(sites.filter(s => s.group === 'VLP').map(s => String(s.id)));
+    const ipRows = ipResults.map(r => {
+      const c = STATUS_COLOR[r.status] || 'var(--tx-3)';
+      const href = `/site.html?id=${encodeURIComponent(r.site_id)}${vlpIds.has(String(r.site_id)) ? '&g=vlp' : ''}`;
+      return `<a href="${href}" style="display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;text-decoration:none;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='#58a6ff';this.style.background='var(--bg-3)'" onmouseleave="this.style.borderColor='var(--brd)';this.style.background='var(--bg-2)'">
+        <span style="font-family:monospace;font-size:13px;font-weight:600;color:var(--tx-1);min-width:120px">${esc(r.ip_address)}</span>
+        <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${c}22;color:${c};border:1px solid ${c}44;white-space:nowrap">${esc(r.status)}</span>
+        <span style="font-size:12px;color:var(--tx-4);white-space:nowrap">VLAN ${esc(r.vlan_id)}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--tx-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.site_name)}</span>
+        ${r.hostname ? `<span style="font-size:12px;color:var(--tx-1);font-family:monospace;white-space:nowrap">${esc(r.hostname)}</span>` : ''}
+      </a>`;
+    });
+    const ipSection = q.length < 3 ? '' : `
+      <div style="margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#f0883e">Hostname / IP</span>
+          <span style="background:#f0883e;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 7px;line-height:18px">${ipRows.length}</span>
+        </div>
+        ${ipRows.length ? `<div style="display:flex;flex-direction:column;gap:6px">${ipRows.join('')}</div>` : '<div style="font-size:12.5px;color:var(--tx-3)">Aucun résultat</div>'}
+      </div>`;
+    // Sections de sites : masquées quand aucun site ne correspond (ex. recherche d'une IP)
+    const siteSections = !hits.length ? '' :
       section('Site IPAM', '#58a6ff', ipam.map(s => card(`/site.html?id=${id(s)}`, s.name, '#58a6ff'))) +
       section('Migration Serveurs', '#3fb950', hits.map(s => card(`/migration.html?id=${id(s)}${s.group === 'VLP' ? '&g=vlp' : ''}`, s.name, '#3fb950'))) +
       section('Switch Config Port', '#d29922', hits.map(swCard)) +
       section('Site VLP', '#a371f7', vlp.map(s => card(`/site.html?id=${id(s)}&g=vlp`, s.name, '#a371f7')));
+    panel.innerHTML =
+      `<h1 style="font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0 0 4px">Recherche : « ${esc(input.value.trim())} »</h1>
+       <div style="font-size:12px;color:var(--tx-3);margin-bottom:20px">${hits.length} site${hits.length !== 1 ? 's' : ''} · ${ipRows.length} hostname/IP${q.length < 3 ? ' (3 caractères minimum pour hostname / IP)' : ''}</div>` +
+      siteSections + ipSection;
     panel.classList.remove('hidden');
   }
-  input.addEventListener('input', render);
+  let _timer = null;
+  input.addEventListener('input', () => { clearTimeout(_timer); _timer = setTimeout(render, 250); });
 }
